@@ -3,3 +3,4 @@ plugins {
 }
 
 description = 'Shared library - common DTOs, exceptions, utilities'
+version = '0.0.1-SNAPSHOT'

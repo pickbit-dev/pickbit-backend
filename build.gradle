@@ -9,8 +9,6 @@ subprojects {
     apply plugin: 'io.spring.dependency-management'
 
     group = 'com.pickbit'
-    version = '0.0.1-SNAPSHOT'
-
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(25)
@@ -21,14 +19,6 @@ subprojects {
         mavenCentral()
     }
 
-    dependencies {
-        testImplementation 'org.springframework.boot:spring-boot-starter-test'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    }
-
-    tasks.named('test') {
-        useJUnitPlatform()
-    }
 }
 
 configure(subprojects.findAll { it.name != 'library' }) {
