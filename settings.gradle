@@ -1,3 +1,8 @@
 rootProject.name = 'pickbit-backend'
 
+include 'library'
+include 'user-service'
 include 'product-service'
+include 'auction-service'
+include 'payment-service'
+include 'notification-service'
