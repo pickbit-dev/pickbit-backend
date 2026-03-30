@@ -1,7 +1,6 @@
-package com.pickbit.productservice.domain.product.entity;
+package com.pickbit.productservice.domain;
 
 import com.pickbit.library.persistence.entity.BaseEntity;
-import com.pickbit.productservice.domain.category.entity.Category;
 import com.pickbit.productservice.domain.product.entity.enums.ListingType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
@@ -15,7 +14,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
-import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "products")
 @Getter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -44,18 +41,18 @@ public class Product extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(comment = "상품 상태", nullable = false, length = 30)
-    private ProductStatus status;
+    private ProductStatus productStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(comment = "상품 컨디션", nullable = false, length = 30)
-    private ProductCondition condition;
+    private ProductCondition productCondition;
 
     @Enumerated(EnumType.STRING)
     @Column(comment = "판매 유형", nullable = false, length = 30)
     private ListingType listingType;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false, comment = "카테고리 ID")
+    @JoinColumn(nullable = false, comment = "카테고리 ID")
     private Category category;
 
     @OrderBy("sortOrder asc, id asc")
@@ -75,14 +72,14 @@ public class Product extends BaseEntity {
         this.name = name;
         this.description = description;
         this.price = price;
-        this.status = status;
-        this.condition = condition;
+        this.productStatus = status;
+        this.productCondition = condition;
         this.listingType = listingType;
         this.category = category;
     }
 
     public void updateStatus(ProductStatus status) {
-        this.status = status;
+        this.productStatus = status;
     }
 
     public void replaceImages(List<ProductImage> images) {

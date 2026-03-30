@@ -1,4 +1,4 @@
-package com.pickbit.productservice.domain.product.entity;
+package com.pickbit.productservice.domain;
 
 import com.pickbit.library.persistence.entity.BaseEntity;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
