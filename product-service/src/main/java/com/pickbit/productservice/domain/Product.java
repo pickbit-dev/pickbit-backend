@@ -51,6 +51,9 @@ public class Product extends BaseEntity {
     @Column(comment = "판매 유형", nullable = false, length = 30)
     private ListingType listingType;
 
+    @Column(comment = "판매자 닉네임", nullable = false, length = 50)
+    private String sellerNickname;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false, comment = "카테고리 ID")
     private Category category;

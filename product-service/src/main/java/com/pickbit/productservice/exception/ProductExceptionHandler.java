@@ -19,4 +19,10 @@ public class ProductExceptionHandler extends GlobalExceptionHandler {
         logException(HttpStatus.NOT_FOUND, e);
         return buildResponse(HttpStatus.NOT_FOUND, e.getMessage(), request);
     }
+
+    @ExceptionHandler(UnauthorizedProductAccessException.class)
+    protected ResponseEntity<ProblemDetail> handleUnauthorized(UnauthorizedProductAccessException e, HttpServletRequest request) {
+        logException(HttpStatus.FORBIDDEN, e);
+        return buildResponse(HttpStatus.FORBIDDEN, e.getMessage(), request);
+    }
 }
