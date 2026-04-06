@@ -89,7 +89,7 @@ public class ProductService {
         );
 
         List<ProductImage> images = request.images().stream()
-                .map(imageRequest -> ProductImage.builder()
+                .map(imageRequest -> (ProductImage) ProductImage.builder()
                         .imageUrl(imageRequest.imageUrl())
                         .imageType(imageRequest.imageType())
                         .sortOrder(imageRequest.sortOrder())
@@ -105,6 +105,13 @@ public class ProductService {
         Product product = findActiveProduct(id);
         validateOwner(product, nickname);
         product.updateStatus(ProductStatus.DELETED);
+    }
+
+    @Transactional
+    public void updateProductStatus(Long id, ProductStatus status) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        product.updateStatus(status);
     }
 
     private Product findActiveProduct(Long id) {
