@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auction WebSocket Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 16px;
+            color: #1f2937;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        p {
+            line-height: 1.5;
+        }
+
+        .panel {
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+            background: #f9fafb;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 220px;
+            flex: 1;
+        }
+
+        input {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            background: #111827;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status {
+            font-weight: 600;
+        }
+
+        #log {
+            width: 100%;
+            min-height: 320px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            white-space: pre-wrap;
+            box-sizing: border-box;
+        }
+
+        code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+<h1>Auction WebSocket Test</h1>
+<p>이 페이지는 SockJS + STOMP로 <code>/ws</code>에 연결하고 <code>/topic/auctions/{auctionId}</code>를 구독합니다.</p>
+<p>현재 서버는 웹소켓 수신 핸들러가 없으므로, 연결 후 별도로 입찰 REST API를 호출해야 실시간 이벤트가 도착합니다.</p>
+
+<div class="panel">
+    <div class="row">
+        <label>
+            Server URL
+            <input id="serverUrl" type="text" placeholder="http://localhost:8080">
+        </label>
+        <label>
+            Auction ID
+            <input id="auctionId" type="number" min="1" value="1">
+        </label>
+    </div>
+    <div class="row">
+        <button id="connectBtn" type="button">Connect & Subscribe</button>
+        <button id="disconnectBtn" type="button" disabled>Disconnect</button>
+        <button id="clearBtn" type="button">Clear Log</button>
+    </div>
+    <div>Status: <span id="status">DISCONNECTED</span></div>
+</div>
+
+<div class="panel">
+    <p>연결 후 아래처럼 REST 입찰 API를 호출하면 구독 중인 채널에서 메시지를 받을 수 있습니다.</p>
+    <pre id="curlExample"></pre>
+</div>
+
+<textarea id="log" readonly></textarea>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+<script>
+    const serverUrlInput = document.getElementById('serverUrl');
+    const auctionIdInput = document.getElementById('auctionId');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusText = document.getElementById('status');
+    const logArea = document.getElementById('log');
+    const curlExample = document.getElementById('curlExample');
+
+    let stompClient = null;
+    let subscription = null;
+
+    serverUrlInput.value = window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : 'http://localhost:8080';
+
+    function appendLog(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        logArea.value += `[${timestamp}] ${message}\n`;
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function setStatus(message) {
+        statusText.textContent = message;
+    }
+
+    function topic() {
+        return `/topic/auctions/${auctionIdInput.value}`;
+    }
+
+    function updateCurlExample() {
+        curlExample.textContent = `curl -X POST "${serverUrlInput.value}/auctions/${auctionIdInput.value}/bids" \\
+  -H "Content-Type: application/json" \\
+  -H "nickname: bidder1" \\
+  -d '{"bidAmount":12000}'`;
+    }
+
+    async function connect() {
+        if (stompClient && stompClient.connected) {
+            appendLog('already connected');
+            return;
+        }
+
+        const serverUrl = serverUrlInput.value.replace(/\/$/, '');
+        const endpoint = `${serverUrl}/ws`;
+
+        setStatus('CONNECTING');
+        appendLog(`connecting to ${endpoint}`);
+
+        stompClient = new StompJs.Client({
+            webSocketFactory: () => new SockJS(endpoint),
+            reconnectDelay: 5000,
+            debug: (message) => appendLog(`[stomp] ${message}`),
+            onConnect: () => {
+                setStatus('CONNECTED');
+                appendLog('connected');
+                subscription = stompClient.subscribe(topic(), (frame) => {
+                    appendLog(`message from ${topic()}`);
+                    appendLog(frame.body);
+                });
+                appendLog(`subscribed to ${topic()}`);
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            },
+            onStompError: (frame) => {
+                setStatus('STOMP ERROR');
+                appendLog(`broker error: ${frame.headers['message'] || 'unknown'}`);
+                appendLog(frame.body || '');
+            },
+            onWebSocketClose: (event) => {
+                setStatus('DISCONNECTED');
+                appendLog(`socket closed: code=${event.code}, reason=${event.reason || 'none'}`);
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            },
+            onWebSocketError: () => {
+                setStatus('SOCKET ERROR');
+                appendLog('websocket error');
+            }
+        });
+
+        stompClient.activate();
+    }
+
+    async function disconnect() {
+        if (subscription) {
+            subscription.unsubscribe();
+            subscription = null;
+        }
+
+        if (stompClient) {
+            await stompClient.deactivate();
+            stompClient = null;
+        }
+
+        setStatus('DISCONNECTED');
+        appendLog('disconnected');
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+    }
+
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    clearBtn.addEventListener('click', () => {
+        logArea.value = '';
+    });
+    serverUrlInput.addEventListener('input', updateCurlExample);
+    auctionIdInput.addEventListener('input', updateCurlExample);
+
+    updateCurlExample();
+</script>
+</body>
+</html>

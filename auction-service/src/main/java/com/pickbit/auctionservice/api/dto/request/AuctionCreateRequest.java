@@ -1,5 +1,6 @@
 package com.pickbit.auctionservice.api.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
@@ -34,10 +35,12 @@ public record AuctionCreateRequest(
 
         @NotNull(message = "경매 시작 시각은 필수입니다.")
         @Future(message = "경매 시작 시각은 미래여야 합니다.")
+        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime startTime,
 
         @NotNull(message = "경매 종료 시각은 필수입니다.")
         @Future(message = "경매 종료 시각은 미래여야 합니다.")
+        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime endTime
 ) {
 }
