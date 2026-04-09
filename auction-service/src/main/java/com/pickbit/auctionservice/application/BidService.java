@@ -2,15 +2,15 @@ package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
+import com.pickbit.auctionservice.application.mapper.BidMapper;
 import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
-import com.pickbit.auctionservice.application.mapper.BidMapper;
-import com.pickbit.library.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+
 public class BidService {
 
     private static final String BID_LOCK_KEY = "auction:bid:lock:";
@@ -30,6 +30,7 @@ public class BidService {
     private final RedissonClient redissonClient;
     private final BidProcessor bidProcessor;
 
+    @Transactional
     public BidResponse placeBid(String bidderNickname, Long auctionId, BidCreateRequest request) {
         RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
         try {
@@ -48,13 +49,12 @@ public class BidService {
         }
     }
 
-    public PageResponse<BidResponse> getBidHistory(Long auctionId, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<BidResponse> getBidHistory(Long auctionId, Pageable pageable) {
         if (!auctionRepository.existsById(auctionId)) {
             throw new AuctionNotFoundException(auctionId);
         }
-        return PageResponse.from(
-                bidRepository.findByAuctionIdOrderByAmountDesc(auctionId, pageable)
-                        .map(bidMapper::toResponse)
-        );
+        return bidRepository.findByAuctionIdOrderByAmountDesc(auctionId, pageable)
+                .map(bidMapper::toResponse);
     }
 }
