@@ -33,8 +33,8 @@ public class ProductService {
 
     @Transactional
     public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
+//        Category category = categoryRepository.findById(request.categoryId())
+//                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
         Product product = Product.builder()
                 .name(request.name())
@@ -44,7 +44,7 @@ public class ProductService {
                 .productCondition(request.productCondition())
                 .listingType(request.listingType())
                 .sellerNickname(sellerNickname)
-                .category(category)
+      //          .category(category)
                 .build();
 
         request.images().forEach(imageRequest -> {
@@ -72,11 +72,13 @@ public class ProductService {
 
     @Transactional
     public ProductDetailResponse updateProduct(String nickname, Long id, ProductUpdateRequest request) {
+
         Product product = findActiveProduct(id);
+
         validateOwner(product, nickname);
 
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
+//        Category category = categoryRepository.findById(request.categoryId())
+//                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
         product.update(
                 request.name(),
@@ -84,8 +86,7 @@ public class ProductService {
                 request.price(),
                 request.productStatus(),
                 request.productCondition(),
-                request.listingType(),
-                category
+                request.listingType(),null
         );
 
         List<ProductImage> images = request.images().stream()

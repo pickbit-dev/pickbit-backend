@@ -55,7 +55,7 @@ public class Product extends BaseEntity {
     private String sellerNickname;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(nullable = false, comment = "카테고리 ID")
+    @JoinColumn(comment = "카테고리 ID")
     private Category category;
 
     @OrderBy("sortOrder asc, id asc")

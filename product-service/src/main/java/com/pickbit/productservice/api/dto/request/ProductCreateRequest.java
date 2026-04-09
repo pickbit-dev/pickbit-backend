@@ -30,7 +30,7 @@ public record ProductCreateRequest(
         @NotNull @Positive BigDecimal price,
         @NotNull ProductCondition productCondition,
         @NotNull ListingType listingType,
-        @NotNull Long categoryId,
+        Long categoryId,
         @NotEmpty @Valid List<ProductImageRequest> images
 ) {
 }

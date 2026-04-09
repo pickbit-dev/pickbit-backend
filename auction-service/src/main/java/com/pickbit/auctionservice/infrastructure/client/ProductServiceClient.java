@@ -4,9 +4,9 @@ import com.pickbit.auctionservice.exception.AuctionProductNotFoundException;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.client.RestClient;
 
 import java.util.Map;
 
@@ -15,28 +15,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProductServiceClient {
 
-    private final WebClient productServiceWebClient;
+    private final RestClient productServiceRestClient;
 
     public ProductResponse getProduct(Long productId) {
-        try {
-            return productServiceWebClient.get()
-                    .uri("/products/{id}", productId)
-                    .retrieve()
-                    .bodyToMono(ProductResponse.class)
-                    .block();
-        } catch (WebClientResponseException.NotFound e) {
-            throw new AuctionProductNotFoundException(productId);
-        }
+        return productServiceRestClient.get()
+                .uri("/products/{id}", productId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                    throw new AuctionProductNotFoundException(productId);
+                })
+                .body(ProductResponse.class);
     }
 
     public void updateProductStatus(Long productId, String status) {
         try {
-            productServiceWebClient.patch()
+            productServiceRestClient.patch()
                     .uri("/internal/products/{id}/status", productId)
-                    .bodyValue(Map.of("status", status))
+                    .body(Map.of("status", status))
                     .retrieve()
-                    .toBodilessEntity()
-                    .block();
+                    .toBodilessEntity();
         } catch (Exception e) {
             log.error("product-service 상태 업데이트 실패. productId={}, status={}, error={}", productId, status, e.getMessage());
         }

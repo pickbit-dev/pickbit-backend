@@ -3,17 +3,17 @@ package com.pickbit.auctionservice.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestClient;
 
 @Configuration
-public class WebClientConfig {
+public class RestClientConfig {
 
     @Value("${client.product-service.base-url}")
     private String productServiceBaseUrl;
 
     @Bean
-    public WebClient productServiceWebClient() {
-        return WebClient.builder()
+    public RestClient productServiceRestClient() {
+        return RestClient.builder()
                 .baseUrl(productServiceBaseUrl)
                 .build();
     }
