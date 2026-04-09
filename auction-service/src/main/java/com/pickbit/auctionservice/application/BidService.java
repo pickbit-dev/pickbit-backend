@@ -19,11 +19,9 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-
 public class BidService {
 
     private static final String BID_LOCK_KEY = "auction:bid:lock:";
-
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
     private final BidMapper bidMapper;
