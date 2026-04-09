@@ -37,7 +37,7 @@ public class Product extends BaseEntity {
     private String description;
 
     @Column(comment = "상품 가격", nullable = false, precision = 19, scale = 2)
-    private BigDecimal price;
+    private BigDecimal startingPrice;
 
     @Enumerated(EnumType.STRING)
     @Column(comment = "상품 상태", nullable = false, length = 30)
@@ -74,7 +74,7 @@ public class Product extends BaseEntity {
     ) {
         this.name = name;
         this.description = description;
-        this.price = price;
+        this.startingPrice = price;
         this.productStatus = status;
         this.productCondition = condition;
         this.listingType = listingType;

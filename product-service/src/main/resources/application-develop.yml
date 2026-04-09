@@ -20,8 +20,16 @@ spring:
         default_batch_fetch_size: 100
     database: mysql
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
 
 
 server:
   port: 8082
+
+ncp:
+  storage:
+    access-key: ncp_iam_BPAMKRhKcD2Ez1trhMv1
+    secret-key: ncp_iam_BPKMKRQjQvHCpjkY9yhn9VlbVPtwmmGcJ6
+    endpoint: https://kr.object.ncloudstorage.com
+    region: kr-standard
+    bucket-name: pickbit-server-develop-storage

@@ -3,13 +3,18 @@ package com.pickbit.productservice.api;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
+import com.pickbit.productservice.api.dto.request.ProductImageRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
+import com.pickbit.productservice.api.dto.response.ImageUploadResponse;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
+import com.pickbit.productservice.application.ImageUploadService;
 import com.pickbit.productservice.application.ProductService;
+import com.pickbit.productservice.exception.InvalidImageFileException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +26,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * 외부 클라이언트용 상품 API 컨트롤러.
@@ -35,21 +45,54 @@ public class ProductController {
     private static final String NICKNAME_HEADER = "nickname";
 
     private final ProductService productService;
+    private final ImageUploadService imageUploadService;
 
     /**
-     * 신규 상품을 등록합니다.
+     * 이미지를 NCP Object Storage에 업로드합니다.
      *
-     * @param nickname 요청한 판매자 닉네임
-     * @param request 등록할 상품 정보
-     * @return 등록된 상품 상세 정보 (HTTP 201)
+     * @param files 업로드할 이미지 파일 목록
+     * @return 업로드된 이미지 URL 목록 (HTTP 201)
      */
-    @PostMapping
-    public ResponseEntity<ProductDetailResponse> createProduct(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
-            @Valid @RequestBody ProductCreateRequest request
+    @PostMapping("/images")
+    public ResponseEntity<List<ImageUploadResponse>> uploadImages(
+            @RequestPart("files") List<MultipartFile> files
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(productService.createProduct(nickname, request));
+                .body(imageUploadService.uploadImages(files));
+    }
+
+    /**
+     * 신규 상품을 등록합니다. 상품 데이터와 이미지 파일을 한 번에 전송합니다.
+     *
+     * @param nickname 요청한 판매자 닉네임
+     * @param request 등록할 상품 정보 (imageTypes, sortOrders 포함)
+     * @param files 업로드할 이미지 파일 목록 (imageTypes, sortOrders와 순서 일치)
+     * @return 등록된 상품 상세 정보 (HTTP 201)
+     */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProductDetailResponse> createProduct(
+            @RequestHeader(NICKNAME_HEADER) String nickname,
+            @RequestPart("request") @Valid ProductCreateRequest request,
+            @RequestPart("files") List<MultipartFile> files
+    ) {
+        List<ImageUploadResponse> uploaded = imageUploadService.uploadImages(files);
+        List<ProductImageRequest> imageRequests = buildImageRequests(uploaded, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(productService.createProduct(nickname, request, imageRequests));
+    }
+
+    private List<ProductImageRequest> buildImageRequests(
+            List<ImageUploadResponse> uploaded, ProductCreateRequest request) {
+        if (uploaded.size() != request.imageTypes().size()
+                || uploaded.size() != request.sortOrders().size()) {
+            throw new InvalidImageFileException("파일 수와 imageTypes, sortOrders의 개수가 일치해야 합니다.");
+        }
+        return IntStream.range(0, uploaded.size())
+                .mapToObj(i -> new ProductImageRequest(
+                        uploaded.get(i).imageUrl(),
+                        request.imageTypes().get(i),
+                        request.sortOrders().get(i)))
+                .toList();
     }
 
     /**

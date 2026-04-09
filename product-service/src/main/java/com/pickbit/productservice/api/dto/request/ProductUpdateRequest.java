@@ -19,7 +19,7 @@ import java.util.List;
  *
  * @param name 상품명
  * @param description 상품 설명
- * @param price 상품 가격
+ * @param startingPrice 상품 가격
  * @param productStatus 상품 판매 상태
  * @param productCondition 상품 상태
  * @param listingType 판매 방식
@@ -29,7 +29,7 @@ import java.util.List;
 public record ProductUpdateRequest(
         @NotBlank String name,
         @NotBlank String description,
-        @NotNull @Positive BigDecimal price,
+        @NotNull @Positive BigDecimal startingPrice,
         @NotNull ProductStatus productStatus,
         @NotNull ProductCondition productCondition,
         @NotNull ListingType listingType,

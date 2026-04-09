@@ -2,15 +2,14 @@ package com.pickbit.productservice.application;
 
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
+import com.pickbit.productservice.api.dto.request.ProductImageRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
-import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.ProductImage;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
-import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
@@ -32,14 +31,15 @@ public class ProductService {
     private final ProductMapper productMapper;
 
     @Transactional
-    public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
+    public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request,
+                                               List<ProductImageRequest> imageRequests) {
 //        Category category = categoryRepository.findById(request.categoryId())
 //                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
         Product product = Product.builder()
                 .name(request.name())
                 .description(request.description())
-                .price(request.price())
+                .startingPrice(request.startingPrice())
                 .productStatus(ProductStatus.ACTIVE)
                 .productCondition(request.productCondition())
                 .listingType(request.listingType())
@@ -47,7 +47,7 @@ public class ProductService {
       //          .category(category)
                 .build();
 
-        request.images().forEach(imageRequest -> {
+        imageRequests.forEach(imageRequest -> {
             ProductImage image = ProductImage.builder()
                     .imageUrl(imageRequest.imageUrl())
                     .imageType(imageRequest.imageType())
@@ -83,7 +83,7 @@ public class ProductService {
         product.update(
                 request.name(),
                 request.description(),
-                request.price(),
+                request.startingPrice(),
                 request.productStatus(),
                 request.productCondition(),
                 request.listingType(),null

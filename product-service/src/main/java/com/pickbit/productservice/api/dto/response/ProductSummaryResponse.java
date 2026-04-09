@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  *
  * @param id 상품 ID
  * @param name 상품명
- * @param price 상품 가격
+ * @param startingPrice 상품 가격
  * @param productStatus 상품 판매 상태
  * @param productCondition 상품 상태
  * @param listingType 판매 방식
@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 public record ProductSummaryResponse(
         Long id,
         String name,
-        BigDecimal price,
+        BigDecimal startingPrice,
         ProductStatus productStatus,
         ProductCondition productCondition,
         ListingType listingType,

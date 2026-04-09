@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="fastRequestCurrentProjectLocalConfig">
-    <option name="domain" value="http://localhost:8085" />
     <option name="enableEnv" value="auction-dev" />
-    <option name="enableProject" value="pickbit-backend.auction-service" />
+    <option name="enableProject" value="pickbit-backend.product-service" />
     <option name="initFlag" value="1" />
   </component>
 </project>
