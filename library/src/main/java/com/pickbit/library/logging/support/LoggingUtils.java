@@ -5,9 +5,6 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 
 public class LoggingUtils {
 
-    private LoggingUtils() {
-    }
-
     private static final String MDC_METHOD = "method";
     private static final String MDC_REQUEST_URL = "request_url";
     private static final String MDC_QUERY = "query";

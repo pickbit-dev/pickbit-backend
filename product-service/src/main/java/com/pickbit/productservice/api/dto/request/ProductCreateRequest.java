@@ -3,10 +3,15 @@ package com.pickbit.productservice.api.dto.request;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
 import com.pickbit.productservice.domain.product.entity.enums.ListingType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,24 +21,42 @@ import java.util.List;
  *
  * <p>{@code POST /products} 호출 시 신규 상품 등록에 필요한 정보를 전달합니다.
  * 이미지 파일은 multipart의 {@code files} 파트로 함께 전송합니다.
- *
- * @param name 상품명
- * @param description 상품 설명
- * @param startingPrice 상품 가격
- * @param productCondition 상품 상태
- * @param listingType 판매 방식
- * @param categoryId 소속 카테고리 ID
- * @param imageTypes 파일 순서에 대응하는 이미지 타입 목록
- * @param sortOrders 파일 순서에 대응하는 정렬 순서 목록
  */
-public record ProductCreateRequest(
-        @NotBlank String name,
-        @NotBlank String description,
-        @NotNull @Positive BigDecimal startingPrice,
-        @NotNull ProductCondition productCondition,
-        @NotNull ListingType listingType,
-        Long categoryId,
-        @NotEmpty List<ImageType> imageTypes,
-        @NotEmpty List<Integer> sortOrders
-) {
+@Getter
+@Setter
+@NoArgsConstructor
+public class ProductCreateRequest {
+
+    @NotBlank
+    private String name;
+
+    @NotBlank
+    private String description;
+
+    @NotNull
+    @Positive
+    private BigDecimal startingPrice;
+
+    @NotNull
+    private ProductCondition productCondition;
+
+    @NotNull
+    private ListingType listingType;
+
+    private Long categoryId;
+
+    @NotEmpty
+    private List<ImageType> imageTypes;
+
+    @NotEmpty
+    private List<Integer> sortOrders;
+
+    @NotEmpty
+    private List<MultipartFile> files;
+
+    @AssertTrue(message = "파일 수와 imageTypes, sortOrders의 개수가 일치해야 합니다.")
+    private boolean isImageCountValid() {
+        if (files == null || imageTypes == null || sortOrders == null) return true;
+        return files.size() == imageTypes.size() && files.size() == sortOrders.size();
+    }
 }

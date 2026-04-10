@@ -2,8 +2,8 @@ package com.pickbit.productservice.application;
 
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
-import com.pickbit.productservice.api.dto.request.ProductImageRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
+import com.pickbit.productservice.api.dto.response.ImageUploadResponse;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -32,26 +33,26 @@ public class ProductService {
 
     @Transactional
     public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request,
-                                               List<ProductImageRequest> imageRequests) {
+                                               List<ImageUploadResponse> uploaded) {
 //        Category category = categoryRepository.findById(request.categoryId())
 //                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
         Product product = Product.builder()
-                .name(request.name())
-                .description(request.description())
-                .startingPrice(request.startingPrice())
+                .name(request.getName())
+                .description(request.getDescription())
+                .startingPrice(request.getStartingPrice())
                 .productStatus(ProductStatus.ACTIVE)
-                .productCondition(request.productCondition())
-                .listingType(request.listingType())
+                .productCondition(request.getProductCondition())
+                .listingType(request.getListingType())
                 .sellerNickname(sellerNickname)
       //          .category(category)
                 .build();
 
-        imageRequests.forEach(imageRequest -> {
+        IntStream.range(0, uploaded.size()).forEach(i -> {
             ProductImage image = ProductImage.builder()
-                    .imageUrl(imageRequest.imageUrl())
-                    .imageType(imageRequest.imageType())
-                    .sortOrder(imageRequest.sortOrder())
+                    .imageUrl(uploaded.get(i).imageUrl())
+                    .imageType(request.getImageTypes().get(i))
+                    .sortOrder(request.getSortOrders().get(i))
                     .build();
             product.addImage(image);
         });

@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 @Component
@@ -18,7 +19,7 @@ public class NcpObjectStorageClient {
     private final S3Client s3Client;
     private final S3Properties s3Properties;
 
-    public String upload(String key, InputStream inputStream,String contentType) {
+    public String upload(String key, InputStream inputStream, String contentType) {
         try {
             byte[] bytes = inputStream.readAllBytes();
 
@@ -29,12 +30,7 @@ public class NcpObjectStorageClient {
                     .build();
 
             s3Client.putObject(request, RequestBody.fromBytes(bytes));
-        } catch (S3Exception e) {
-            System.out.println("=== S3 Error Code: " + e.awsErrorDetails().errorCode());
-            System.out.println("=== S3 Error Message: " + e.awsErrorDetails().errorMessage());
-            System.out.println("=== S3 Status Code: " + e.statusCode());
-            throw new StorageUploadException("NCP Object Storage 업로드 실패: " + key, e);
-        } catch (java.io.IOException e) {
+        } catch (S3Exception | IOException e) {
             throw new StorageUploadException("NCP Object Storage 업로드 실패: " + key, e);
         }
 
