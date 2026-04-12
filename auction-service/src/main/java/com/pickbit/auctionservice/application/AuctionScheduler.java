@@ -31,6 +31,7 @@ public class AuctionScheduler {
     private final SimpMessagingTemplate messagingTemplate;
 
     @Scheduled(cron = "${auction.scheduler.cron}")
+    @Transactional
     public void processAuctions() {
         LocalDateTime now = LocalDateTime.now();
         activateScheduledAuctions(now);
