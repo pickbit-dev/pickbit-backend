@@ -1,7 +1,7 @@
-package com.pickbit.productservice.infrastructure.storage;
+package com.pickbit.fileservice.infrastructure.storage;
 
-import com.pickbit.productservice.config.S3Properties;
-import com.pickbit.productservice.exception.StorageUploadException;
+import com.pickbit.fileservice.config.S3Properties;
+import com.pickbit.fileservice.exception.StorageUploadException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;

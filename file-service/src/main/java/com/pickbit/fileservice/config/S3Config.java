@@ -1,4 +1,4 @@
-package com.pickbit.productservice.config;
+package com.pickbit.fileservice.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,12 +17,6 @@ public class S3Config {
 
     @Bean
     public S3Client s3Client(S3Properties props) {
-
-        System.out.println("=== S3 accessKey: " + props.accessKey());
-        System.out.println("=== S3 endpoint: " + props.endpoint());
-        System.out.println("=== S3 bucket: " + props.bucketName());
-
-
         return S3Client.builder()
                 .endpointOverride(URI.create(props.endpoint()))
                 .credentialsProvider(StaticCredentialsProvider.create(

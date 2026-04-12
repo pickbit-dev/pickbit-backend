@@ -1,4 +1,4 @@
-package com.pickbit.productservice.exception;
+package com.pickbit.fileservice.exception;
 
 public class StorageUploadException extends RuntimeException {
 

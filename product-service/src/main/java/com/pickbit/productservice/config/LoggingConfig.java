@@ -24,9 +24,7 @@ public class LoggingConfig {
     }
 
     @Bean
-    public LoggingFilter loggingFilter(RequestLogger requestLogger,
-                                       ResponseLogger responseLogger,
-                                       FilterProperties filterProperties) {
+    public LoggingFilter loggingFilter(RequestLogger requestLogger, ResponseLogger responseLogger, FilterProperties filterProperties) {
         return new LoggingFilter(requestLogger, responseLogger, filterProperties);
     }
 }

@@ -1,4 +1,4 @@
-package com.pickbit.productservice.config;
+package com.pickbit.fileservice.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

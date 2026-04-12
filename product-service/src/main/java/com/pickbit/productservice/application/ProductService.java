@@ -3,7 +3,6 @@ package com.pickbit.productservice.application;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
-import com.pickbit.productservice.api.dto.response.ImageUploadResponse;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -32,8 +30,7 @@ public class ProductService {
     private final ProductMapper productMapper;
 
     @Transactional
-    public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request,
-                                               List<ImageUploadResponse> uploaded) {
+    public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
 //        Category category = categoryRepository.findById(request.categoryId())
 //                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
@@ -48,11 +45,11 @@ public class ProductService {
       //          .category(category)
                 .build();
 
-        IntStream.range(0, uploaded.size()).forEach(i -> {
+        request.getImages().forEach(img -> {
             ProductImage image = ProductImage.builder()
-                    .imageUrl(uploaded.get(i).imageUrl())
-                    .imageType(request.getImageTypes().get(i))
-                    .sortOrder(request.getSortOrders().get(i))
+                    .imageUrl(img.imageUrl())
+                    .imageType(img.imageType())
+                    .sortOrder(img.sortOrder())
                     .build();
             product.addImage(image);
         });
@@ -87,7 +84,7 @@ public class ProductService {
                 request.startingPrice(),
                 request.productStatus(),
                 request.productCondition(),
-                request.listingType(),null
+                request.listingType(), null
         );
 
         List<ProductImage> images = request.images().stream()

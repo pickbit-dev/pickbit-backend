@@ -4,15 +4,12 @@ import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
-import com.pickbit.productservice.api.dto.response.ImageUploadResponse;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
-import com.pickbit.productservice.application.ImageUploadService;
 import com.pickbit.productservice.application.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,11 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 /**
  * 외부 클라이언트용 상품 API 컨트롤러.
@@ -41,36 +34,21 @@ public class ProductController {
 
     private static final String NICKNAME_HEADER = "nickname";
     private final ProductService productService;
-    private final ImageUploadService imageUploadService;
 
     /**
-     * 이미지를 NCP Object Storage에 업로드합니다.
-     *
-     * @param files 업로드할 이미지 파일 목록
-     * @return 업로드된 이미지 URL 목록 (HTTP 201)
-     */
-    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<ImageUploadResponse>> uploadImages(
-            @RequestPart("files") List<MultipartFile> files
-    ) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(imageUploadService.uploadImages(files));
-    }
-
-    /**
-     * 신규 상품을 등록합니다. 상품 데이터와 이미지 파일을 한 번에 전송합니다.
+     * 신규 상품을 등록합니다.
+     * 이미지는 file-service를 통해 사전 업로드 후 URL을 전달합니다.
      *
      * @param nickname 요청한 판매자 닉네임
-     * @param request 등록할 상품 정보 (files, imageTypes, sortOrders 포함)
+     * @param request 등록할 상품 정보 (images 포함)
      * @return 등록된 상품 상세 정보 (HTTP 201)
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping
     public ResponseEntity<ProductDetailResponse> createProduct(
             @RequestHeader(NICKNAME_HEADER) String nickname,
-            @Valid @ModelAttribute ProductCreateRequest request
+            @Valid @RequestBody ProductCreateRequest request
     ) {
-        List<ImageUploadResponse> uploaded = imageUploadService.uploadImages(request.getFiles());
-        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(nickname, request, uploaded));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(nickname, request));
     }
 
     /**
