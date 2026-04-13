@@ -1,2 +1,6 @@
 server:
   port: 8081
+
+openapi:
+  docs-export:
+    enabled: true

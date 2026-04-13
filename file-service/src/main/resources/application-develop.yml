@@ -6,6 +6,11 @@ spring:
 server:
   port: 8083
 
+openapi:
+  docs-export:
+    enabled: true
+
+
 ncp:
   storage:
     access-key: ncp_iam_BPAMKRhKcD2Ez1trhMv1
@@ -13,3 +18,8 @@ ncp:
     endpoint: https://kr.object.ncloudstorage.com
     region: kr-standard
     bucket-name: pickbit-server-develop-storage
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: false

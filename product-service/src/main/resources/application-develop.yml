@@ -33,3 +33,8 @@ ncp:
     endpoint: https://kr.object.ncloudstorage.com
     region: kr-standard
     bucket-name: pickbit-server-develop-storage
+
+openapi:
+  docs-export:
+    enabled: true
+
