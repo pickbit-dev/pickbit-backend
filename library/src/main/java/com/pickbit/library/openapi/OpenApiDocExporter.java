@@ -34,7 +34,7 @@ public class OpenApiDocExporter {
                     .retrieve()
                     .body(byte[].class);
 
-            Path outputPath = Path.of("docs", serviceName, "openapi.yaml");
+            Path outputPath = Path.of("openapi", serviceName, "openapi.yaml");
             Files.createDirectories(outputPath.getParent());
             assert bytes != null;
             Files.write(outputPath, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
