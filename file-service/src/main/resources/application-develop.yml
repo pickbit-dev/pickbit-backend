@@ -10,6 +10,11 @@ openapi:
   docs-export:
     enabled: true
 
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: false
 
 ncp:
   storage:
@@ -18,8 +23,4 @@ ncp:
     endpoint: https://kr.object.ncloudstorage.com
     region: kr-standard
     bucket-name: pickbit-server-develop-storage
-springdoc:
-  api-docs:
-    enabled: true
-  swagger-ui:
-    enabled: false
+

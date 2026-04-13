@@ -51,7 +51,7 @@ public record PageableRequest(
      */
     public Pageable toPageable(int defaultSize) {
         int p = page != null ? Math.max(page, 0) : 0;
-        int s = size != null ? Math.min(Math.max(size, 1), MAX_SIZE) : defaultSize;
+        int s = size != null ? Math.clamp(size, 1, MAX_SIZE) : defaultSize;
 
         List<SortField> fields = sortFields();
         if (!fields.isEmpty()) {

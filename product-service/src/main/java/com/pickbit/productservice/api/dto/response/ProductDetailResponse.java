@@ -31,7 +31,6 @@ public record ProductDetailResponse(
         Long id,
         String name,
         String description,
-        BigDecimal price,
         ProductStatus productStatus,
         ProductCondition productCondition,
         ListingType listingType,
@@ -40,6 +39,6 @@ public record ProductDetailResponse(
         String categoryName,
         List<ProductImageResponse> images,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
-) {
+        LocalDateTime updatedAt,
+        BigDecimal startingPrice) {
 }

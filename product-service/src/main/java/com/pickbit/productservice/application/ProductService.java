@@ -35,17 +35,17 @@ public class ProductService {
 //                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
 
         Product product = Product.builder()
-                .name(request.getName())
-                .description(request.getDescription())
-                .startingPrice(request.getStartingPrice())
+                .name(request.name())
+                .description(request.description())
+                .startingPrice(request.startingPrice())
                 .productStatus(ProductStatus.ACTIVE)
-                .productCondition(request.getProductCondition())
-                .listingType(request.getListingType())
+                .productCondition(request.productCondition())
+                .listingType(request.listingType())
                 .sellerNickname(sellerNickname)
-      //          .category(category)
+       //          .category(category)
                 .build();
 
-        request.getImages().forEach(img -> {
+        request.images().forEach(img -> {
             ProductImage image = ProductImage.builder()
                     .imageUrl(img.imageUrl())
                     .imageType(img.imageType())

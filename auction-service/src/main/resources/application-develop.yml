@@ -30,11 +30,6 @@ spring:
 server:
   port: 8085
 
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
 
 client:
   product-service:
@@ -43,3 +38,13 @@ client:
 auction:
   scheduler:
     cron: "0 * * * * *"
+
+openapi:
+  docs-export:
+    enabled: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: false
