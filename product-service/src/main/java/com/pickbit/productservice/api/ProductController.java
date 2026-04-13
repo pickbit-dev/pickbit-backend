@@ -12,17 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 외부 클라이언트용 상품 API 컨트롤러.
@@ -80,14 +70,14 @@ public class ProductController {
     }
 
     /**
-     * 기존 상품 정보를 수정합니다.
+     * 기존 상품 정보를 수정합니다
      *
      * @param nickname 요청한 판매자 닉네임
      * @param id 수정할 상품 ID
      * @param request 수정할 상품 정보
      * @return 수정된 상품 상세 정보
      */
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<ProductDetailResponse> updateProduct(
             @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long id,
