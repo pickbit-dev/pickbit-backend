@@ -5,6 +5,7 @@ import com.pickbit.auctionservice.api.dto.response.BidResponse;
 import com.pickbit.auctionservice.application.BidService;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
  * <p>특정 경매에 대한 입찰 제출 및 입찰 내역 조회 기능을 제공합니다.
  * 실시간 입찰 결과는 WebSocket {@code /topic/auctions/{auctionId}} 채널을 구독하여 수신할 수 있습니다.
  */
+@Tag(name = "Bid", description = "입찰 API")
 @RestController
 @RequestMapping("/auctions/{auctionId}/bids")
 @RequiredArgsConstructor

@@ -7,6 +7,7 @@ import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.ProductService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 외부 클라이언트용 상품 API 컨트롤러.
  * 상품 등록, 조회, 수정, 삭제와 같은 상품 관리 기능을 제공합니다.
  */
+@Tag(name = "Product", description = "상품 관리 API")
 @RestController
 @RequestMapping("/products")
 @RequiredArgsConstructor

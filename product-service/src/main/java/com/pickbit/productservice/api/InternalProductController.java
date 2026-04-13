@@ -2,6 +2,7 @@ package com.pickbit.productservice.api;
 
 import com.pickbit.productservice.api.dto.request.ProductStatusUpdateRequest;
 import com.pickbit.productservice.application.ProductService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>외부 클라이언트가 아닌 다른 내부 서비스(예: auction-service)에서만 호출되어야 합니다.
  * 현재는 별도의 인증 없이 동작하며, 추후 서비스 메시 또는 내부 API 키로 보호할 예정입니다.
  */
+@Tag(name = "Internal Product", description = "내부 서비스 간 상품 상태 관리 API")
 @RestController
 @RequestMapping("/internal/products")
 @RequiredArgsConstructor

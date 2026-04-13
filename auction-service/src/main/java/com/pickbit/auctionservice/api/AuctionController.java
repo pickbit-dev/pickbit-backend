@@ -7,6 +7,7 @@ import com.pickbit.auctionservice.application.AuctionService;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>경매 생성, 목록 조회, 상세 조회, 취소 기능을 제공합니다.
  * 판매자 식별은 {@code nickname} 요청 헤더를 통해 이루어집니다.
  */
+@Tag(name = "Auction", description = "경매 관리 API")
 @RestController
 @RequestMapping("/auctions")
 @RequiredArgsConstructor
