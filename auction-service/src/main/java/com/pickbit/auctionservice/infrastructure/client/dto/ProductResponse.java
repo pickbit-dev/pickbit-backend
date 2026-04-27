@@ -15,7 +15,6 @@ import java.util.List;
  * @param price            상품 가격
  * @param productStatus    상품 상태 (예: {@code ACTIVE}, {@code INACTIVE})
  * @param productCondition 상품 상태 등급 (예: {@code NEW}, {@code USED})
- * @param listingType      판매 방식 (예: {@code AUCTION}, {@code FIXED})
  * @param sellerNickname   판매자 닉네임
  * @param categoryId       카테고리 ID
  * @param categoryName     카테고리명
@@ -28,7 +27,6 @@ public record ProductResponse(
         BigDecimal price,
         String productStatus,
         String productCondition,
-        String listingType,
         String sellerNickname,
         Long categoryId,
         String categoryName,

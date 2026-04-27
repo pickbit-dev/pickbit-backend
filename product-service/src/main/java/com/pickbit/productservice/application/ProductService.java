@@ -2,19 +2,23 @@ package com.pickbit.productservice.application;
 
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
+import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
+import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.ProductImage;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
+import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +35,7 @@ public class ProductService {
 
     @Transactional
     public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
-//        Category category = categoryRepository.findById(request.categoryId())
-//                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
+        Category category = resolveCategory(request.categoryId());
 
         Product product = Product.builder()
                 .name(request.name())
@@ -40,9 +43,8 @@ public class ProductService {
                 .startingPrice(request.startingPrice())
                 .productStatus(ProductStatus.ACTIVE)
                 .productCondition(request.productCondition())
-                .listingType(request.listingType())
                 .sellerNickname(sellerNickname)
-       //          .category(category)
+                .category(category)
                 .build();
 
         request.images().forEach(img -> {
@@ -57,15 +59,13 @@ public class ProductService {
         return productMapper.toDetailResponse(productRepository.save(product));
     }
 
-    public PageResponse<ProductSummaryResponse> getProducts(Long categoryId, Pageable pageable) {
-        var products = categoryId != null
-                ? productRepository.findByProductStatusNotAndCategoryId(ProductStatus.DELETED, categoryId, pageable)
-                : productRepository.findByProductStatusNot(ProductStatus.DELETED, pageable);
-        return PageResponse.from(products.map(productMapper::toSummaryResponse));
-    }
 
+
+    @Transactional
     public ProductDetailResponse getProduct(Long id) {
-        return productMapper.toDetailResponse(findActiveProduct(id));
+        Product product = findActiveProduct(id);
+        product.increaseViewCount();
+        return productMapper.toDetailResponse(product);
     }
 
     @Transactional
@@ -75,8 +75,7 @@ public class ProductService {
 
         validateOwner(product, nickname);
 
-//        Category category = categoryRepository.findById(request.categoryId())
-//                .orElseThrow(() -> new CategoryNotFoundException(request.categoryId()));
+        Category category = resolveCategory(request.categoryId());
 
         product.update(
                 request.name(),
@@ -84,7 +83,7 @@ public class ProductService {
                 request.startingPrice(),
                 request.productStatus(),
                 request.productCondition(),
-                request.listingType(), null
+                category
         );
 
         List<ProductImage> images = request.images().stream()
@@ -111,6 +110,14 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         product.updateStatus(status);
+    }
+
+    private Category resolveCategory(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoryNotFoundException(categoryId));
     }
 
     private Product findActiveProduct(Long id) {

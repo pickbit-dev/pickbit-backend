@@ -1,6 +1,5 @@
 package com.pickbit.productservice.api.dto.request;
 
-import com.pickbit.productservice.domain.product.entity.enums.ListingType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -18,10 +17,9 @@ import java.util.List;
  *
  * @param name 상품명
  * @param description 상품 설명
- * @param startingPrice 상품 시작 가격
- * @param productCondition 상품 상태
- * @param listingType 판매 방식
- * @param categoryId 소속 카테고리 ID
+ * @param startingPrice 경매 시작가
+ * @param productCondition 상품 컨디션
+ * @param categoryId 소속 카테고리 ID (선택)
  * @param images 상품 이미지 목록
  */
 public record ProductCreateRequest(
@@ -29,7 +27,6 @@ public record ProductCreateRequest(
         @NotBlank String description,
         @NotNull @Positive BigDecimal startingPrice,
         @NotNull ProductCondition productCondition,
-        @NotNull ListingType listingType,
         Long categoryId,
         @NotEmpty @Valid List<ProductImageRequest> images
 ) {

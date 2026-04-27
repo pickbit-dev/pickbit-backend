@@ -37,9 +37,6 @@ public class AuctionService {
         if (!"ACTIVE".equals(product.productStatus())) {
             throw new InvalidProductForAuctionException("경매 등록 가능한 상태의 상품이 아닙니다. 현재 상태: " + product.productStatus());
         }
-        if (!"AUCTION".equals(product.listingType())) {
-            throw new InvalidProductForAuctionException("경매 판매 유형으로 등록된 상품만 경매를 진행할 수 있습니다.");
-        }
         if (!product.sellerNickname().equals(sellerNickname)) {
             throw new UnauthorizedAuctionAccessException();
         }

@@ -1,7 +1,6 @@
 package com.pickbit.productservice.domain;
 
 import com.pickbit.library.persistence.entity.BaseEntity;
-import com.pickbit.productservice.domain.product.entity.enums.ListingType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import jakarta.persistence.CascadeType;
@@ -36,7 +35,7 @@ public class Product extends BaseEntity {
     @Column(comment = "상품 설명", nullable = false, length = 2000)
     private String description;
 
-    @Column(comment = "상품 가격", nullable = false, precision = 19, scale = 2)
+    @Column(comment = "상품 시작가", nullable = false, precision = 19, scale = 2)
     private BigDecimal startingPrice;
 
     @Enumerated(EnumType.STRING)
@@ -47,12 +46,12 @@ public class Product extends BaseEntity {
     @Column(comment = "상품 컨디션", nullable = false, length = 30)
     private ProductCondition productCondition;
 
-    @Enumerated(EnumType.STRING)
-    @Column(comment = "판매 유형", nullable = false, length = 30)
-    private ListingType listingType;
-
     @Column(comment = "판매자 닉네임", nullable = false, length = 50)
     private String sellerNickname;
+
+    @Column(comment = "조회수", nullable = false)
+    @Builder.Default
+    private Long viewCount = 0L;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(comment = "카테고리 ID")
@@ -69,7 +68,6 @@ public class Product extends BaseEntity {
             BigDecimal price,
             ProductStatus status,
             ProductCondition condition,
-            ListingType listingType,
             Category category
     ) {
         this.name = name;
@@ -77,12 +75,15 @@ public class Product extends BaseEntity {
         this.startingPrice = price;
         this.productStatus = status;
         this.productCondition = condition;
-        this.listingType = listingType;
         this.category = category;
     }
 
     public void updateStatus(ProductStatus status) {
         this.productStatus = status;
+    }
+
+    public void increaseViewCount() {
+        this.viewCount++;
     }
 
     public void replaceImages(List<ProductImage> images) {

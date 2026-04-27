@@ -1,6 +1,5 @@
 package com.pickbit.productservice.api.dto.response;
 
-import com.pickbit.productservice.domain.product.entity.enums.ListingType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 
@@ -16,13 +15,13 @@ import java.util.List;
  * @param id 상품 ID
  * @param name 상품명
  * @param description 상품 설명
- * @param price 상품 가격
- * @param productStatus 상품 판매 상태
- * @param productCondition 상품 상태
- * @param listingType 판매 방식
+ * @param startingPrice 경매 시작가
+ * @param productStatus 상품 상태
+ * @param productCondition 상품 컨디션
  * @param sellerNickname 판매자 닉네임
  * @param categoryId 카테고리 ID
  * @param categoryName 카테고리명
+ * @param viewCount 조회수
  * @param images 상품 이미지 목록
  * @param createdAt 상품 생성 일시
  * @param updatedAt 상품 수정 일시
@@ -31,14 +30,15 @@ public record ProductDetailResponse(
         Long id,
         String name,
         String description,
+        BigDecimal startingPrice,
         ProductStatus productStatus,
         ProductCondition productCondition,
-        ListingType listingType,
         String sellerNickname,
         Long categoryId,
         String categoryName,
+        Long viewCount,
         List<ProductImageResponse> images,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt,
-        BigDecimal startingPrice) {
+        LocalDateTime updatedAt
+) {
 }

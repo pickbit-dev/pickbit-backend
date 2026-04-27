@@ -22,4 +22,10 @@ public class ProductExceptionHandler extends GlobalExceptionHandler {
         logException(HttpStatus.FORBIDDEN, e);
         return buildResponse(HttpStatus.FORBIDDEN, e.getMessage(), request);
     }
+
+    @ExceptionHandler(DuplicateCategoryException.class)
+    protected ResponseEntity<ProblemDetail> handleDuplicateCategory(DuplicateCategoryException e, HttpServletRequest request) {
+        logException(HttpStatus.CONFLICT, e);
+        return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
 }

@@ -42,8 +42,7 @@ public class AuctionController {
     /**
      * 새 경매를 생성합니다.
      *
-     * <p>요청자가 해당 상품의 판매자여야 하며, 상품은 {@code ACTIVE} 상태이고
-     * {@code listingType}이 {@code AUCTION}이어야 합니다.
+     * <p>요청자가 해당 상품의 판매자여야 하며, 상품은 {@code ACTIVE} 상태여야 합니다.
      *
      * @param nickname 판매자 닉네임 (요청 헤더)
      * @param request  경매 생성 요청 데이터

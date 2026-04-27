@@ -19,4 +19,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     implementation 'com.slack.api:slack-api-client:1.45.3'
+    implementation("io.github.openfeign.querydsl:querydsl-jpa:6.11")
+    annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:6.11:jakarta")
+
 }

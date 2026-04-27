@@ -6,7 +6,6 @@ import lombok.Getter;
 public enum ProductStatus {
     ACTIVE("판매 중"),
     INACTIVE("비활성화"),
-    SOLD_OUT("판매 완료"),
     AUCTION_COMPLETED("경매 종료"),
     DELETED("삭제됨");
 

@@ -3,6 +3,7 @@ package com.pickbit.productservice.api;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
+import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
@@ -43,20 +44,6 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(nickname, request));
     }
 
-    /**
-     * 상품 목록을 조회합니다.
-     *
-     * @param categoryId 카테고리별 조회를 위한 카테고리 ID
-     * @param pageableRequest 페이지 및 정렬 요청 정보
-     * @return 상품 요약 정보 목록
-     */
-    @GetMapping
-    public ResponseEntity<PageResponse<ProductSummaryResponse>> getProducts(
-            @RequestParam(required = false) Long categoryId,
-            @ModelAttribute PageableRequest pageableRequest
-    ) {
-        return ResponseEntity.ok(productService.getProducts(categoryId, pageableRequest.toPageable(20)));
-    }
 
     /**
      * 상품 상세 정보를 조회합니다.
