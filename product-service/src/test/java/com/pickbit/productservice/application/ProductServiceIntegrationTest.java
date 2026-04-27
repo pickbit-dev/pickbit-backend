@@ -1,10 +1,12 @@
 package com.pickbit.productservice.application;
 
+import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
 import com.pickbit.productservice.api.dto.request.ProductImageRequest;
 import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
+import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
@@ -24,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -343,6 +346,161 @@ class ProductServiceIntegrationTest {
         void updateProductStatus_notFound() {
             assertThatThrownBy(() -> productService.updateProductStatus(999999L, ProductStatus.AUCTION_COMPLETED))
                     .isInstanceOf(ProductNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("상품 검색")
+    class SearchProducts {
+
+        private Long categoryId;
+
+        @BeforeEach
+        void setUpProducts() {
+            categoryId = persistCategory("전자기기");
+            Long otherId = persistCategory("의류");
+
+            productService.createProduct("seller1", createRequest("아이폰 15", BigDecimal.valueOf(50000), categoryId));
+            productService.createProduct("seller1", createRequest("갤럭시 S24", BigDecimal.valueOf(30000), categoryId));
+            productService.createProduct("seller2", createRequest("맥북 프로", BigDecimal.valueOf(100000), categoryId));
+            productService.createProduct("seller2", createRequest("나이키 운동화", BigDecimal.valueOf(20000), otherId));
+        }
+
+        @Test
+        @DisplayName("조건 없이 검색하면 DELETED가 아닌 전체 상품이 조회된다")
+        void searchProducts_noCondition() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(4);
+            assertThat(result.content()).hasSize(4);
+        }
+
+        @Test
+        @DisplayName("키워드로 상품명을 검색할 수 있다")
+        void searchProducts_byKeyword() {
+            ProductSearchCondition condition = new ProductSearchCondition("아이폰", null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(1);
+            assertThat(result.content().getFirst().name()).isEqualTo("아이폰 15");
+        }
+
+        @Test
+        @DisplayName("키워드로 상품 설명을 검색할 수 있다")
+        void searchProducts_byDescriptionKeyword() {
+            ProductSearchCondition condition = new ProductSearchCondition("맥북 프로", null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(1);
+            assertThat(result.content().getFirst().name()).isEqualTo("맥북 프로");
+        }
+
+        @Test
+        @DisplayName("카테고리 ID로 필터링할 수 있다")
+        void searchProducts_byCategoryId() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, categoryId, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(3);
+            assertThat(result.content()).allMatch(p -> p.categoryName().equals("전자기기"));
+        }
+
+        @Test
+        @DisplayName("판매자 닉네임으로 필터링할 수 있다")
+        void searchProducts_bySellerNickname() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, "seller1", null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(2);
+            assertThat(result.content()).allMatch(p -> p.sellerNickname().equals("seller1"));
+        }
+
+        @Test
+        @DisplayName("가격 범위로 필터링할 수 있다")
+        void searchProducts_byPriceRange() {
+            ProductSearchCondition condition = new ProductSearchCondition(
+                    null, null, null, BigDecimal.valueOf(25000), BigDecimal.valueOf(60000), null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(2);
+            assertThat(result.content()).allMatch(p ->
+                    p.startingPrice().compareTo(BigDecimal.valueOf(25000)) >= 0
+                            && p.startingPrice().compareTo(BigDecimal.valueOf(60000)) <= 0);
+        }
+
+        @Test
+        @DisplayName("여러 조건을 조합하여 검색할 수 있다")
+        void searchProducts_combinedConditions() {
+            ProductSearchCondition condition = new ProductSearchCondition(
+                    null, categoryId, "seller1", null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isEqualTo(2);
+            assertThat(result.content()).allMatch(p ->
+                    p.sellerNickname().equals("seller1") && p.categoryName().equals("전자기기"));
+        }
+
+        @Test
+        @DisplayName("DELETED 상태의 상품은 검색 결과에서 제외된다")
+        void searchProducts_excludesDeleted() {
+            ProductDetailResponse created = productService.createProduct("seller1", createRequest("삭제 상품", BigDecimal.valueOf(1000), null));
+            productService.deleteProduct("seller1", created.id());
+
+            ProductSearchCondition condition = new ProductSearchCondition("삭제 상품", null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isZero();
+        }
+
+        @Test
+        @DisplayName("페이징이 정상 동작한다")
+        void searchProducts_pagination() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> firstPage = productService.searchProducts(condition, PageRequest.of(0, 2));
+            PageResponse<ProductSummaryResponse> secondPage = productService.searchProducts(condition, PageRequest.of(1, 2));
+
+            assertThat(firstPage.content()).hasSize(2);
+            assertThat(firstPage.totalElements()).isEqualTo(4);
+            assertThat(firstPage.totalPages()).isEqualTo(2);
+            assertThat(firstPage.first()).isTrue();
+            assertThat(firstPage.last()).isFalse();
+
+            assertThat(secondPage.content()).hasSize(2);
+            assertThat(secondPage.first()).isFalse();
+            assertThat(secondPage.last()).isTrue();
+        }
+
+        @Test
+        @DisplayName("가격 오름차순으로 정렬할 수 있다")
+        void searchProducts_sortByPriceAsc() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(
+                    condition, PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "startingPrice")));
+
+            List<BigDecimal> prices = result.content().stream().map(ProductSummaryResponse::startingPrice).toList();
+            assertThat(prices).isSortedAccordingTo(Comparator.naturalOrder());
+        }
+
+        @Test
+        @DisplayName("검색 결과가 없으면 빈 페이지를 반환한다")
+        void searchProducts_noResults() {
+            ProductSearchCondition condition = new ProductSearchCondition("존재하지않는상품", null, null, null, null, null);
+
+            PageResponse<ProductSummaryResponse> result = productService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.totalElements()).isZero();
+            assertThat(result.content()).isEmpty();
         }
     }
 }

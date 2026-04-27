@@ -15,10 +15,11 @@ import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
+import com.pickbit.productservice.infrastructure.persistence.ProductQueryRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductQueryRepository productQueryRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
 
@@ -59,7 +61,11 @@ public class ProductService {
         return productMapper.toDetailResponse(productRepository.save(product));
     }
 
-
+    public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
+        Page<ProductSummaryResponse> page = productQueryRepository.search(condition, pageable)
+                .map(productMapper::toSummaryResponse);
+        return PageResponse.from(page);
+    }
 
     @Transactional
     public ProductDetailResponse getProduct(Long id) {

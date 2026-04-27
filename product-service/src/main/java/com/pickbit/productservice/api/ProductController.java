@@ -29,6 +29,22 @@ public class ProductController {
     private final ProductService productService;
 
     /**
+     * 상품 목록을 검색 조건에 따라 페이징 조회합니다.
+     *
+     * @param condition       검색 조건 (키워드, 카테고리, 가격 범위, 판매자)
+     * @param pageableRequest 페이징 및 정렬 조건
+     * @return 상품 요약 목록 (페이징)
+     */
+    @GetMapping
+    public ResponseEntity<PageResponse<ProductSummaryResponse>> searchProducts(
+            @ModelAttribute ProductSearchCondition condition,
+            @ModelAttribute PageableRequest pageableRequest
+    ) {
+        return ResponseEntity.ok(productService.searchProducts(
+                condition, pageableRequest.toPageable(20)));
+    }
+
+    /**
      * 신규 상품을 등록합니다.
      * 이미지는 file-service를 통해 사전 업로드 후 URL을 전달합니다.
      *
