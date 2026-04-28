@@ -3,6 +3,7 @@ package com.pickbit.fileservice.application;
 import com.pickbit.fileservice.api.dto.FileUploadResponse;
 import com.pickbit.fileservice.exception.InvalidFileException;
 import com.pickbit.fileservice.infrastructure.storage.NcpObjectStorageClient;
+import com.pickbit.fileservice.infrastructure.storage.Visibility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -37,7 +38,8 @@ public class FileUploadService {
         String contentType = file.getContentType();
 
         try {
-            String fileUrl = ncpObjectStorageClient.upload(key, file.getInputStream(), contentType);
+            String fileUrl = ncpObjectStorageClient.upload(
+                    key, file.getInputStream(), file.getSize(), contentType, Visibility.PUBLIC);
             return new FileUploadResponse(fileUrl, file.getOriginalFilename(), file.getSize());
         } catch (IOException e) {
             throw new InvalidFileException("파일을 읽는 중 오류가 발생했습니다: " + file.getOriginalFilename());
