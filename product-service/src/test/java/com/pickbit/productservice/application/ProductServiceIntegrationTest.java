@@ -11,7 +11,6 @@ import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
-import com.pickbit.productservice.domain.product.entity.enums.ProductSort;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;

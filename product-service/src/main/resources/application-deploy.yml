@@ -1,2 +1,8 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+
 server:
   port: 8082

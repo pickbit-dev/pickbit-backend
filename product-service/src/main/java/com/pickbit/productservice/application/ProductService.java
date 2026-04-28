@@ -37,6 +37,7 @@ public class ProductService {
 
     @Transactional
     public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
+
         Category category = resolveCategory(request.categoryId());
 
         Product product = Product.builder()
@@ -62,8 +63,7 @@ public class ProductService {
     }
 
     public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
-        Page<ProductSummaryResponse> page = productQueryRepository.search(condition, pageable)
-                .map(productMapper::toSummaryResponse);
+        Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, pageable);
         return PageResponse.from(page);
     }
 
