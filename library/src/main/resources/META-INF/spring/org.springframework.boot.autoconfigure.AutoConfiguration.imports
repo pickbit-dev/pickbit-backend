@@ -1,2 +1,3 @@
 com.pickbit.library.openapi.OpenApiDocAutoConfiguration
 com.pickbit.library.persistence.config.QueryDslConfig
+com.pickbit.library.event.EventBoxAutoConfiguration

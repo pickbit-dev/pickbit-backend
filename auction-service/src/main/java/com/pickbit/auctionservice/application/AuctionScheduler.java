@@ -3,12 +3,15 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
+import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.auctionservice.domain.enums.BidStatus;
-import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -16,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -24,13 +29,16 @@ import java.util.Optional;
 public class AuctionScheduler {
 
     private static final String AUCTION_TOPIC = "/topic/auctions/";
+    private static final String BID_LOCK_KEY = "auction:bid:lock:";
 
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
-    private final ProductServiceClient productServiceClient;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RedissonClient redissonClient;
+    private final OutboxRecorder outboxRecorder;
 
     @Scheduled(cron = "${auction.scheduler.cron}")
+    @SchedulerLock(name = "processAuctions", lockAtMostFor = "PT30S", lockAtLeastFor = "PT5S")
     @Transactional
     public void processAuctions() {
         LocalDateTime now = LocalDateTime.now();
@@ -50,10 +58,41 @@ public class AuctionScheduler {
         List<Auction> expired = auctionRepository.findExpiredActiveAuctions(now);
         if (expired.isEmpty()) return;
 
+        int closed = 0;
         for (Auction auction : expired) {
-            closeAuction(auction);
+            if (closeAuctionWithLock(auction.getId())) {
+                closed++;
+            }
         }
-        log.info("경매 종료 처리: {}건", expired.size());
+        log.info("경매 종료 처리: {}건", closed);
+    }
+
+    private boolean closeAuctionWithLock(Long auctionId) {
+        RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(0, 30, TimeUnit.SECONDS);
+            if (!acquired) {
+                log.warn("경매 종료 락 획득 실패. auctionId={}", auctionId);
+                return false;
+            }
+
+            Auction fresh = auctionRepository.findById(auctionId).orElse(null);
+            if (fresh == null || fresh.getAuctionStatus() != AuctionStatus.ACTIVE) {
+                return false;
+            }
+
+            closeAuction(fresh);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("경매 종료 락 대기 중 인터럽트. auctionId={}", auctionId, e);
+            return false;
+        } finally {
+            if (acquired && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     private void closeAuction(Auction auction) {
@@ -66,13 +105,22 @@ public class AuctionScheduler {
             auction.complete(winner.getBidderNickname(), winner.getAmount());
 
             notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
-            productServiceClient.updateProductStatus(auction.getProductId(), "AUCTION_COMPLETED");
+            recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED");
         } else {
             auction.endWithNoBids();
 
             notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEndedNoBids());
-            productServiceClient.updateProductStatus(auction.getProductId(), "ACTIVE");
+            recordProductStatusUpdate(auction.getProductId(), "ACTIVE");
         }
+    }
+
+    private void recordProductStatusUpdate(Long productId, String status) {
+        outboxRecorder.record(
+                "Product",
+                String.valueOf(productId),
+                "product.status.update_requested",
+                Map.of("productId", productId, "status", status)
+        );
     }
 
     private void notifyAuctionEnded(Long auctionId, AuctionBidEvent event) {

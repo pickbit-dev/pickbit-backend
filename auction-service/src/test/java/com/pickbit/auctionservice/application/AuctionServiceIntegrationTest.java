@@ -71,7 +71,6 @@ class AuctionServiceIntegrationTest {
                 BigDecimal.valueOf(10_000),
                 "ACTIVE",
                 "NEW",
-                "AUCTION",
                 "seller1",
                 10L,
                 "전자기기",
@@ -104,22 +103,9 @@ class AuctionServiceIntegrationTest {
         void createAuction_productNotActive() {
             ProductResponse soldOut = new ProductResponse(
                     1L, "테스트 상품", "설명", BigDecimal.valueOf(10_000),
-                    "SOLD_OUT", "NEW", "AUCTION", "seller1", 10L, "전자기기", List.of()
+                    "SOLD_OUT", "NEW", "seller1", 10L, "전자기기", List.of()
             );
             given(productServiceClient.getProduct(1L)).willReturn(soldOut);
-
-            assertThatThrownBy(() -> auctionService.createAuction("seller1", defaultRequest))
-                    .isInstanceOf(InvalidProductForAuctionException.class);
-        }
-
-        @Test
-        @DisplayName("상품 listingType이 AUCTION이 아니면 예외가 발생한다")
-        void createAuction_notAuctionListing() {
-            ProductResponse normal = new ProductResponse(
-                    1L, "테스트 상품", "설명", BigDecimal.valueOf(10_000),
-                    "ACTIVE", "NEW", "NORMAL", "seller1", 10L, "전자기기", List.of()
-            );
-            given(productServiceClient.getProduct(1L)).willReturn(normal);
 
             assertThatThrownBy(() -> auctionService.createAuction("seller1", defaultRequest))
                     .isInstanceOf(InvalidProductForAuctionException.class);

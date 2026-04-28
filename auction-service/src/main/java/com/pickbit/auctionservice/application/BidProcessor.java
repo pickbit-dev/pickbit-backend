@@ -12,7 +12,6 @@ import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
-import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -31,9 +31,9 @@ public class BidProcessor {
 
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
-    private final ProductServiceClient productServiceClient;
     private final BidMapper bidMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final OutboxRecorder outboxRecorder;
 
     public BidResponse process(String bidderNickname, Long auctionId, BidCreateRequest request) {
         Auction auction = auctionRepository.findById(auctionId)
@@ -41,6 +41,9 @@ public class BidProcessor {
 
         if (auction.getAuctionStatus() != AuctionStatus.ACTIVE) {
             throw new InvalidAuctionStatusException("ACTIVE 상태의 경매에만 입찰할 수 있습니다.");
+        }
+        if (auction.getEndTime() != null && auction.getEndTime().isBefore(LocalDateTime.now())) {
+            throw new InvalidAuctionStatusException("종료된 경매에는 입찰할 수 없습니다.");
         }
         if (auction.getSellerNickname().equals(bidderNickname)) {
             throw new UnauthorizedAuctionAccessException();
@@ -84,7 +87,12 @@ public class BidProcessor {
                     AUCTION_TOPIC + auctionId,
                     AuctionBidEvent.ofEnded(bidderNickname, request.bidAmount())
             );
-            productServiceClient.updateProductStatus(auction.getProductId(), "AUCTION_COMPLETED");
+            outboxRecorder.record(
+                    "Product",
+                    String.valueOf(auction.getProductId()),
+                    "product.status.update_requested",
+                    Map.of("productId", auction.getProductId(), "status", "AUCTION_COMPLETED")
+            );
         } else {
             messagingTemplate.convertAndSend(
                     AUCTION_TOPIC + auctionId,

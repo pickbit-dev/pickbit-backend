@@ -13,6 +13,7 @@ import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
+import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest
@@ -54,6 +54,9 @@ class BidServiceIntegrationTest {
 
     @Autowired
     private BidRepository bidRepository;
+
+    @Autowired
+    private OutBoxEventRepository outBoxEventRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -195,7 +198,13 @@ class BidServiceIntegrationTest {
             assertThat(reloaded.getWinnerNickname()).isEqualTo("bidder1");
             assertThat(reloaded.getFinalPrice()).isEqualByComparingTo(BigDecimal.valueOf(100_000));
 
-            verify(productServiceClient).updateProductStatus(eq(1L), eq("AUCTION_COMPLETED"));
+            assertThat(outBoxEventRepository.findAll())
+                    .filteredOn(e -> "Product".equals(e.getEntity()))
+                    .filteredOn(e -> "1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "product.status.update_requested".equals(e.getEventType()))
+                    .singleElement()
+                    .extracting(e -> e.getPayload().contains("AUCTION_COMPLETED"))
+                    .isEqualTo(true);
             verify(messagingTemplate).convertAndSend(
                     eq("/topic/auctions/" + activeAuction.getId()), any(Object.class));
         }
@@ -206,7 +215,7 @@ class BidServiceIntegrationTest {
             bidService.placeBid("bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
 
-            verify(productServiceClient, never()).updateProductStatus(any(), any());
+            assertThat(outBoxEventRepository.findAll()).isEmpty();
         }
     }
 

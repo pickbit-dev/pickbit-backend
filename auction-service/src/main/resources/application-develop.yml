@@ -39,6 +39,22 @@ auction:
   scheduler:
     cron: "0 * * * * *"
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      productService:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  bulkhead:
+    instances:
+      productService:
+        maxConcurrentCalls: 30
+        maxWaitDuration: 100ms
+
 openapi:
   docs-export:
     enabled: true
