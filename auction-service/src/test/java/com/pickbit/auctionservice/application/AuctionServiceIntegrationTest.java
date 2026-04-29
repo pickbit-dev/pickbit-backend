@@ -13,6 +13,7 @@ import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
+import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.library.dto.PageResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +48,9 @@ class AuctionServiceIntegrationTest {
 
     @Autowired
     private AuctionRepository auctionRepository;
+
+    @Autowired
+    private OutBoxEventRepository outBoxEventRepository;
 
     @MockitoBean
     private ProductServiceClient productServiceClient;
@@ -96,6 +100,12 @@ class AuctionServiceIntegrationTest {
             assertThat(response.currentPrice()).isEqualByComparingTo(BigDecimal.valueOf(10_000));
             assertThat(response.auctionStatus()).isEqualTo(AuctionStatus.SCHEDULED);
             assertThat(auctionRepository.existsById(response.id())).isTrue();
+            assertThat(outBoxEventRepository.findAll())
+                    .filteredOn(e -> "Product".equals(e.getEntity()))
+                    .filteredOn(e -> "1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "UPDATE".equals(e.getAction()))
+                    .filteredOn(e -> e.getPayload().contains("AUCTION_SCHEDULED"))
+                    .singleElement();
         }
 
         @Test
@@ -219,6 +229,12 @@ class AuctionServiceIntegrationTest {
 
             Auction reloaded = auctionRepository.findById(created.id()).orElseThrow();
             assertThat(reloaded.getAuctionStatus()).isEqualTo(AuctionStatus.CANCELLED);
+            assertThat(outBoxEventRepository.findAll())
+                    .filteredOn(e -> "Product".equals(e.getEntity()))
+                    .filteredOn(e -> "1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "UPDATE".equals(e.getAction()))
+                    .filteredOn(e -> e.getPayload().contains("AUCTION_CANCELLED"))
+                    .singleElement();
         }
 
         @Test

@@ -1,11 +1,13 @@
 package com.pickbit.productservice.api;
 
 import com.pickbit.productservice.api.dto.request.ProductStatusUpdateRequest;
+import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.application.ProductService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalProductController {
 
     private final ProductService productService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductDetailResponse> getInternalProduct(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.getInternalProduct(id));
+    }
 
     /**
      * 상품의 상태를 변경합니다.

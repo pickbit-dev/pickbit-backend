@@ -91,7 +91,8 @@ public class BidProcessor {
                     "Product",
                     String.valueOf(auction.getProductId()),
                     "product.status.update_requested",
-                    Map.of("productId", auction.getProductId(), "status", "AUCTION_COMPLETED")
+                    "UPDATE",
+                    Map.of("productId", auction.getProductId(), "status", "AUCTION_COMPLETED", "reason", "BUY_NOW_COMPLETED", "auctionId", auction.getId())
             );
         } else {
             messagingTemplate.convertAndSend(

@@ -66,20 +66,69 @@ public class Product extends BaseEntity {
             String name,
             String description,
             BigDecimal price,
-            ProductStatus status,
             ProductCondition condition,
             Category category
     ) {
         this.name = name;
         this.description = description;
         this.startingPrice = price;
-        this.productStatus = status;
         this.productCondition = condition;
         this.category = category;
     }
 
-    public void updateStatus(ProductStatus status) {
-        this.productStatus = status;
+    public void scheduleAuction() {
+        if (this.productStatus != ProductStatus.ACTIVE) {
+            throw new IllegalStateException("ACTIVE 상태의 상품만 경매에 등록할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.AUCTION_SCHEDULED;
+    }
+
+    public void startAuction() {
+        if (this.productStatus != ProductStatus.AUCTION_SCHEDULED) {
+            throw new IllegalStateException("AUCTION_SCHEDULED 상태의 상품만 경매를 시작할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.IN_AUCTION;
+    }
+
+    public void releaseFromAuction() {
+        if (this.productStatus == ProductStatus.ACTIVE) {
+            return;
+        }
+        if (this.productStatus != ProductStatus.AUCTION_SCHEDULED && this.productStatus != ProductStatus.IN_AUCTION) {
+            throw new IllegalStateException("AUCTION_SCHEDULED 또는 IN_AUCTION 상태의 상품만 경매에서 해제할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.ACTIVE;
+    }
+
+    public void completeAuction() {
+        if (this.productStatus == ProductStatus.AUCTION_COMPLETED) {
+            return;
+        }
+        if (this.productStatus != ProductStatus.IN_AUCTION) {
+            throw new IllegalStateException("IN_AUCTION 상태의 상품만 경매 완료 처리할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.AUCTION_COMPLETED;
+    }
+
+    public void deactivate() {
+        if (this.productStatus != ProductStatus.ACTIVE) {
+            throw new IllegalStateException("ACTIVE 상태의 상품만 비활성화할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.INACTIVE;
+    }
+
+    public void activate() {
+        if (this.productStatus != ProductStatus.INACTIVE) {
+            throw new IllegalStateException("INACTIVE 상태의 상품만 활성화할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.ACTIVE;
+    }
+
+    public void delete() {
+        if (this.productStatus != ProductStatus.ACTIVE && this.productStatus != ProductStatus.INACTIVE) {
+            throw new IllegalStateException("ACTIVE 또는 INACTIVE 상태의 상품만 삭제할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.DELETED;
     }
 
     public void increaseViewCount() {

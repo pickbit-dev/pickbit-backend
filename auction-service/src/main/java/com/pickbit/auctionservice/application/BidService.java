@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.TimeUnit;
 
@@ -27,8 +28,8 @@ public class BidService {
     private final BidMapper bidMapper;
     private final RedissonClient redissonClient;
     private final BidProcessor bidProcessor;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public BidResponse placeBid(String bidderNickname, Long auctionId, BidCreateRequest request) {
         RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
         try {
@@ -36,7 +37,7 @@ public class BidService {
             if (!acquired) {
                 throw new InvalidAuctionStatusException("입찰 처리 중입니다. 잠시 후 다시 시도해주세요.");
             }
-            return bidProcessor.process(bidderNickname, auctionId, request);
+            return transactionTemplate.execute(status -> bidProcessor.process(bidderNickname, auctionId, request));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new InvalidAuctionStatusException("입찰 처리 중 오류가 발생했습니다.");

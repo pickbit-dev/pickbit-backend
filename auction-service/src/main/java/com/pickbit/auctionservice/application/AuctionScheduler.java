@@ -49,7 +49,10 @@ public class AuctionScheduler {
     @Transactional
     public void activateScheduledAuctions(LocalDateTime now) {
         List<Auction> toActivate = auctionRepository.findScheduledAuctionsToActivate(now);
-        toActivate.forEach(Auction::activate);
+        toActivate.forEach(auction -> {
+            auction.activate();
+            recordProductStatusUpdate(auction.getProductId(), "IN_AUCTION", "AUCTION_STARTED", auction.getId());
+        });
         log.info("경매 활성화: {}건", toActivate.size());
     }
 
@@ -105,21 +108,22 @@ public class AuctionScheduler {
             auction.complete(winner.getBidderNickname(), winner.getAmount());
 
             notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
-            recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED");
+            recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED", "AUCTION_ENDED_SOLD", auction.getId());
         } else {
             auction.endWithNoBids();
 
             notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEndedNoBids());
-            recordProductStatusUpdate(auction.getProductId(), "ACTIVE");
+            recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_ENDED_NO_BIDS", auction.getId());
         }
     }
 
-    private void recordProductStatusUpdate(Long productId, String status) {
+    private void recordProductStatusUpdate(Long productId, String status, String reason, Long auctionId) {
         outboxRecorder.record(
                 "Product",
                 String.valueOf(productId),
                 "product.status.update_requested",
-                Map.of("productId", productId, "status", status)
+                "UPDATE",
+                Map.of("productId", productId, "status", status, "reason", reason, "auctionId", auctionId)
         );
     }
 

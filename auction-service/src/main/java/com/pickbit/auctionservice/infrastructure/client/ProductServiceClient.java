@@ -24,7 +24,7 @@ public class ProductServiceClient {
     @Bulkhead(name = CB_NAME, type = Bulkhead.Type.SEMAPHORE)
     public ProductResponse getProduct(Long productId) {
         return productServiceRestClient.get()
-                .uri("/products/{id}", productId)
+                .uri("/internal/products/{id}", productId)
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
                     throw new AuctionProductNotFoundException(productId);

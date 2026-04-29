@@ -6,7 +6,6 @@ import com.pickbit.productservice.api.dto.response.CategoryResponse;
 import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.DuplicateCategoryException;
-import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,8 +32,6 @@ class CategoryServiceIntegrationTest {
     @Autowired
     private CategoryService categoryService;
 
-    @Autowired
-    private CategoryRepository categoryRepository;
 
     @Nested
     @DisplayName("카테고리 등록")

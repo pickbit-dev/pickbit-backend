@@ -22,13 +22,14 @@ public class OutboxRecorder {
      * 호출 측 트랜잭션 안에서 outbox 행을 기록한다.
      * Kafka Connect (Debezium) 가 binlog 를 읽어 자동으로 토픽으로 발행한다.
      */
-    public void record(String entity, String aggregateId, String eventType, Object payload) {
+    public void record(String entity, String aggregateId, String eventType, String action, Object payload) {
         try {
             String json = objectMapper.writeValueAsString(payload);
             OutBoxEvent event = OutBoxEvent.builder()
                     .entity(entity)
                     .eventId(eventBoxIdCreateService.createEventId(SERVICE_NAME))
                     .eventType(eventType)
+                    .action(action)
                     .aggregateId(aggregateId)
                     .payload(json)
                     .build();

@@ -7,6 +7,7 @@ import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
+import com.pickbit.productservice.application.event.ProductStatusEventHandler;
 import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
@@ -15,7 +16,9 @@ import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
+import com.pickbit.productservice.exception.kafka.KafkaDuplicateEventException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
+import com.pickbit.productservice.infrastructure.persistence.InboxRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +55,12 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductStatusEventHandler productStatusEventHandler;
+
+    @Autowired
+    private InboxRepository inboxRepository;
 
     private ProductCreateRequest defaultCreateRequest;
 
@@ -212,7 +221,6 @@ class ProductServiceIntegrationTest {
                     "수정된 상품명",
                     "수정된 설명입니다.",
                     BigDecimal.valueOf(20000),
-                    ProductStatus.ACTIVE,
                     ProductCondition.GOOD,
                     null,
                     List.of(new ProductImageRequest("https://example.com/new.jpg", ImageType.THUMBNAIL, 0))
@@ -235,7 +243,6 @@ class ProductServiceIntegrationTest {
                     "수정 상품",
                     "설명",
                     BigDecimal.valueOf(5000),
-                    ProductStatus.ACTIVE,
                     ProductCondition.NEW,
                     null,
                     List.of(new ProductImageRequest("https://example.com/replaced.jpg", ImageType.THUMBNAIL, 0))
@@ -256,7 +263,6 @@ class ProductServiceIntegrationTest {
                     "수정 시도",
                     "설명",
                     BigDecimal.valueOf(5000),
-                    ProductStatus.ACTIVE,
                     ProductCondition.NEW,
                     null,
                     List.of(new ProductImageRequest("https://example.com/img.jpg", ImageType.THUMBNAIL, 0))
@@ -273,7 +279,6 @@ class ProductServiceIntegrationTest {
                     "수정 시도",
                     "설명",
                     BigDecimal.valueOf(5000),
-                    ProductStatus.ACTIVE,
                     ProductCondition.NEW,
                     null,
                     List.of(new ProductImageRequest("https://example.com/img.jpg", ImageType.THUMBNAIL, 0))
@@ -335,6 +340,8 @@ class ProductServiceIntegrationTest {
         void updateProductStatus_toAuctionCompleted() {
             ProductDetailResponse created = productService.createProduct("seller1", defaultCreateRequest);
 
+            productService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
+            productService.updateProductStatus(created.id(), ProductStatus.IN_AUCTION);
             productService.updateProductStatus(created.id(), ProductStatus.AUCTION_COMPLETED);
 
             assertThat(productService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.AUCTION_COMPLETED);
@@ -345,6 +352,35 @@ class ProductServiceIntegrationTest {
         void updateProductStatus_notFound() {
             assertThatThrownBy(() -> productService.updateProductStatus(999999L, ProductStatus.AUCTION_COMPLETED))
                     .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("상품 상태 이벤트로 AUCTION_SCHEDULED 상태로 변경하고 중복 이벤트는 기록하지 않는다")
+        void productStatusEventHandler_scheduleAuctionAndSkipDuplicate() {
+            ProductDetailResponse created = productService.createProduct("seller1", defaultCreateRequest);
+            String eventId = "auction-service-test-event-1";
+            String payload = "{\"productId\":%d,\"status\":\"AUCTION_SCHEDULED\",\"reason\":\"AUCTION_CREATED\",\"auctionId\":10}"
+                    .formatted(created.id());
+
+            productStatusEventHandler.handleUpdate(eventId, String.valueOf(created.id()), payload);
+
+            assertThat(productService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.AUCTION_SCHEDULED);
+            assertThat(inboxRepository.existsByEventId(eventId)).isTrue();
+            assertThatThrownBy(() -> productStatusEventHandler.handleUpdate(eventId, String.valueOf(created.id()), payload))
+                    .isInstanceOf(KafkaDuplicateEventException.class);
+        }
+
+        @Test
+        @DisplayName("상품 상태 이벤트로 AUCTION_SCHEDULED에서 IN_AUCTION으로 변경할 수 있다")
+        void productStatusEventHandler_startAuction() {
+            ProductDetailResponse created = productService.createProduct("seller1", defaultCreateRequest);
+            productService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
+            String payload = "{\"productId\":%d,\"status\":\"IN_AUCTION\",\"reason\":\"AUCTION_STARTED\",\"auctionId\":10}"
+                    .formatted(created.id());
+
+            productStatusEventHandler.handleUpdate("auction-service-test-event-2", String.valueOf(created.id()), payload);
+
+            assertThat(productService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.IN_AUCTION);
         }
     }
 

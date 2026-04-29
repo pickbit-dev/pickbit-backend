@@ -29,6 +29,7 @@ public class AuctionService {
     private final AuctionRepository auctionRepository;
     private final ProductServiceClient productServiceClient;
     private final AuctionMapper auctionMapper;
+    private final OutboxRecorder outboxRecorder;
 
     @Transactional
     public AuctionDetailResponse createAuction(String sellerNickname, AuctionCreateRequest request) {
@@ -62,7 +63,9 @@ public class AuctionService {
                 .endTime(request.endTime())
                 .build();
 
-        return auctionMapper.toDetailResponse(auctionRepository.save(auction));
+        Auction saved = auctionRepository.save(auction);
+        recordProductStatusUpdate(saved.getProductId(), "AUCTION_SCHEDULED", "AUCTION_CREATED", saved.getId());
+        return auctionMapper.toDetailResponse(saved);
     }
 
     public PageResponse<AuctionSummaryResponse> getAuctions(AuctionStatus status, Pageable pageable) {
@@ -88,6 +91,17 @@ public class AuctionService {
         }
 
         auction.cancel();
+        recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_CANCELLED", auction.getId());
+    }
+
+    private void recordProductStatusUpdate(Long productId, String status, String reason, Long auctionId) {
+        outboxRecorder.record(
+                "Product",
+                String.valueOf(productId),
+                "product.status.update_requested",
+                "UPDATE",
+                java.util.Map.of("productId", productId, "status", status, "reason", reason, "auctionId", auctionId)
+        );
     }
 
     private Auction findAuction(Long auctionId) {

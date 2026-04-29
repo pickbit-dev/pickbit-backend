@@ -12,6 +12,7 @@ import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.ProductImage;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
+import com.pickbit.productservice.exception.InvalidProductStatusException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
@@ -80,6 +81,7 @@ public class ProductService {
         Product product = findActiveProduct(id);
 
         validateOwner(product, nickname);
+        validateEditable(product);
 
         Category category = resolveCategory(request.categoryId());
 
@@ -87,7 +89,6 @@ public class ProductService {
                 request.name(),
                 request.description(),
                 request.startingPrice(),
-                request.productStatus(),
                 request.productCondition(),
                 category
         );
@@ -108,14 +109,22 @@ public class ProductService {
     public void deleteProduct(String nickname, Long id) {
         Product product = findActiveProduct(id);
         validateOwner(product, nickname);
-        product.updateStatus(ProductStatus.DELETED);
+        try {
+            product.delete();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
     }
 
     @Transactional
     public void updateProductStatus(Long id, ProductStatus status) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
-        product.updateStatus(status);
+        updateStatus(product, status);
+    }
+
+    public ProductDetailResponse getInternalProduct(Long id) {
+        return productMapper.toDetailResponse(findActiveProduct(id));
     }
 
     private Category resolveCategory(Long categoryId) {
@@ -138,6 +147,29 @@ public class ProductService {
     private void validateOwner(Product product, String nickname) {
         if (!product.getSellerNickname().equals(nickname)) {
             throw new UnauthorizedProductAccessException();
+        }
+    }
+
+    private void validateEditable(Product product) {
+        if (product.getProductStatus() == ProductStatus.IN_AUCTION
+                || product.getProductStatus() == ProductStatus.AUCTION_SCHEDULED
+                || product.getProductStatus() == ProductStatus.AUCTION_COMPLETED) {
+            throw new InvalidProductStatusException("현재 상태에서는 상품을 수정할 수 없습니다. 상태=" + product.getProductStatus());
+        }
+    }
+
+    private void updateStatus(Product product, ProductStatus status) {
+        try {
+            switch (status) {
+                case ACTIVE -> product.releaseFromAuction();
+                case AUCTION_SCHEDULED -> product.scheduleAuction();
+                case IN_AUCTION -> product.startAuction();
+                case AUCTION_COMPLETED -> product.completeAuction();
+                case INACTIVE -> product.deactivate();
+                case DELETED -> product.delete();
+            }
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
         }
     }
 }
