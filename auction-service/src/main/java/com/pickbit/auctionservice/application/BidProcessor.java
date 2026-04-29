@@ -3,6 +3,7 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
+import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.application.mapper.BidMapper;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
@@ -15,7 +16,7 @@ import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +28,10 @@ import java.util.Map;
 @Transactional
 public class BidProcessor {
 
-    private static final String AUCTION_TOPIC = "/topic/auctions/";
-
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
     private final BidMapper bidMapper;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
     private final OutboxRecorder outboxRecorder;
 
     public BidResponse process(String bidderNickname, Long auctionId, BidCreateRequest request) {
@@ -83,10 +82,10 @@ public class BidProcessor {
             bid.markWinning();
             auction.complete(bidderNickname, request.bidAmount());
 
-            messagingTemplate.convertAndSend(
-                    AUCTION_TOPIC + auctionId,
+            eventPublisher.publishEvent(new AuctionRealtimeEvent(
+                    auctionId,
                     AuctionBidEvent.ofEnded(bidderNickname, request.bidAmount())
-            );
+            ));
             outboxRecorder.record(
                     "Product",
                     String.valueOf(auction.getProductId()),
@@ -95,10 +94,10 @@ public class BidProcessor {
                     Map.of("productId", auction.getProductId(), "status", "AUCTION_COMPLETED", "reason", "BUY_NOW_COMPLETED", "auctionId", auction.getId())
             );
         } else {
-            messagingTemplate.convertAndSend(
-                    AUCTION_TOPIC + auctionId,
+            eventPublisher.publishEvent(new AuctionRealtimeEvent(
+                    auctionId,
                     AuctionBidEvent.ofNewBid(request.bidAmount(), bidderNickname, now)
-            );
+            ));
         }
 
         return bidMapper.toResponse(bid);

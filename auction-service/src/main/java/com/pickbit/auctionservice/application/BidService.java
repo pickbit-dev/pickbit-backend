@@ -33,7 +33,7 @@ public class BidService {
     public BidResponse placeBid(String bidderNickname, Long auctionId, BidCreateRequest request) {
         RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
         try {
-            boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+            boolean acquired = lock.tryLock(5, TimeUnit.SECONDS);
             if (!acquired) {
                 throw new InvalidAuctionStatusException("입찰 처리 중입니다. 잠시 후 다시 시도해주세요.");
             }

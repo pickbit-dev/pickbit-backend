@@ -24,7 +24,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,9 +34,6 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Transactional
@@ -63,9 +59,6 @@ class BidServiceIntegrationTest {
 
     @MockitoBean
     private ProductServiceClient productServiceClient;
-
-    @MockitoBean
-    private SimpMessagingTemplate messagingTemplate;
 
     private Auction activeAuction;
 
@@ -205,8 +198,6 @@ class BidServiceIntegrationTest {
                     .singleElement()
                     .extracting(e -> e.getPayload().contains("AUCTION_COMPLETED"))
                     .isEqualTo(true);
-            verify(messagingTemplate).convertAndSend(
-                    eq("/topic/auctions/" + activeAuction.getId()), any(Object.class));
         }
 
         @Test

@@ -1,6 +1,7 @@
 package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
+import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
@@ -12,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,12 +29,11 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class AuctionScheduler {
 
-    private static final String AUCTION_TOPIC = "/topic/auctions/";
     private static final String BID_LOCK_KEY = "auction:bid:lock:";
 
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
     private final RedissonClient redissonClient;
     private final OutboxRecorder outboxRecorder;
 
@@ -74,7 +74,7 @@ public class AuctionScheduler {
         RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
         boolean acquired = false;
         try {
-            acquired = lock.tryLock(0, 30, TimeUnit.SECONDS);
+            acquired = lock.tryLock(0, TimeUnit.SECONDS);
             if (!acquired) {
                 log.warn("경매 종료 락 획득 실패. auctionId={}", auctionId);
                 return false;
@@ -107,12 +107,12 @@ public class AuctionScheduler {
             winner.markWinning();
             auction.complete(winner.getBidderNickname(), winner.getAmount());
 
-            notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
+            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
             recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED", "AUCTION_ENDED_SOLD", auction.getId());
         } else {
             auction.endWithNoBids();
 
-            notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEndedNoBids());
+            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEndedNoBids());
             recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_ENDED_NO_BIDS", auction.getId());
         }
     }
@@ -127,11 +127,7 @@ public class AuctionScheduler {
         );
     }
 
-    private void notifyAuctionEnded(Long auctionId, AuctionBidEvent event) {
-        try {
-            messagingTemplate.convertAndSend(AUCTION_TOPIC + auctionId, event);
-        } catch (Exception e) {
-            log.error("경매 종료 WebSocket 알림 실패. auctionId={}", auctionId, e);
-        }
+    private void publishAuctionEvent(Long auctionId, AuctionBidEvent event) {
+        eventPublisher.publishEvent(new AuctionRealtimeEvent(auctionId, event));
     }
 }
