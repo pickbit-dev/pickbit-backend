@@ -1,8 +1,6 @@
 package com.pickbit.library.persistence.query;//package com.example.wsa_backend_library.repository;
 
 
-
-
 import com.pickbit.library.persistence.entity.BaseEntity;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Order;
@@ -18,28 +16,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.NoRepositoryBean;
-import org.springframework.stereotype.Component;
-
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 
 @NoRepositoryBean
-@Component
 @RequiredArgsConstructor
 @Slf4j
 public abstract class QueryBaseRepository<T extends BaseEntity, Q extends EntityPathBase<T>> {
 
-    /**
-     * -- GETTER --
-     * JPAQueryFactory 반환 (라이브러리에서 제공)
-     */ // public으로 (기존 인터페이스와 동일)
-    protected final JPAQueryFactory queryFactory;  // final + 생성자 주입
+    protected final JPAQueryFactory queryFactory;
 
-    /**
-     * Q엔티티 반환 (사용자가 구현)
-     */
     protected abstract Q getQEntity();
 
     /**
@@ -109,7 +98,6 @@ public abstract class QueryBaseRepository<T extends BaseEntity, Q extends Entity
         return query.fetch();
     }
 
-
     /**
      * BooleanBuilder로 개수 조회
      */
@@ -129,32 +117,37 @@ public abstract class QueryBaseRepository<T extends BaseEntity, Q extends Entity
     }
 
     /**
+     * 정렬 필드명으로부터 OrderSpecifier를 생성한다.
+     */
+    protected OrderSpecifier<?> resolveOrderSpecifier(String field, Order direction) {
+        PathBuilder<T> entityPath = new PathBuilder<>(getQEntity().getType(), getQEntity().toString());
+        return new OrderSpecifier<>(direction, entityPath.getComparable(field, Comparable.class));
+    }
+
+    /**
      * Spring Data Sort를 QueryDSL OrderSpecifier 배열로 변환
-     *
-     * @param entityClass 엔티티 클래스
-     * @param entityAlias 엔티티 별칭 (예: "leaveUsageHistory")
-     * @param pageable    페이징 정보 (정렬 조건 포함)
-     * @return OrderSpecifier 배열
      */
     public <E> OrderSpecifier<?>[] createOrderSpecifiers(Class<E> entityClass, String entityAlias, Pageable pageable) {
         if (pageable.getSort().isEmpty()) {
-            return new OrderSpecifier<?>[0]; // 빈 배열 반환
+            return new OrderSpecifier<?>[0];
         }
 
-        PathBuilder<E> entityPath = new PathBuilder<>(entityClass, entityAlias);
+        Set<String> sortableFields = getSortableFields();
 
         return pageable.getSort().stream()
                 .map(order -> {
-                    try {
-                        String property = order.getProperty();
-                        Order direction = order.isAscending() ? Order.ASC : Order.DESC;
+                    String property = order.getProperty();
 
-                        return new OrderSpecifier<>(
-                                direction,
-                                entityPath.getComparable(property, Comparable.class)
-                        );
+                    if (!sortableFields.contains(property)) {
+                        log.warn("허용되지 않은 정렬 필드 무시: {}", property);
+                        return null;
+                    }
+
+                    try {
+                        Order direction = order.isAscending() ? Order.ASC : Order.DESC;
+                        return resolveOrderSpecifier(property, direction);
                     } catch (Exception e) {
-                        log.warn("정렬 적용 실패 - 필드: {}, 오류: {}", order.getProperty(), e.getMessage());
+                        log.warn("정렬 적용 실패 - 필드: {}, 오류: {}", property, e.getMessage());
                         return null;
                     }
                 })
@@ -163,23 +156,25 @@ public abstract class QueryBaseRepository<T extends BaseEntity, Q extends Entity
     }
 
     /**
-     * Spring Data Sort를 QueryDSL OrderSpecifier로 변환 후 적용 (기존 메서드 개선)
+     * Spring Data Sort를 QueryDSL OrderSpecifier로 변환 후 적용
      */
     public void applySorting(JPAQuery<?> query, Q qEntity, Pageable pageable) {
         if (pageable.getSort().isEmpty()) {
-            return; // 기본 정렬 없음
+            return;
         }
 
-        // 새로운 createOrderSpecifiers 메서드 활용
-        OrderSpecifier<?>[] orders = createOrderSpecifiers(
-                qEntity.getType(),
-                qEntity.toString(),
-                pageable
-        );
+        OrderSpecifier<?>[] orders = createOrderSpecifiers(qEntity.getType(), qEntity.toString(), pageable);
 
         if (orders.length > 0) {
             query.orderBy(orders);
         }
+    }
+
+    /**
+     * 정렬 가능한 필드 목록 반환 (하위 클래스에서 오버라이드)
+     */
+    protected Set<String> getSortableFields() {
+        return Set.of("id", "createdDate", "updatedDate");
     }
 
     /**
@@ -224,11 +219,6 @@ public abstract class QueryBaseRepository<T extends BaseEntity, Q extends Entity
 
     /**
      * ID 기반 커서 페이징 (무한 스크롤용)
-     *
-     * @param lastId  마지막으로 본 ID (null이면 처음부터)
-     * @param limit   가져올 개수
-     * @param builder 추가 조건 (선택사항)
-     * @return ID보다 작은 데이터들을 ID 내림차순으로 반환
      */
     public List<T> findByIdCursor(Long lastId, int limit, BooleanBuilder builder) {
         Q qEntity = getQEntity();

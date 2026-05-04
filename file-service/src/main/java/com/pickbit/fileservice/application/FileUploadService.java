@@ -38,8 +38,9 @@ public class FileUploadService {
         String contentType = file.getContentType();
 
         try {
+            byte[] bytes = file.getBytes();
             String fileUrl = ncpObjectStorageClient.upload(
-                    key, file.getInputStream(), file.getSize(), contentType, Visibility.PUBLIC);
+                    key, bytes, contentType, Visibility.PUBLIC);
             return new FileUploadResponse(fileUrl, file.getOriginalFilename(), file.getSize());
         } catch (IOException e) {
             throw new InvalidFileException("파일을 읽는 중 오류가 발생했습니다: " + file.getOriginalFilename());

@@ -1,11 +1,8 @@
 package com.pickbit.productservice.application;
 
-import com.pickbit.library.dto.PageResponse;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
-import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
-import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.Product;
@@ -16,11 +13,8 @@ import com.pickbit.productservice.exception.InvalidProductStatusException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
-import com.pickbit.productservice.infrastructure.persistence.ProductQueryRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,17 +22,14 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
-public class ProductService {
+@Transactional
+public class ProductCommandService {
 
     private final ProductRepository productRepository;
-    private final ProductQueryRepository productQueryRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
 
-    @Transactional
     public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
-
         Category category = resolveCategory(request.categoryId());
 
         Product product = Product.builder()
@@ -63,21 +54,7 @@ public class ProductService {
         return productMapper.toDetailResponse(productRepository.save(product));
     }
 
-    public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
-        Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, pageable);
-        return PageResponse.from(page);
-    }
-
-    @Transactional
-    public ProductDetailResponse getProduct(Long id) {
-        Product product = findActiveProduct(id);
-        product.increaseViewCount();
-        return productMapper.toDetailResponse(product);
-    }
-
-    @Transactional
     public ProductDetailResponse updateProduct(String nickname, Long id, ProductUpdateRequest request) {
-
         Product product = findActiveProduct(id);
 
         validateOwner(product, nickname);
@@ -105,7 +82,6 @@ public class ProductService {
         return productMapper.toDetailResponse(product);
     }
 
-    @Transactional
     public void deleteProduct(String nickname, Long id) {
         Product product = findActiveProduct(id);
         validateOwner(product, nickname);
@@ -116,15 +92,10 @@ public class ProductService {
         }
     }
 
-    @Transactional
     public void updateProductStatus(Long id, ProductStatus status) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         updateStatus(product, status);
-    }
-
-    public ProductDetailResponse getInternalProduct(Long id) {
-        return productMapper.toDetailResponse(findActiveProduct(id));
     }
 
     private Category resolveCategory(Long categoryId) {

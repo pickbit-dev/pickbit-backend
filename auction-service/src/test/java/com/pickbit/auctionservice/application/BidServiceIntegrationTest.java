@@ -43,7 +43,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BidServiceIntegrationTest {
 
     @Autowired
-    private BidService bidService;
+    private BidCommandService bidCommandService;
+
+    @Autowired
+    private BidQueryService bidQueryService;
 
     @Autowired
     private AuctionRepository auctionRepository;
@@ -86,7 +89,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("정상 입찰 시 ACTIVE 상태로 저장되고 경매 현재가가 갱신된다")
         void placeBid_success() {
-            BidResponse response = bidService.placeBid(
+            BidResponse response = bidCommandService.placeBid(
                     "bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
 
@@ -101,9 +104,9 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("두 번째 입찰 시 직전 ACTIVE 입찰은 OUTBID로 전환된다")
         void placeBid_previousBidMarkedOutbid() {
-            bidService.placeBid("bidder1", activeAuction.getId(),
+            bidCommandService.placeBid("bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
-            bidService.placeBid("bidder2", activeAuction.getId(),
+            bidCommandService.placeBid("bidder2", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(20_000)));
 
             entityManager.flush();
@@ -122,7 +125,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("첫 입찰이 시작가 미만이면 예외가 발생한다")
         void placeBid_belowStartingPrice() {
-            assertThatThrownBy(() -> bidService.placeBid(
+            assertThatThrownBy(() -> bidCommandService.placeBid(
                     "bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(5_000))))
                     .isInstanceOf(InvalidBidAmountException.class);
@@ -131,10 +134,10 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("두 번째 입찰이 현재가+최소단위 미만이면 예외가 발생한다")
         void placeBid_belowMinimumIncrement() {
-            bidService.placeBid("bidder1", activeAuction.getId(),
+            bidCommandService.placeBid("bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
 
-            assertThatThrownBy(() -> bidService.placeBid(
+            assertThatThrownBy(() -> bidCommandService.placeBid(
                     "bidder2", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_500))))
                     .isInstanceOf(InvalidBidAmountException.class);
@@ -143,7 +146,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("판매자 본인은 입찰할 수 없다")
         void placeBid_sellerCannotBid() {
-            assertThatThrownBy(() -> bidService.placeBid(
+            assertThatThrownBy(() -> bidCommandService.placeBid(
                     "seller1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000))))
                     .isInstanceOf(UnauthorizedAuctionAccessException.class);
@@ -162,7 +165,7 @@ class BidServiceIntegrationTest {
                     .endTime(LocalDateTime.now().plusDays(2))
                     .build());
 
-            assertThatThrownBy(() -> bidService.placeBid(
+            assertThatThrownBy(() -> bidCommandService.placeBid(
                     "bidder1", scheduled.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000))))
                     .isInstanceOf(InvalidAuctionStatusException.class);
@@ -171,7 +174,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("존재하지 않는 경매에 입찰하면 예외가 발생한다")
         void placeBid_auctionNotFound() {
-            assertThatThrownBy(() -> bidService.placeBid(
+            assertThatThrownBy(() -> bidCommandService.placeBid(
                     "bidder1", 999_999L,
                     new BidCreateRequest(BigDecimal.valueOf(15_000))))
                     .isInstanceOf(AuctionNotFoundException.class);
@@ -180,7 +183,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("즉시 구매가 이상으로 입찰하면 경매가 ENDED로 종료되고 product-service 상태가 갱신된다")
         void placeBid_buyNowEndsAuction() {
-            BidResponse response = bidService.placeBid(
+            BidResponse response = bidCommandService.placeBid(
                     "bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(100_000)));
 
@@ -193,8 +196,8 @@ class BidServiceIntegrationTest {
 
             assertThat(outBoxEventRepository.findAll())
                     .filteredOn(e -> "Product".equals(e.getEntity()))
-                    .filteredOn(e -> "1".equals(e.getAggregateId()))
-                    .filteredOn(e -> "product.status.update_requested".equals(e.getEventType()))
+                    .filteredOn(e -> "Product:1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "UPDATE".equals(e.getEventType()))
                     .singleElement()
                     .extracting(e -> e.getPayload().contains("AUCTION_COMPLETED"))
                     .isEqualTo(true);
@@ -203,7 +206,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("일반 입찰은 product-service 상태 갱신을 호출하지 않는다")
         void placeBid_normalDoesNotUpdateProductStatus() {
-            bidService.placeBid("bidder1", activeAuction.getId(),
+            bidCommandService.placeBid("bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
 
             assertThat(outBoxEventRepository.findAll()).isEmpty();
@@ -217,12 +220,12 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("경매의 입찰 이력을 금액 내림차순으로 페이징해 반환한다")
         void getBidHistory_success() {
-            bidService.placeBid("bidder1", activeAuction.getId(),
+            bidCommandService.placeBid("bidder1", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(15_000)));
-            bidService.placeBid("bidder2", activeAuction.getId(),
+            bidCommandService.placeBid("bidder2", activeAuction.getId(),
                     new BidCreateRequest(BigDecimal.valueOf(20_000)));
 
-            Page<BidResponse> page = bidService.getBidHistory(
+            Page<BidResponse> page = bidQueryService.getBidHistory(
                     activeAuction.getId(), PageRequest.of(0, 10));
 
             assertThat(page.getTotalElements()).isEqualTo(2);
@@ -234,7 +237,7 @@ class BidServiceIntegrationTest {
         @Test
         @DisplayName("존재하지 않는 경매의 입찰 이력 조회 시 예외가 발생한다")
         void getBidHistory_auctionNotFound() {
-            assertThatThrownBy(() -> bidService.getBidHistory(
+            assertThatThrownBy(() -> bidQueryService.getBidHistory(
                     999_999L, PageRequest.of(0, 10)))
                     .isInstanceOf(AuctionNotFoundException.class);
         }

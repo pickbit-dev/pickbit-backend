@@ -13,7 +13,6 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
-import java.io.InputStream;
 import java.net.URL;
 import java.time.Duration;
 
@@ -25,8 +24,7 @@ public class NcpObjectStorageClient {
     private final S3Presigner s3Presigner;
     private final S3Properties s3Properties;
 
-    public String upload(String key, InputStream inputStream, long contentLength,
-                         String contentType, Visibility visibility) {
+    public String upload(String key, byte[] bytes, String contentType, Visibility visibility) {
         try {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(s3Properties.bucketName())
@@ -37,9 +35,11 @@ public class NcpObjectStorageClient {
                             : ObjectCannedACL.PRIVATE)
                     .build();
 
-            s3Client.putObject(request, RequestBody.fromInputStream(inputStream, contentLength));
+            s3Client.putObject(request, RequestBody.fromBytes(bytes));
         } catch (S3Exception e) {
             throw new StorageUploadException("NCP Object Storage 업로드 실패: " + key, e);
+        } catch (RuntimeException e) {
+            throw new StorageUploadException("NCP Object Storage 업로드 중 오류 발생: " + key, e);
         }
 
         return "%s/%s/%s".formatted(s3Properties.endpoint(), s3Properties.bucketName(), key);

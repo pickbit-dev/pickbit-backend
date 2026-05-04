@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -86,13 +85,8 @@ public class BidProcessor {
                     auctionId,
                     AuctionBidEvent.ofEnded(bidderNickname, request.bidAmount())
             ));
-            outboxRecorder.record(
-                    "Product",
-                    String.valueOf(auction.getProductId()),
-                    "product.status.update_requested",
-                    "UPDATE",
-                    Map.of("productId", auction.getProductId(), "status", "AUCTION_COMPLETED", "reason", "BUY_NOW_COMPLETED", "auctionId", auction.getId())
-            );
+            outboxRecorder.productStatusUpdateEvent(
+                    auction.getProductId(), "AUCTION_COMPLETED", "BUY_NOW_COMPLETED", auction.getId());
         } else {
             eventPublisher.publishEvent(new AuctionRealtimeEvent(
                     auctionId,

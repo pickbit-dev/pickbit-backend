@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -117,14 +116,9 @@ public class AuctionScheduler {
         }
     }
 
+
     private void recordProductStatusUpdate(Long productId, String status, String reason, Long auctionId) {
-        outboxRecorder.record(
-                "Product",
-                String.valueOf(productId),
-                "product.status.update_requested",
-                "UPDATE",
-                Map.of("productId", productId, "status", status, "reason", reason, "auctionId", auctionId)
-        );
+        outboxRecorder.productStatusUpdateEvent(productId, status, reason, auctionId);
     }
 
     private void publishAuctionEvent(Long auctionId, AuctionBidEvent event) {

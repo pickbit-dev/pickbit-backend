@@ -2,7 +2,8 @@ package com.pickbit.productservice.api;
 
 import com.pickbit.productservice.api.dto.request.ProductStatusUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
-import com.pickbit.productservice.application.ProductService;
+import com.pickbit.productservice.application.ProductCommandService;
+import com.pickbit.productservice.application.ProductQueryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,11 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class InternalProductController {
 
-    private final ProductService productService;
+    private final ProductCommandService productCommandService;
+    private final ProductQueryService productQueryService;
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductDetailResponse> getInternalProduct(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getInternalProduct(id));
+        return ResponseEntity.ok(productQueryService.getInternalProduct(id));
     }
 
     /**
@@ -48,7 +50,7 @@ public class InternalProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductStatusUpdateRequest request
     ) {
-        productService.updateProductStatus(id, request.status());
+        productCommandService.updateProductStatus(id, request.status());
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,7 +1,7 @@
 package com.pickbit.productservice.application.event;
 
 import com.pickbit.productservice.application.InboxService;
-import com.pickbit.productservice.application.ProductService;
+import com.pickbit.productservice.application.ProductCommandService;
 import com.pickbit.productservice.exception.kafka.KafkaDuplicateEventException;
 import com.pickbit.productservice.exception.kafka.KafkaInvalidMessageException;
 import com.pickbit.productservice.exception.kafka.KafkaSyncException;
@@ -18,7 +18,7 @@ public class ProductStatusEventHandler {
     public static final String TOPIC = "Product-topic";
     private static final String UPDATE_ACTION = "UPDATE";
 
-    private final ProductService productService;
+    private final ProductCommandService productCommandService;
     private final InboxService inboxService;
     private final EventHandlerSupport eventHandlerSupport;
 
@@ -32,7 +32,7 @@ public class ProductStatusEventHandler {
         validateAggregateId(aggregateId, event);
 
         try {
-            productService.updateProductStatus(event.productId(), event.status());
+            productCommandService.updateProductStatus(event.productId(), event.status());
             inboxService.recordSuccess(eventId, TOPIC, UPDATE_ACTION, aggregateId, messageBody);
             log.info("상품 상태 이벤트 처리 완료. eventId={}, productId={}, status={}, reason={}, auctionId={}",
                     eventId, event.productId(), event.status(), event.reason(), event.auctionId());
@@ -47,10 +47,11 @@ public class ProductStatusEventHandler {
         if (event.productId() == null || event.status() == null) {
             throw new KafkaInvalidMessageException("productId와 status는 필수입니다.");
         }
-        if (!String.valueOf(event.productId()).equals(aggregateId)) {
+        String expectedAggregateId = "Product:" + event.productId();
+        if (!expectedAggregateId.equals(aggregateId)) {
             throw new KafkaInvalidMessageException(
-                    "Kafka key와 payload productId가 일치하지 않습니다. key=%s, productId=%s"
-                            .formatted(aggregateId, event.productId()));
+                    "Kafka key와 payload productId가 일치하지 않습니다. key=%s, expected=%s"
+                            .formatted(aggregateId, expectedAggregateId));
         }
     }
 }

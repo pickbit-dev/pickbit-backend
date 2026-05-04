@@ -30,9 +30,10 @@ public class ProductStatusEventListener {
             @Payload String messageBody
     ) {
         try {
-            switch (action) {
-                case "UPDATE" -> eventHandler.handleUpdate(eventId, aggregateId, messageBody);
-                default -> log.warn("지원하지 않는 상품 action: {}", action);
+            if (action.equals("UPDATE")) {
+                eventHandler.handleUpdate(eventId, aggregateId, messageBody);
+            } else {
+                log.warn("지원하지 않는 상품 action: {}", action);
             }
         } catch (KafkaDuplicateEventException e) {
             log.warn("중복 이벤트 스킵: {}", e.getMessage());

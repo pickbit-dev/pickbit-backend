@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public class ProductQueryRepository extends QueryBaseRepository<Product, QProduct> {
@@ -31,6 +32,11 @@ public class ProductQueryRepository extends QueryBaseRepository<Product, QProduc
     @Override
     protected QProduct getQEntity() {
         return QProduct.product;
+    }
+
+    @Override
+    protected Set<String> getSortableFields() {
+        return Set.of("id", "createdDate", "updatedDate", "startingPrice");
     }
 
     public Page<Product> search(ProductSearchCondition condition, Pageable pageable) {

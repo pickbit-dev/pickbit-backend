@@ -32,9 +32,6 @@ public class OutBoxEvent extends BaseEntity {
     @Column(comment = "이벤트 타입")
     private String eventType;
 
-    @Column(nullable = false, length = 50, comment = "이벤트 액션")
-    private String action;
-
     @Column(nullable = false, comment = "Aggregate ID (Partition Key)")
     private String aggregateId;
 
