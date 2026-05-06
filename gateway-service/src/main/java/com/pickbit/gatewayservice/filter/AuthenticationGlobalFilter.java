@@ -3,7 +3,6 @@ package com.pickbit.gatewayservice.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.gatewayservice.dto.AuthValidateRequest;
 import com.pickbit.gatewayservice.dto.AuthValidateResponse;
-import com.pickbit.library.auth.AuthHeaders;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -35,6 +34,10 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String AUTH_SERVICE_VALIDATE_URL = "http://auth-service/api/auth/validate";
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String USER_ROLE_HEADER = "X-User-Role";
+    private static final String USER_PROVIDER_HEADER = "X-User-Provider";
+    private static final String USER_EMAIL_HEADER = "X-User-Email";
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
@@ -56,10 +59,10 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
         return validate(token)
                 .flatMap(user -> {
                     ServerHttpRequest modifiedRequest = request.mutate()
-                            .header(AuthHeaders.USER_ID, String.valueOf(user.accountId()))
-                            .header(AuthHeaders.USER_ROLE, user.role())
-                            .header(AuthHeaders.USER_PROVIDER, user.provider())
-                            .header(AuthHeaders.USER_EMAIL, user.email())
+                            .header(USER_ID_HEADER, String.valueOf(user.accountId()))
+                            .header(USER_ROLE_HEADER, user.role())
+                            .header(USER_PROVIDER_HEADER, user.provider())
+                            .header(USER_EMAIL_HEADER, user.email())
                             .build();
                     return chain.filter(exchange.mutate().request(modifiedRequest).build());
                 })

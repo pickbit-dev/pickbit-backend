@@ -6,7 +6,6 @@ description = 'gateway-service'
 version = '0.0.1-SNAPSHOT'
 
 dependencies {
-    implementation project(':library')
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
