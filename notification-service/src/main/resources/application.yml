@@ -1,3 +1,18 @@
 spring:
   application:
     name: notification-service
+
+  cloud:
+    consul:
+      discovery:
+        service-name: notification-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        metadata:
+          gateway-path: /api/notifications/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,2 +1,9 @@
+spring:
+  cloud:
+    consul:
+      enabled: true
+      host: consul-server
+      port: 8500
+
 server:
   port: 8084

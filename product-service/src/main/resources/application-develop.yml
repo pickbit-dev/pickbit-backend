@@ -22,6 +22,12 @@ spring:
     hibernate:
       ddl-auto: update
 
+  cloud:
+    consul:
+      enabled: true
+      host: localhost
+      port: 8500
+
 
 server:
   port: 8082
@@ -43,4 +49,3 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: false
-

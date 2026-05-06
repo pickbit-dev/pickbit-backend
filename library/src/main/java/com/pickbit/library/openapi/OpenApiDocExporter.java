@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
@@ -44,7 +45,7 @@ public class OpenApiDocExporter {
             Files.write(outputPath, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
             log.info("[OpenApiDocExporter] OpenAPI spec saved: {}", outputPath.toAbsolutePath());
-        } catch (IOException e) {
+        } catch (IOException | RestClientException e) {
             log.warn("[OpenApiDocExporter] Failed to save OpenAPI spec: {}", e.getMessage());
         }
     }

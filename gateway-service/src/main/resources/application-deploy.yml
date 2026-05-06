@@ -1,0 +1,21 @@
+spring:
+  config:
+    activate:
+      on-profile: deploy
+
+  cloud:
+    consul:
+      enabled: true
+      host: consul-server
+      port: 8500
+      discovery:
+        service-name: gateway-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+
+server:
+  port: 8080
+
+cors:
+  allowed-origins:
+    - "https://*.pickbit.com"

@@ -3,6 +3,12 @@ spring:
     activate:
       on-profile: develop
 
+  cloud:
+    consul:
+      enabled: true
+      host: localhost
+      port: 8500
+
 server:
   port: 8083
 
@@ -23,4 +29,3 @@ ncp:
     endpoint: https://kr.object.ncloudstorage.com
     region: kr-standard
     bucket-name: pickbit-server-develop-storage
-
