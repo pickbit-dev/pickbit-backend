@@ -2,6 +2,7 @@ package com.pickbit.authservice.application.command;
 
 import com.pickbit.authservice.api.dto.request.LoginRequest;
 import com.pickbit.authservice.api.dto.request.LogoutRequest;
+import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
 import com.pickbit.authservice.api.dto.request.RefreshRequest;
 import com.pickbit.authservice.api.dto.request.SignupRequest;
 import com.pickbit.authservice.api.dto.response.AuthAccountResponse;
@@ -13,8 +14,10 @@ import com.pickbit.authservice.exception.DuplicateEmailException;
 import com.pickbit.authservice.exception.InvalidCredentialException;
 import com.pickbit.authservice.exception.InvalidTokenException;
 import com.pickbit.authservice.infrastructure.persistence.AuthAccountRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.RefreshTokenRedisRepository;
 import com.pickbit.authservice.security.JwtTokenProvider;
+import com.pickbit.authservice.security.oauth.OAuthUserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class AuthCommandService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRedisRepository refreshTokenRedisRepository;
+    private final OAuthExchangeCodeRepository exchangeCodeRepository;
     private final OutboxRecorder outboxRecorder;
 
     @Transactional
@@ -56,6 +60,26 @@ public class AuthCommandService {
 
         account.recordLogin();
         return issueTokens(account);
+    }
+
+    @Transactional
+    public TokenResponse oauthLogin(OAuthUserInfo userInfo) {
+        AuthAccount account = authAccountRepository
+                .findByOauthProviderAndOauthProviderId(userInfo.provider(), userInfo.providerId())
+                .orElseGet(() -> createOAuthAccount(userInfo));
+
+        if (!account.getEnabled()) {
+            throw new InvalidCredentialException();
+        }
+
+        account.recordLogin();
+        return issueTokens(account);
+    }
+
+    @Transactional
+    public TokenResponse exchangeOAuthCode(OAuthExchangeRequest request) {
+        return exchangeCodeRepository.consume(request.code())
+                .orElseThrow(() -> new InvalidTokenException("유효하지 않은 OAuth exchange code입니다."));
     }
 
     @Transactional
@@ -87,5 +111,13 @@ public class AuthCommandService {
                 jwtTokenProvider.getAccessTokenValidityMs(),
                 jwtTokenProvider.getRefreshTokenValidityMs()
         );
+    }
+
+    private AuthAccount createOAuthAccount(OAuthUserInfo userInfo) {
+        AuthAccount saved = authAccountRepository.save(
+                AuthAccount.oauth(userInfo.email(), userInfo.provider(), userInfo.providerId())
+        );
+        outboxRecorder.signupEvent(saved, userInfo.nickname());
+        return saved;
     }
 }

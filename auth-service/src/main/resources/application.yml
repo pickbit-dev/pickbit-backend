@@ -21,3 +21,6 @@ jwt:
   secret: ${JWT_SECRET:pickbit-local-development-jwt-secret-key-32bytes-minimum}
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
   refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY_MS:1209600000}
+
+frontend:
+  oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL:http://192.168.20.70:3000/oauth/callback}

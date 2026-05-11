@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -41,7 +42,7 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
     public @NonNull Flux<RouteDefinition> getRouteDefinitions() {
         return Flux.fromIterable(getConsulServices())
                 .filter(this::shouldCreateRoute)
-                .map(this::createRouteDefinition)
+                .flatMapIterable(this::createRouteDefinitions)
                 .doOnNext(this::cacheRoute)
                 .concatWith(Flux.fromIterable(cleanupOrphanedRoutes()))
                 .onErrorResume(error -> {
@@ -54,17 +55,24 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         if (!shouldCreateRoute(serviceName)) {
             return;
         }
-        RouteDefinition definition = createRouteDefinition(serviceName);
-        cachedRoutes.put(definition.getId(), definition);
-        cacheRoute(definition);
+        for (RouteDefinition definition : createRouteDefinitions(serviceName)) {
+            cachedRoutes.put(definition.getId(), definition);
+            cacheRoute(definition);
+        }
         publishRefreshEvent();
     }
 
     public void removeRoute(String serviceName) {
-        String routeId = routeId(serviceName);
-        if (cachedRoutes.remove(routeId) != null) {
-            loggedRoutes.remove(routeId);
-            log.info("Consul 라우트 제거: {}", routeId);
+        String routePrefix = routePrefix(serviceName);
+        boolean removed = cachedRoutes.entrySet().removeIf(entry -> {
+            boolean matched = entry.getKey().startsWith(routePrefix);
+            if (matched) {
+                loggedRoutes.remove(entry.getKey());
+                log.info("Consul 라우트 제거: {}", entry.getKey());
+            }
+            return matched;
+        });
+        if (removed) {
             publishRefreshEvent();
         }
     }
@@ -93,33 +101,44 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
                 && !serviceName.startsWith("consul");
     }
 
-    private RouteDefinition createRouteDefinition(String serviceName) {
+    private List<RouteDefinition> createRouteDefinitions(String serviceName) {
+        List<String> paths = resolveGatewayPaths(serviceName);
+        return paths.stream()
+                .map(path -> createRouteDefinition(serviceName, path, paths.indexOf(path)))
+                .toList();
+    }
+
+    private RouteDefinition createRouteDefinition(String serviceName, String path, int index) {
         RouteDefinition definition = new RouteDefinition();
-        definition.setId(routeId(serviceName));
+        definition.setId(routeId(serviceName, index));
         definition.setUri(URI.create("lb://" + serviceName));
 
         PredicateDefinition pathPredicate = new PredicateDefinition();
         pathPredicate.setName("Path");
-        pathPredicate.addArg("pattern", resolveGatewayPath(serviceName));
+        pathPredicate.addArg("pattern", path);
         definition.setPredicates(List.of(pathPredicate));
         definition.setFilters(List.of());
         return definition;
     }
 
-    private String resolveGatewayPath(String serviceName) {
+    private List<String> resolveGatewayPaths(String serviceName) {
         try {
             List<ServiceInstance> instances = consulDiscoveryClient.getInstances(serviceName);
             for (ServiceInstance instance : instances) {
                 String path = instance.getMetadata().get(GATEWAY_PATH_METADATA);
                 if (StringUtils.hasText(path)) {
-                    return path;
+                    return Arrays.stream(path.split(","))
+                            .map(String::trim)
+                            .filter(StringUtils::hasText)
+                            .distinct()
+                            .toList();
                 }
             }
         } catch (Exception e) {
             log.warn("서비스 metadata 조회 실패. serviceName={}, error={}", serviceName, e.getMessage());
         }
         String prefix = serviceName.replace("-service", "");
-        return "/api/" + prefix + "/**";
+        return List.of("/api/" + prefix + "/**");
     }
 
     private void cacheRoute(RouteDefinition definition) {
@@ -134,7 +153,7 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         Set<String> validRouteIds = new HashSet<>();
         for (String service : getConsulServices()) {
             if (shouldCreateRoute(service)) {
-                validRouteIds.add(routeId(service));
+                createRouteDefinitions(service).forEach(definition -> validRouteIds.add(definition.getId()));
             }
         }
         cachedRoutes.entrySet().removeIf(entry -> {
@@ -152,7 +171,11 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
-    private String routeId(String serviceName) {
-        return "consul-" + serviceName;
+    private String routeId(String serviceName, int index) {
+        return routePrefix(serviceName) + index;
+    }
+
+    private String routePrefix(String serviceName) {
+        return "consul-" + serviceName + "-";
     }
 }

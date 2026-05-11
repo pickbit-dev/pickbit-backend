@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "Auction", description = "경매 관리 API")
 @RestController
-@RequestMapping("/auctions")
+@RequestMapping("/api/auctions")
 @RequiredArgsConstructor
 public class AuctionController {
 

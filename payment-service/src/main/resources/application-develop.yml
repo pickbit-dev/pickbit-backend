@@ -6,7 +6,7 @@ spring:
       port: 8500
 
 server:
-  port: 8087
+  port: 8086
 
 openapi:
   docs-export:

@@ -1,9 +1,37 @@
 spring:
+  config:
+    activate:
+      on-profile: deploy
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${AUCTION_MYSQL_USERNAME}
+    password: ${AUCTION_MYSQL_PASSWORD}
+    url: ${AUCTION_MYSQL_URL}
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
+      host: ${CONSUL_HOST:consul-server}
+      port: ${CONSUL_PORT:8500}
+
+  jpa:
+    database: mysql
+    hibernate:
+      ddl-auto: validate
+
+client:
+  product-service:
+    base-url: ${PRODUCT_SERVICE_BASE_URL:http://product-service}
+
+auction:
+  scheduler:
+    cron: ${AUCTION_SCHEDULER_CRON:0 * * * * *}
 
 resilience4j:
   circuitbreaker:
@@ -21,4 +49,10 @@ resilience4j:
         maxWaitDuration: 100ms
 
 server:
-  port: 8085
+  port: ${AUCTION_SERVER_PORT:8085}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

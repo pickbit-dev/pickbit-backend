@@ -26,7 +26,7 @@ import java.util.List;
  */
 @Tag(name = "File", description = "파일 업로드 API")
 @RestController
-@RequestMapping("api/files")
+@RequestMapping("/api/files")
 @RequiredArgsConstructor
 public class FileController {
 

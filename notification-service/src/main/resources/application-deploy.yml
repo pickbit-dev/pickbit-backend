@@ -1,9 +1,19 @@
 spring:
+  config:
+    activate:
+      on-profile: deploy
+
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
+      host: ${CONSUL_HOST:consul-server}
+      port: ${CONSUL_PORT:8500}
 
 server:
-  port: 8084
+  port: ${NOTIFICATION_SERVER_PORT:8087}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

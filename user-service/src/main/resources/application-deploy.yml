@@ -1,5 +1,30 @@
+spring:
+  config:
+    activate:
+      on-profile: deploy
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${USER_MYSQL_USERNAME}
+    password: ${USER_MYSQL_PASSWORD}
+    url: ${USER_MYSQL_URL}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+
+  cloud:
+    consul:
+      enabled: true
+      host: ${CONSUL_HOST:consul-server}
+      port: ${CONSUL_PORT:8500}
+
+  jpa:
+    database: mysql
+    hibernate:
+      ddl-auto: validate
+
 server:
-  port: 8086
+  port: ${USER_SERVER_PORT:8082}
 
 springdoc:
   api-docs:

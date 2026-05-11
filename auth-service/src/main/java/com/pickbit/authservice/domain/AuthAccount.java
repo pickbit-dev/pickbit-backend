@@ -70,6 +70,17 @@ public class AuthAccount extends BaseEntity {
                 .build();
     }
 
+    public static AuthAccount oauth(String email, OAuthProvider provider, String providerId) {
+        return AuthAccount.builder()
+                .email(email)
+                .oauthProvider(provider)
+                .oauthProviderId(providerId)
+                .role(Role.USER)
+                .enabled(true)
+                .emailVerified(true)
+                .build();
+    }
+
     public void recordLogin() {
         this.lastLoginAt = LocalDateTime.now();
     }

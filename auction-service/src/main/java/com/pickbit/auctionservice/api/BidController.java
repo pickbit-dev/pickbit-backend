@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "Bid", description = "입찰 API")
 @RestController
-@RequestMapping("/auctions/{auctionId}/bids")
+@RequestMapping("/api/auctions/{auctionId}/bids")
 @RequiredArgsConstructor
 public class BidController {
 

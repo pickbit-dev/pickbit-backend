@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "Internal Product", description = "내부 서비스 간 상품 상태 관리 API")
 @RestController
-@RequestMapping("/internal/products")
+@RequestMapping("/api/internal/products")
 @RequiredArgsConstructor
 public class InternalProductController {
 
