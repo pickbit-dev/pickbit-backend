@@ -1,3 +1,18 @@
 spring:
   application:
     name: auction-service
+
+  cloud:
+    consul:
+      discovery:
+        service-name: auction-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        metadata:
+          gateway-path: /api/auctions/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

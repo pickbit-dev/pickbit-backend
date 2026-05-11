@@ -13,6 +13,7 @@ import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
+import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.library.dto.PageResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,10 +44,16 @@ import static org.mockito.BDDMockito.given;
 class AuctionServiceIntegrationTest {
 
     @Autowired
-    private AuctionService auctionService;
+    private AuctionCommandService auctionCommandService;
+
+    @Autowired
+    private AuctionQueryService auctionQueryService;
 
     @Autowired
     private AuctionRepository auctionRepository;
+
+    @Autowired
+    private OutBoxEventRepository outBoxEventRepository;
 
     @MockitoBean
     private ProductServiceClient productServiceClient;
@@ -71,7 +78,6 @@ class AuctionServiceIntegrationTest {
                 BigDecimal.valueOf(10_000),
                 "ACTIVE",
                 "NEW",
-                "AUCTION",
                 "seller1",
                 10L,
                 "전자기기",
@@ -88,7 +94,7 @@ class AuctionServiceIntegrationTest {
         void createAuction_success() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
 
-            AuctionDetailResponse response = auctionService.createAuction("seller1", defaultRequest);
+            AuctionDetailResponse response = auctionCommandService.createAuction("seller1", defaultRequest);
 
             assertThat(response.id()).isNotNull();
             assertThat(response.productId()).isEqualTo(1L);
@@ -97,6 +103,12 @@ class AuctionServiceIntegrationTest {
             assertThat(response.currentPrice()).isEqualByComparingTo(BigDecimal.valueOf(10_000));
             assertThat(response.auctionStatus()).isEqualTo(AuctionStatus.SCHEDULED);
             assertThat(auctionRepository.existsById(response.id())).isTrue();
+            assertThat(outBoxEventRepository.findAll())
+                    .filteredOn(e -> "Product".equals(e.getEntity()))
+                    .filteredOn(e -> "Product:1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "UPDATE".equals(e.getEventType()))
+                    .filteredOn(e -> e.getPayload().contains("AUCTION_SCHEDULED"))
+                    .singleElement();
         }
 
         @Test
@@ -104,24 +116,11 @@ class AuctionServiceIntegrationTest {
         void createAuction_productNotActive() {
             ProductResponse soldOut = new ProductResponse(
                     1L, "테스트 상품", "설명", BigDecimal.valueOf(10_000),
-                    "SOLD_OUT", "NEW", "AUCTION", "seller1", 10L, "전자기기", List.of()
+                    "SOLD_OUT", "NEW", "seller1", 10L, "전자기기", List.of()
             );
             given(productServiceClient.getProduct(1L)).willReturn(soldOut);
 
-            assertThatThrownBy(() -> auctionService.createAuction("seller1", defaultRequest))
-                    .isInstanceOf(InvalidProductForAuctionException.class);
-        }
-
-        @Test
-        @DisplayName("상품 listingType이 AUCTION이 아니면 예외가 발생한다")
-        void createAuction_notAuctionListing() {
-            ProductResponse normal = new ProductResponse(
-                    1L, "테스트 상품", "설명", BigDecimal.valueOf(10_000),
-                    "ACTIVE", "NEW", "NORMAL", "seller1", 10L, "전자기기", List.of()
-            );
-            given(productServiceClient.getProduct(1L)).willReturn(normal);
-
-            assertThatThrownBy(() -> auctionService.createAuction("seller1", defaultRequest))
+            assertThatThrownBy(() -> auctionCommandService.createAuction("seller1", defaultRequest))
                     .isInstanceOf(InvalidProductForAuctionException.class);
         }
 
@@ -130,7 +129,7 @@ class AuctionServiceIntegrationTest {
         void createAuction_sellerMismatch() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
 
-            assertThatThrownBy(() -> auctionService.createAuction("otherSeller", defaultRequest))
+            assertThatThrownBy(() -> auctionCommandService.createAuction("otherSeller", defaultRequest))
                     .isInstanceOf(UnauthorizedAuctionAccessException.class);
         }
 
@@ -138,9 +137,9 @@ class AuctionServiceIntegrationTest {
         @DisplayName("진행 중이거나 예정된 동일 상품의 경매가 이미 있으면 예외가 발생한다")
         void createAuction_duplicateActiveAuction() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            auctionService.createAuction("seller1", defaultRequest);
+            auctionCommandService.createAuction("seller1", defaultRequest);
 
-            assertThatThrownBy(() -> auctionService.createAuction("seller1", defaultRequest))
+            assertThatThrownBy(() -> auctionCommandService.createAuction("seller1", defaultRequest))
                     .isInstanceOf(InvalidAuctionStatusException.class);
         }
 
@@ -158,7 +157,7 @@ class AuctionServiceIntegrationTest {
                     now.plusDays(1)
             );
 
-            assertThatThrownBy(() -> auctionService.createAuction("seller1", invalid))
+            assertThatThrownBy(() -> auctionCommandService.createAuction("seller1", invalid))
                     .isInstanceOf(InvalidAuctionStatusException.class);
         }
     }
@@ -171,9 +170,9 @@ class AuctionServiceIntegrationTest {
         @DisplayName("존재하는 경매 ID로 조회하면 상세 응답을 반환한다")
         void getAuction_success() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            AuctionDetailResponse created = auctionService.createAuction("seller1", defaultRequest);
+            AuctionDetailResponse created = auctionCommandService.createAuction("seller1", defaultRequest);
 
-            AuctionDetailResponse response = auctionService.getAuction(created.id());
+            AuctionDetailResponse response = auctionQueryService.getAuction(created.id());
 
             assertThat(response.id()).isEqualTo(created.id());
             assertThat(response.productId()).isEqualTo(1L);
@@ -182,7 +181,7 @@ class AuctionServiceIntegrationTest {
         @Test
         @DisplayName("존재하지 않는 경매 ID로 조회하면 예외가 발생한다")
         void getAuction_notFound() {
-            assertThatThrownBy(() -> auctionService.getAuction(999_999L))
+            assertThatThrownBy(() -> auctionQueryService.getAuction(999_999L))
                     .isInstanceOf(AuctionNotFoundException.class);
         }
     }
@@ -195,10 +194,10 @@ class AuctionServiceIntegrationTest {
         @DisplayName("status 없이 조회하면 모든 경매를 반환한다")
         void getAuctions_withoutStatusFilter() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            auctionService.createAuction("seller1", defaultRequest);
+            auctionCommandService.createAuction("seller1", defaultRequest);
 
             PageResponse<AuctionSummaryResponse> page =
-                    auctionService.getAuctions(null, PageRequest.of(0, 10));
+                    auctionQueryService.getAuctions(null, PageRequest.of(0, 10));
 
             assertThat(page.totalElements()).isEqualTo(1);
         }
@@ -207,12 +206,12 @@ class AuctionServiceIntegrationTest {
         @DisplayName("status로 필터하면 해당 상태의 경매만 반환한다")
         void getAuctions_withStatusFilter() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            auctionService.createAuction("seller1", defaultRequest);
+            auctionCommandService.createAuction("seller1", defaultRequest);
 
             PageResponse<AuctionSummaryResponse> scheduled =
-                    auctionService.getAuctions(AuctionStatus.SCHEDULED, PageRequest.of(0, 10));
+                    auctionQueryService.getAuctions(AuctionStatus.SCHEDULED, PageRequest.of(0, 10));
             PageResponse<AuctionSummaryResponse> active =
-                    auctionService.getAuctions(AuctionStatus.ACTIVE, PageRequest.of(0, 10));
+                    auctionQueryService.getAuctions(AuctionStatus.ACTIVE, PageRequest.of(0, 10));
 
             assertThat(scheduled.totalElements()).isEqualTo(1);
             assertThat(active.totalElements()).isZero();
@@ -227,21 +226,27 @@ class AuctionServiceIntegrationTest {
         @DisplayName("판매자 본인이 SCHEDULED 경매를 취소하면 CANCELLED로 변경된다")
         void cancelAuction_success() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            AuctionDetailResponse created = auctionService.createAuction("seller1", defaultRequest);
+            AuctionDetailResponse created = auctionCommandService.createAuction("seller1", defaultRequest);
 
-            auctionService.cancelAuction("seller1", created.id());
+            auctionCommandService.cancelAuction("seller1", created.id());
 
             Auction reloaded = auctionRepository.findById(created.id()).orElseThrow();
             assertThat(reloaded.getAuctionStatus()).isEqualTo(AuctionStatus.CANCELLED);
+            assertThat(outBoxEventRepository.findAll())
+                    .filteredOn(e -> "Product".equals(e.getEntity()))
+                    .filteredOn(e -> "Product:1".equals(e.getAggregateId()))
+                    .filteredOn(e -> "UPDATE".equals(e.getEventType()))
+                    .filteredOn(e -> e.getPayload().contains("AUCTION_CANCELLED"))
+                    .singleElement();
         }
 
         @Test
         @DisplayName("판매자 본인이 아니면 예외가 발생한다")
         void cancelAuction_notOwner() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            AuctionDetailResponse created = auctionService.createAuction("seller1", defaultRequest);
+            AuctionDetailResponse created = auctionCommandService.createAuction("seller1", defaultRequest);
 
-            assertThatThrownBy(() -> auctionService.cancelAuction("otherSeller", created.id()))
+            assertThatThrownBy(() -> auctionCommandService.cancelAuction("otherSeller", created.id()))
                     .isInstanceOf(UnauthorizedAuctionAccessException.class);
         }
 
@@ -249,10 +254,10 @@ class AuctionServiceIntegrationTest {
         @DisplayName("SCHEDULED가 아닌 경매는 취소할 수 없다")
         void cancelAuction_notScheduled() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
-            AuctionDetailResponse created = auctionService.createAuction("seller1", defaultRequest);
+            AuctionDetailResponse created = auctionCommandService.createAuction("seller1", defaultRequest);
             auctionRepository.findById(created.id()).orElseThrow().activate();
 
-            assertThatThrownBy(() -> auctionService.cancelAuction("seller1", created.id()))
+            assertThatThrownBy(() -> auctionCommandService.cancelAuction("seller1", created.id()))
                     .isInstanceOf(InvalidAuctionStatusException.class);
         }
     }

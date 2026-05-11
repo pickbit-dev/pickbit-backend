@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  cloud:
+    consul:
+      enabled: false
+      host: localhost
+      port: 8500
+
+server:
+  port: 8080

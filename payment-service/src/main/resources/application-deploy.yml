@@ -1,2 +1,19 @@
+spring:
+  config:
+    activate:
+      on-profile: deploy
+
+  cloud:
+    consul:
+      enabled: true
+      host: ${CONSUL_HOST:consul-server}
+      port: ${CONSUL_PORT:8500}
+
 server:
-  port: 8083
+  port: ${PAYMENT_SERVER_PORT:8086}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

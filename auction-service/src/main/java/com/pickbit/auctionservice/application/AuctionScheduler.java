@@ -1,15 +1,19 @@
 package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
+import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
+import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.auctionservice.domain.enums.BidStatus;
-import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,20 +21,23 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuctionScheduler {
 
-    private static final String AUCTION_TOPIC = "/topic/auctions/";
+    private static final String BID_LOCK_KEY = "auction:bid:lock:";
 
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
-    private final ProductServiceClient productServiceClient;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
+    private final RedissonClient redissonClient;
+    private final OutboxRecorder outboxRecorder;
 
     @Scheduled(cron = "${auction.scheduler.cron}")
+    @SchedulerLock(name = "processAuctions", lockAtMostFor = "PT30S", lockAtLeastFor = "PT5S")
     @Transactional
     public void processAuctions() {
         LocalDateTime now = LocalDateTime.now();
@@ -41,7 +48,10 @@ public class AuctionScheduler {
     @Transactional
     public void activateScheduledAuctions(LocalDateTime now) {
         List<Auction> toActivate = auctionRepository.findScheduledAuctionsToActivate(now);
-        toActivate.forEach(Auction::activate);
+        toActivate.forEach(auction -> {
+            auction.activate();
+            recordProductStatusUpdate(auction.getProductId(), "IN_AUCTION", "AUCTION_STARTED", auction.getId());
+        });
         log.info("경매 활성화: {}건", toActivate.size());
     }
 
@@ -50,10 +60,41 @@ public class AuctionScheduler {
         List<Auction> expired = auctionRepository.findExpiredActiveAuctions(now);
         if (expired.isEmpty()) return;
 
+        int closed = 0;
         for (Auction auction : expired) {
-            closeAuction(auction);
+            if (closeAuctionWithLock(auction.getId())) {
+                closed++;
+            }
         }
-        log.info("경매 종료 처리: {}건", expired.size());
+        log.info("경매 종료 처리: {}건", closed);
+    }
+
+    private boolean closeAuctionWithLock(Long auctionId) {
+        RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(0, TimeUnit.SECONDS);
+            if (!acquired) {
+                log.warn("경매 종료 락 획득 실패. auctionId={}", auctionId);
+                return false;
+            }
+
+            Auction fresh = auctionRepository.findById(auctionId).orElse(null);
+            if (fresh == null || fresh.getAuctionStatus() != AuctionStatus.ACTIVE) {
+                return false;
+            }
+
+            closeAuction(fresh);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("경매 종료 락 대기 중 인터럽트. auctionId={}", auctionId, e);
+            return false;
+        } finally {
+            if (acquired && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     private void closeAuction(Auction auction) {
@@ -65,21 +106,22 @@ public class AuctionScheduler {
             winner.markWinning();
             auction.complete(winner.getBidderNickname(), winner.getAmount());
 
-            notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
-            productServiceClient.updateProductStatus(auction.getProductId(), "AUCTION_COMPLETED");
+            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
+            recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED", "AUCTION_ENDED_SOLD", auction.getId());
         } else {
             auction.endWithNoBids();
 
-            notifyAuctionEnded(auction.getId(), AuctionBidEvent.ofEndedNoBids());
-            productServiceClient.updateProductStatus(auction.getProductId(), "ACTIVE");
+            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEndedNoBids());
+            recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_ENDED_NO_BIDS", auction.getId());
         }
     }
 
-    private void notifyAuctionEnded(Long auctionId, AuctionBidEvent event) {
-        try {
-            messagingTemplate.convertAndSend(AUCTION_TOPIC + auctionId, event);
-        } catch (Exception e) {
-            log.error("경매 종료 WebSocket 알림 실패. auctionId={}", auctionId, e);
-        }
+
+    private void recordProductStatusUpdate(Long productId, String status, String reason, Long auctionId) {
+        outboxRecorder.productStatusUpdateEvent(productId, status, reason, auctionId);
+    }
+
+    private void publishAuctionEvent(Long auctionId, AuctionBidEvent event) {
+        eventPublisher.publishEvent(new AuctionRealtimeEvent(auctionId, event));
     }
 }

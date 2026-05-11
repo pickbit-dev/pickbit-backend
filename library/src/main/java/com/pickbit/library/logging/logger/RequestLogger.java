@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.library.logging.config.FilterProperties;
 import com.pickbit.library.logging.support.LoggingUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.web.util.ContentCachingRequestWrapper;
@@ -25,7 +26,7 @@ public class RequestLogger {
     /**
      * Log the start of a request (before processing)
      */
-    public void logRequestStart(ContentCachingRequestWrapper request) {
+    public void logRequestStart(HttpServletRequest request) {
 
         // Content-Type 설정
         if (request.getContentType() != null) {

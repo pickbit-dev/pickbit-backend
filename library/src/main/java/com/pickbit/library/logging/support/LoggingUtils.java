@@ -1,7 +1,7 @@
 package com.pickbit.library.logging.support;
 
 import org.slf4j.MDC;
-import org.springframework.web.util.ContentCachingRequestWrapper;
+import jakarta.servlet.http.HttpServletRequest;
 
 public class LoggingUtils {
 
@@ -9,7 +9,7 @@ public class LoggingUtils {
     private static final String MDC_REQUEST_URL = "request_url";
     private static final String MDC_QUERY = "query";
 
-    public static void setBasicMDC(ContentCachingRequestWrapper request) {
+    public static void setBasicMDC(HttpServletRequest request) {
 
         MDC.put(MDC_METHOD, request.getMethod());
         MDC.put(MDC_REQUEST_URL, request.getRequestURI());
@@ -47,6 +47,10 @@ public class LoggingUtils {
                 type.contains("application/xml") ||
                 type.contains("text/") ||
                 type.contains("application/x-www-form-urlencoded");
+    }
+
+    public static boolean isMultipartContentType(String contentType) {
+        return contentType != null && contentType.toLowerCase().contains("multipart/form-data");
     }
 
     public static boolean shouldSkipLogging(String uri, String[] excludedPaths) {

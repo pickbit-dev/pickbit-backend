@@ -1,2 +1,7 @@
+spring:
+  cloud:
+    consul:
+      enabled: false
+
 server:
-  port: 8083
+  port: 8086

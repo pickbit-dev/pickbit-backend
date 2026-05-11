@@ -7,7 +7,8 @@ import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
-import com.pickbit.productservice.application.ProductService;
+import com.pickbit.productservice.application.ProductCommandService;
+import com.pickbit.productservice.application.ProductQueryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,13 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "Product", description = "상품 관리 API")
 @RestController
-@RequestMapping("/products")
+@RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
 
     private static final String NICKNAME_HEADER = "nickname";
-    private final ProductService productService;
+    private final ProductCommandService productCommandService;
+    private final ProductQueryService productQueryService;
 
     /**
      * 상품 목록을 검색 조건에 따라 페이징 조회합니다.
@@ -40,7 +42,7 @@ public class ProductController {
             @ModelAttribute ProductSearchCondition condition,
             @ModelAttribute PageableRequest pageableRequest
     ) {
-        return ResponseEntity.ok(productService.searchProducts(
+        return ResponseEntity.ok(productQueryService.searchProducts(
                 condition, pageableRequest.toPageable(20)));
     }
 
@@ -57,7 +59,7 @@ public class ProductController {
             @RequestHeader(NICKNAME_HEADER) String nickname,
             @Valid @RequestBody ProductCreateRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(nickname, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productCommandService.createProduct(nickname, request));
     }
 
 
@@ -69,7 +71,7 @@ public class ProductController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ProductDetailResponse> getProduct(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getProduct(id));
+        return ResponseEntity.ok(productQueryService.getProduct(id));
     }
 
     /**
@@ -86,7 +88,7 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
-        return ResponseEntity.ok(productService.updateProduct(nickname, id, request));
+        return ResponseEntity.ok(productCommandService.updateProduct(nickname, id, request));
     }
 
     /**
@@ -101,7 +103,7 @@ public class ProductController {
             @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long id
     ) {
-        productService.deleteProduct(nickname, id);
+        productCommandService.deleteProduct(nickname, id);
         return ResponseEntity.noContent().build();
     }
 }

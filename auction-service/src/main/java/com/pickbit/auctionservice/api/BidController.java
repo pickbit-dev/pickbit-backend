@@ -2,7 +2,8 @@ package com.pickbit.auctionservice.api;
 
 import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
-import com.pickbit.auctionservice.application.BidService;
+import com.pickbit.auctionservice.application.BidCommandService;
+import com.pickbit.auctionservice.application.BidQueryService;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,13 +21,14 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "Bid", description = "입찰 API")
 @RestController
-@RequestMapping("/auctions/{auctionId}/bids")
+@RequestMapping("/api/auctions/{auctionId}/bids")
 @RequiredArgsConstructor
 public class BidController {
 
     private static final String NICKNAME_HEADER = "nickname";
 
-    private final BidService bidService;
+    private final BidCommandService bidCommandService;
+    private final BidQueryService bidQueryService;
 
     /**
      * 입찰을 제출합니다.
@@ -48,7 +50,7 @@ public class BidController {
             @Valid @RequestBody BidCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(bidService.placeBid(nickname, auctionId, request));
+                .body(bidCommandService.placeBid(nickname, auctionId, request));
     }
 
     /**
@@ -63,6 +65,6 @@ public class BidController {
             @PathVariable Long auctionId,
             @ModelAttribute PageableRequest pageableRequest
     ) {
-        return ResponseEntity.ok(PageResponse.from(bidService.getBidHistory(auctionId, pageableRequest.toPageable(20))));
+        return ResponseEntity.ok(PageResponse.from(bidQueryService.getBidHistory(auctionId, pageableRequest.toPageable(20))));
     }
 }

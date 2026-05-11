@@ -14,6 +14,12 @@ spring:
       host: localhost
       port: 6379
 
+  cloud:
+    consul:
+      enabled: true
+      host: localhost
+      port: 8500
+
   jpa:
     defer-datasource-initialization: false
     show-sql: false
@@ -33,11 +39,27 @@ server:
 
 client:
   product-service:
-    base-url: http://localhost:8082
+    base-url: http://localhost:8083
 
 auction:
   scheduler:
     cron: "0 * * * * *"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productService:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  bulkhead:
+    instances:
+      productService:
+        maxConcurrentCalls: 30
+        maxWaitDuration: 100ms
 
 openapi:
   docs-export:

@@ -1,3 +1,18 @@
 spring:
   application:
     name: product-service
+
+  cloud:
+    consul:
+      discovery:
+        service-name: product-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        metadata:
+          gateway-path: /api/products/**,/api/categories/**,/api/internal/products/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

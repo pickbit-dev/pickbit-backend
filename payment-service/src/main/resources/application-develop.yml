@@ -1,5 +1,12 @@
+spring:
+  cloud:
+    consul:
+      enabled: true
+      host: localhost
+      port: 8500
+
 server:
-  port: 8083
+  port: 8086
 
 openapi:
   docs-export:

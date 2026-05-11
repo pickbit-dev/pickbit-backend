@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.library.logging.config.FilterProperties;
 import com.pickbit.library.logging.support.LoggingUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +26,7 @@ public class ResponseLogger {
     /**
      * Log response information
      */
-    public void logResponse(ContentCachingRequestWrapper request, ContentCachingResponseWrapper response, long duration, FilterProperties filterProperties) {
+    public void logResponse(HttpServletRequest request, ContentCachingResponseWrapper response, long duration, FilterProperties filterProperties) {
 
         // Set response information in MDC
         MDC.put("status", String.valueOf(response.getStatus()));

@@ -3,6 +3,7 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
+import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.application.mapper.BidMapper;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
@@ -12,11 +13,10 @@ import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
-import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +27,11 @@ import java.time.LocalDateTime;
 @Transactional
 public class BidProcessor {
 
-    private static final String AUCTION_TOPIC = "/topic/auctions/";
-
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
-    private final ProductServiceClient productServiceClient;
     private final BidMapper bidMapper;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxRecorder outboxRecorder;
 
     public BidResponse process(String bidderNickname, Long auctionId, BidCreateRequest request) {
         Auction auction = auctionRepository.findById(auctionId)
@@ -41,6 +39,9 @@ public class BidProcessor {
 
         if (auction.getAuctionStatus() != AuctionStatus.ACTIVE) {
             throw new InvalidAuctionStatusException("ACTIVE 상태의 경매에만 입찰할 수 있습니다.");
+        }
+        if (auction.getEndTime() != null && auction.getEndTime().isBefore(LocalDateTime.now())) {
+            throw new InvalidAuctionStatusException("종료된 경매에는 입찰할 수 없습니다.");
         }
         if (auction.getSellerNickname().equals(bidderNickname)) {
             throw new UnauthorizedAuctionAccessException();
@@ -80,16 +81,17 @@ public class BidProcessor {
             bid.markWinning();
             auction.complete(bidderNickname, request.bidAmount());
 
-            messagingTemplate.convertAndSend(
-                    AUCTION_TOPIC + auctionId,
+            eventPublisher.publishEvent(new AuctionRealtimeEvent(
+                    auctionId,
                     AuctionBidEvent.ofEnded(bidderNickname, request.bidAmount())
-            );
-            productServiceClient.updateProductStatus(auction.getProductId(), "AUCTION_COMPLETED");
+            ));
+            outboxRecorder.productStatusUpdateEvent(
+                    auction.getProductId(), "AUCTION_COMPLETED", "BUY_NOW_COMPLETED", auction.getId());
         } else {
-            messagingTemplate.convertAndSend(
-                    AUCTION_TOPIC + auctionId,
+            eventPublisher.publishEvent(new AuctionRealtimeEvent(
+                    auctionId,
                     AuctionBidEvent.ofNewBid(request.bidAmount(), bidderNickname, now)
-            );
+            ));
         }
 
         return bidMapper.toResponse(bid);

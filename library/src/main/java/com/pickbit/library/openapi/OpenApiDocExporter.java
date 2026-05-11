@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
@@ -22,6 +23,10 @@ public class OpenApiDocExporter {
 
     @EventListener(ApplicationReadyEvent.class)
     public void export() {
+        if (isProductionProfile()) {
+            log.info("[OpenApiDocExporter] skipped on production profile");
+            return;
+        }
         try {
             int port = env.getProperty("local.server.port", Integer.class, 8080);
             String serviceName = env.getProperty("spring.application.name", "service");
@@ -40,8 +45,17 @@ public class OpenApiDocExporter {
             Files.write(outputPath, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
             log.info("[OpenApiDocExporter] OpenAPI spec saved: {}", outputPath.toAbsolutePath());
-        } catch (IOException e) {
+        } catch (IOException | RestClientException e) {
             log.warn("[OpenApiDocExporter] Failed to save OpenAPI spec: {}", e.getMessage());
         }
+    }
+
+    private boolean isProductionProfile() {
+        for (String profile : env.getActiveProfiles()) {
+            if ("deploy".equals(profile) || "prod".equals(profile) || "production".equals(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -3,7 +3,8 @@ package com.pickbit.auctionservice.api;
 import com.pickbit.auctionservice.api.dto.request.AuctionCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionDetailResponse;
 import com.pickbit.auctionservice.api.dto.response.AuctionSummaryResponse;
-import com.pickbit.auctionservice.application.AuctionService;
+import com.pickbit.auctionservice.application.AuctionCommandService;
+import com.pickbit.auctionservice.application.AuctionQueryService;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
@@ -31,13 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "Auction", description = "경매 관리 API")
 @RestController
-@RequestMapping("/auctions")
+@RequestMapping("/api/auctions")
 @RequiredArgsConstructor
 public class AuctionController {
 
     private static final String NICKNAME_HEADER = "nickname";
 
-    private final AuctionService auctionService;
+    private final AuctionCommandService auctionCommandService;
+    private final AuctionQueryService auctionQueryService;
 
     /**
      * 새 경매를 생성합니다.
@@ -54,7 +56,7 @@ public class AuctionController {
             @Valid @RequestBody AuctionCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(auctionService.createAuction(nickname, request));
+                .body(auctionCommandService.createAuction(nickname, request));
     }
 
     /**
@@ -69,7 +71,7 @@ public class AuctionController {
             @RequestParam(required = false) AuctionStatus status,
             @ModelAttribute PageableRequest pageableRequest
     ) {
-        return ResponseEntity.ok(auctionService.getAuctions(status, pageableRequest.toPageable(20)));
+        return ResponseEntity.ok(auctionQueryService.getAuctions(status, pageableRequest.toPageable(20)));
     }
 
     /**
@@ -80,7 +82,7 @@ public class AuctionController {
      */
     @GetMapping("/{auctionId}")
     public ResponseEntity<AuctionDetailResponse> getAuction(@PathVariable Long auctionId) {
-        return ResponseEntity.ok(auctionService.getAuction(auctionId));
+        return ResponseEntity.ok(auctionQueryService.getAuction(auctionId));
     }
 
     /**
@@ -98,7 +100,7 @@ public class AuctionController {
             @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long auctionId
     ) {
-        auctionService.cancelAuction(nickname, auctionId);
+        auctionCommandService.cancelAuction(nickname, auctionId);
         return ResponseEntity.noContent().build();
     }
 }

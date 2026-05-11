@@ -28,4 +28,10 @@ public class ProductExceptionHandler extends GlobalExceptionHandler {
         logException(HttpStatus.CONFLICT, e);
         return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
     }
+
+    @ExceptionHandler(InvalidProductStatusException.class)
+    protected ResponseEntity<ProblemDetail> handleInvalidProductStatus(InvalidProductStatusException e, HttpServletRequest request) {
+        logException(HttpStatus.CONFLICT, e);
+        return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
 }

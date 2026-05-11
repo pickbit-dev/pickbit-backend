@@ -35,6 +35,11 @@ public class LoggingFilter extends OncePerRequestFilter {
             return;
         }
 
+        if (LoggingUtils.isMultipartContentType(request.getContentType())) {
+            doFilterWithoutRequestBodyCaching(request, response, filterChain);
+            return;
+        }
+
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request, 1024 * 1024);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
@@ -57,6 +62,38 @@ public class LoggingFilter extends OncePerRequestFilter {
                     "Request processing failed: {} {} [{}ms]",
                     requestWrapper.getMethod(),
                     requestWrapper.getRequestURI(),
+                    duration,
+                    e
+            );
+            throw e;
+        } finally {
+            responseWrapper.copyBodyToResponse();
+            LoggingUtils.clearBasicMDC();
+        }
+    }
+
+    private void doFilterWithoutRequestBodyCaching(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
+        long startTime = System.currentTimeMillis();
+
+        try {
+            LoggingUtils.setBasicMDC(request);
+            requestLogger.logRequestStart(request);
+
+            filterChain.doFilter(request, responseWrapper);
+
+            long duration = System.currentTimeMillis() - startTime;
+            responseLogger.logResponse(request, responseWrapper, duration, filterProperties);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error(
+                    "Request processing failed: {} {} [{}ms]",
+                    request.getMethod(),
+                    request.getRequestURI(),
                     duration,
                     e
             );
