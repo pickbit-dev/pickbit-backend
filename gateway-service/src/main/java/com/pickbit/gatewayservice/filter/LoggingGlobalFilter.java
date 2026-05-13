@@ -19,6 +19,8 @@ import java.net.URI;
 @Component
 public class LoggingGlobalFilter implements GlobalFilter, Ordered {
 
+    private static final int MAX_URL_LOG_LENGTH = 2000;
+
     @Override
     public @NonNull Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         long startTime = System.currentTimeMillis();
@@ -31,21 +33,29 @@ public class LoggingGlobalFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
         int status = response.getStatusCode() != null ? response.getStatusCode().value() : 0;
-        log.info("{} {} -> {} | {}ms | {}",
+        log.info("REQUEST | {} {} -> {} | status={} | duration={}ms",
                 request.getMethod(),
-                request.getPath().value(),
+                getRequestUrl(request),
                 resolveServiceName(exchange),
-                System.currentTimeMillis() - startTime,
-                status);
+                status,
+                System.currentTimeMillis() - startTime);
     }
 
     private void logError(ServerWebExchange exchange, long startTime, Throwable error) {
         ServerHttpRequest request = exchange.getRequest();
-        log.error("{} {} -> ERROR | {}ms | {}",
+        log.error("REQUEST | {} {} -> ERROR | duration={}ms | message={}",
                 request.getMethod(),
-                request.getPath().value(),
+                getRequestUrl(request),
                 System.currentTimeMillis() - startTime,
                 error.getMessage());
+    }
+
+    private String getRequestUrl(ServerHttpRequest request) {
+        URI uri = request.getURI();
+        String path = uri.getRawPath();
+        String query = uri.getRawQuery();
+        String url = query == null ? path : path + "?" + query;
+        return url.length() <= MAX_URL_LOG_LENGTH ? url : url.substring(0, MAX_URL_LOG_LENGTH) + "...";
     }
 
     private String resolveServiceName(ServerWebExchange exchange) {

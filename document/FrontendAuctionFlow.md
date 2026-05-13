@@ -53,7 +53,7 @@ files: [image1.jpg, image2.jpg]
 상품을 등록합니다.
 
 ```http
-POST /products
+POST /api/products
 Header: nickname: {sellerNickname}
 Content-Type: application/json
 ```
@@ -104,7 +104,7 @@ ProductStatus.ACTIVE
 판매자는 `ACTIVE` 상태의 상품으로 경매를 생성할 수 있습니다.
 
 ```http
-POST /auctions
+POST /api/auctions
 Header: nickname: {sellerNickname}
 Content-Type: application/json
 ```
@@ -176,7 +176,7 @@ CANCELLED: 입찰 버튼 비활성화
 WebSocket endpoint:
 
 ```text
-/ws
+/api/auctions/ws
 ```
 
 구독 topic:
@@ -200,7 +200,7 @@ WebSocket endpoint:
 입찰은 WebSocket으로 보내지 않고 REST API로 요청합니다.
 
 ```http
-POST /auctions/{auctionId}/bids
+POST /api/auctions/{auctionId}/bids
 Header: nickname: {bidderNickname}
 Content-Type: application/json
 ```
@@ -341,7 +341,7 @@ ProductStatus.IN_AUCTION -> ProductStatus.ACTIVE
 경매가 아직 시작 전이면 판매자가 경매를 취소할 수 있습니다.
 
 ```http
-DELETE /auctions/{auctionId}
+DELETE /api/auctions/{auctionId}
 Header: nickname: {sellerNickname}
 ```
 
