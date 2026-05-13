@@ -1,8 +1,8 @@
 package com.pickbit.authservice.security.oauth;
 
-import com.pickbit.authservice.api.dto.response.TokenResponse;
 import com.pickbit.authservice.application.command.AuthCommandService;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthSignupCodeRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,13 +25,18 @@ import java.util.UUID;
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     private static final Duration EXCHANGE_CODE_TTL = Duration.ofMinutes(3);
+    private static final Duration SIGNUP_CODE_TTL = Duration.ofMinutes(10);
 
     private final AuthCommandService authCommandService;
     private final OAuthExchangeCodeRepository exchangeCodeRepository;
+    private final OAuthSignupCodeRepository signupCodeRepository;
     private final OAuthUserInfoExtractor userInfoExtractor;
 
     @Value("${frontend.oauth-callback-url:http://localhost:3000/oauth/callback}")
     private String frontendCallbackUrl;
+
+    @Value("${frontend.oauth-signup-url:http://localhost:3000/oauth/signup}")
+    private String frontendSignupUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
@@ -39,10 +44,16 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
         OAuth2User oauthUser = oauthToken.getPrincipal();
         OAuthUserInfo userInfo = userInfoExtractor.extract(oauthToken.getAuthorizedClientRegistrationId(), oauthUser);
-        TokenResponse tokenResponse = authCommandService.oauthLogin(userInfo);
+        OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
 
         String code = UUID.randomUUID().toString();
-        exchangeCodeRepository.save(code, tokenResponse, EXCHANGE_CODE_TTL);
+        if (result.requiresSignup()) {
+            signupCodeRepository.save(code, result.signupContext(), SIGNUP_CODE_TTL);
+            response.sendRedirect(frontendSignupUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
+            return;
+        }
+
+        exchangeCodeRepository.save(code, result.tokenResponse(), EXCHANGE_CODE_TTL);
         response.sendRedirect(frontendCallbackUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
     }
 }

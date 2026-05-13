@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 인증 계정의 가입, 로그인, 토큰 재발급, 로그아웃 API를 제공하는 컨트롤러입니다.
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
@@ -23,22 +26,45 @@ public class AuthController {
 
     private final AuthCommandService authCommandService;
 
+    /**
+     * 로컬 계정을 생성합니다.
+     *
+     * @param request 가입할 이메일, 비밀번호, 닉네임 정보
+     * @return 생성된 인증 계정 정보
+     */
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthAccountResponse signup(@Valid @RequestBody SignupRequest request) {
         return authCommandService.signup(request);
     }
 
+    /**
+     * 이메일과 비밀번호로 로그인하고 access token과 refresh token을 발급합니다.
+     *
+     * @param request 로그인할 이메일과 비밀번호
+     * @return 발급된 토큰 정보
+     */
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authCommandService.login(request);
     }
 
+    /**
+     * 유효한 refresh token으로 access token과 refresh token을 재발급합니다.
+     *
+     * @param request 재발급에 사용할 refresh token
+     * @return 재발급된 토큰 정보
+     */
     @PostMapping("/refresh")
     public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
         return authCommandService.refresh(request);
     }
 
+    /**
+     * refresh token을 폐기하여 로그아웃 처리합니다.
+     *
+     * @param request 폐기할 refresh token
+     */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request) {

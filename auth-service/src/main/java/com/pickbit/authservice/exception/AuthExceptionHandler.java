@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class AuthExceptionHandler extends GlobalExceptionHandler {
 
-    @ExceptionHandler(DuplicateEmailException.class)
-    protected ResponseEntity<ProblemDetail> handleDuplicateEmail(DuplicateEmailException e, HttpServletRequest request) {
+    @ExceptionHandler({DuplicateEmailException.class, DuplicateNicknameException.class})
+    protected ResponseEntity<ProblemDetail> handleConflict(RuntimeException e, HttpServletRequest request) {
         logException(HttpStatus.CONFLICT, e);
         return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
     }

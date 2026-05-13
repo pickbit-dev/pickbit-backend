@@ -9,6 +9,37 @@ spring:
           discovery:
             locator:
               enabled: false
+          routes:
+            - id: auth-service-openapi
+              uri: lb://auth-service
+              predicates:
+                - Path=/v3/api-docs/auth-service
+              filters:
+                - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
+            - id: user-service-openapi
+              uri: lb://user-service
+              predicates:
+                - Path=/v3/api-docs/user-service
+              filters:
+                - RewritePath=/v3/api-docs/user-service, /v3/api-docs
+            - id: product-service-openapi
+              uri: lb://product-service
+              predicates:
+                - Path=/v3/api-docs/product-service
+              filters:
+                - RewritePath=/v3/api-docs/product-service, /v3/api-docs
+            - id: auction-service-openapi
+              uri: lb://auction-service
+              predicates:
+                - Path=/v3/api-docs/auction-service
+              filters:
+                - RewritePath=/v3/api-docs/auction-service, /v3/api-docs
+            - id: file-service-openapi
+              uri: lb://file-service
+              predicates:
+                - Path=/v3/api-docs/file-service
+              filters:
+                - RewritePath=/v3/api-docs/file-service, /v3/api-docs
     loadbalancer:
       enabled: true
 
@@ -22,3 +53,17 @@ management:
     web:
       exposure:
         include: health,info,gateway
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: auth-service
+        url: /v3/api-docs/auth-service
+      - name: user-service
+        url: /v3/api-docs/user-service
+      - name: product-service
+        url: /v3/api-docs/product-service
+      - name: auction-service
+        url: /v3/api-docs/auction-service
+      - name: file-service
+        url: /v3/api-docs/file-service

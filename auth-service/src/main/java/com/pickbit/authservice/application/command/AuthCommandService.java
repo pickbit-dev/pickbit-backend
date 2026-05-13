@@ -3,20 +3,26 @@ package com.pickbit.authservice.application.command;
 import com.pickbit.authservice.api.dto.request.LoginRequest;
 import com.pickbit.authservice.api.dto.request.LogoutRequest;
 import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
+import com.pickbit.authservice.api.dto.request.OAuthSignupCompleteRequest;
 import com.pickbit.authservice.api.dto.request.RefreshRequest;
 import com.pickbit.authservice.api.dto.request.SignupRequest;
 import com.pickbit.authservice.api.dto.response.AuthAccountResponse;
+import com.pickbit.authservice.api.dto.response.OAuthSignupContextResponse;
 import com.pickbit.authservice.api.dto.response.TokenResponse;
 import com.pickbit.authservice.application.OutboxRecorder;
 import com.pickbit.authservice.domain.AuthAccount;
 import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.exception.DuplicateEmailException;
+import com.pickbit.authservice.exception.DuplicateNicknameException;
 import com.pickbit.authservice.exception.InvalidCredentialException;
 import com.pickbit.authservice.exception.InvalidTokenException;
 import com.pickbit.authservice.infrastructure.persistence.AuthAccountRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthSignupCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.RefreshTokenRedisRepository;
 import com.pickbit.authservice.security.JwtTokenProvider;
+import com.pickbit.authservice.security.oauth.OAuthLoginResult;
+import com.pickbit.authservice.security.oauth.OAuthSignupContext;
 import com.pickbit.authservice.security.oauth.OAuthUserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,12 +40,16 @@ public class AuthCommandService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRedisRepository refreshTokenRedisRepository;
     private final OAuthExchangeCodeRepository exchangeCodeRepository;
+    private final OAuthSignupCodeRepository signupCodeRepository;
     private final OutboxRecorder outboxRecorder;
 
     @Transactional
     public AuthAccountResponse signup(SignupRequest request) {
-        if (authAccountRepository.existsByEmailAndOauthProvider(request.email(), OAuthProvider.LOCAL)) {
+        if (authAccountRepository.existsByEmail(request.email())) {
             throw new DuplicateEmailException(request.email());
+        }
+        if (authAccountRepository.existsByNickname(request.nickname())) {
+            throw new DuplicateNicknameException(request.nickname());
         }
 
         AuthAccount account = AuthAccount.local(request.email(), passwordEncoder.encode(request.password()), request.nickname());
@@ -63,17 +73,38 @@ public class AuthCommandService {
     }
 
     @Transactional
-    public TokenResponse oauthLogin(OAuthUserInfo userInfo) {
-        AuthAccount account = authAccountRepository
+    public OAuthLoginResult oauthLogin(OAuthUserInfo userInfo) {
+        return authAccountRepository
                 .findByOauthProviderAndOauthProviderId(userInfo.provider(), userInfo.providerId())
-                .orElseGet(() -> createOAuthAccount(userInfo));
+                .map(account -> {
+                    if (!account.getEnabled()) {
+                        throw new InvalidCredentialException();
+                    }
+                    account.recordLogin();
+                    return OAuthLoginResult.authenticated(issueTokens(account));
+                })
+                .orElseGet(() -> OAuthLoginResult.signupRequired(OAuthSignupContext.from(userInfo)));
+    }
 
-        if (!account.getEnabled()) {
-            throw new InvalidCredentialException();
-        }
+    @Transactional(readOnly = true)
+    public OAuthSignupContextResponse getOAuthSignupContext(String code) {
+        OAuthSignupContext context = signupCodeRepository.find(code)
+                .orElseThrow(() -> new InvalidTokenException("유효하지 않은 OAuth signup code입니다."));
+        return OAuthSignupContextResponse.from(context);
+    }
 
-        account.recordLogin();
-        return issueTokens(account);
+    @Transactional
+    public TokenResponse completeOAuthSignup(OAuthSignupCompleteRequest request) {
+        OAuthSignupContext context = signupCodeRepository.consume(request.code())
+                .orElseThrow(() -> new InvalidTokenException("유효하지 않은 OAuth signup code입니다."));
+
+        validateOAuthSignup(context, request);
+
+        AuthAccount account = AuthAccount.oauth(request.email(), context.provider(), context.providerId(), request.nickname());
+        AuthAccount saved = authAccountRepository.save(account);
+        outboxRecorder.signupEvent(saved, request.nickname());
+        saved.recordLogin();
+        return issueTokens(saved);
     }
 
     @Transactional
@@ -113,11 +144,15 @@ public class AuthCommandService {
         );
     }
 
-    private AuthAccount createOAuthAccount(OAuthUserInfo userInfo) {
-        AuthAccount saved = authAccountRepository.save(
-                AuthAccount.oauth(userInfo.email(), userInfo.provider(), userInfo.providerId(), userInfo.nickname())
-        );
-        outboxRecorder.signupEvent(saved, userInfo.nickname());
-        return saved;
+    private void validateOAuthSignup(OAuthSignupContext context, OAuthSignupCompleteRequest request) {
+        if (authAccountRepository.findByOauthProviderAndOauthProviderId(context.provider(), context.providerId()).isPresent()) {
+            throw new DuplicateEmailException(request.email());
+        }
+        if (authAccountRepository.existsByEmail(request.email())) {
+            throw new DuplicateEmailException(request.email());
+        }
+        if (authAccountRepository.existsByNickname(request.nickname())) {
+            throw new DuplicateNicknameException(request.nickname());
+        }
     }
 }

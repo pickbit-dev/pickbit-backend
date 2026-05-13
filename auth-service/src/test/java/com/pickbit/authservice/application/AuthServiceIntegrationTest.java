@@ -3,6 +3,7 @@ package com.pickbit.authservice.application;
 import com.pickbit.authservice.api.dto.request.LoginRequest;
 import com.pickbit.authservice.api.dto.request.LogoutRequest;
 import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
+import com.pickbit.authservice.api.dto.request.OAuthSignupCompleteRequest;
 import com.pickbit.authservice.api.dto.request.RefreshRequest;
 import com.pickbit.authservice.api.dto.request.SignupRequest;
 import com.pickbit.authservice.api.dto.request.ValidateTokenRequest;
@@ -18,13 +19,17 @@ import com.pickbit.authservice.domain.OutBoxEvent;
 import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.domain.enums.Role;
 import com.pickbit.authservice.exception.DuplicateEmailException;
+import com.pickbit.authservice.exception.DuplicateNicknameException;
 import com.pickbit.authservice.exception.InvalidCredentialException;
 import com.pickbit.authservice.exception.InvalidTokenException;
 import com.pickbit.authservice.infrastructure.persistence.AuthAccountRepository;
 import com.pickbit.authservice.infrastructure.persistence.InboxRepository;
 import com.pickbit.authservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthSignupCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.RefreshTokenRedisRepository;
+import com.pickbit.authservice.security.oauth.OAuthLoginResult;
+import com.pickbit.authservice.security.oauth.OAuthSignupContext;
 import com.pickbit.authservice.security.oauth.OAuthUserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,6 +79,9 @@ class AuthServiceIntegrationTest {
 
     @Autowired
     private OAuthExchangeCodeRepository exchangeCodeRepository;
+
+    @Autowired
+    private OAuthSignupCodeRepository signupCodeRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -285,14 +293,34 @@ class AuthServiceIntegrationTest {
     class OAuthLogin {
 
         @Test
-        @DisplayName("신규 OAuth 사용자면 계정을 저장하고 토큰을 발급한다")
-        void oauthLogin_createsAccount() {
+        @DisplayName("신규 OAuth 사용자면 추가 가입 정보 입력이 필요하다")
+        void oauthLogin_newUserRequiresSignup() {
             OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-1", "kakao@example.com", "카카오유저");
 
-            TokenResponse response = authCommandService.oauthLogin(userInfo);
+            OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
 
-            AuthAccount account = authAccountRepository
-                    .findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")
+            assertThat(result.requiresSignup()).isTrue();
+            assertThat(result.signupContext().provider()).isEqualTo(OAuthProvider.KAKAO);
+            assertThat(result.signupContext().providerId()).isEqualTo("kakao-1");
+            assertThat(result.signupContext().email()).isEqualTo("kakao@example.com");
+            assertThat(result.signupContext().nickname()).isEqualTo("카카오유저");
+            assertThat(authAccountRepository.findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("OAuth 추가 가입을 완료하면 계정을 저장하고 토큰을 발급한다")
+        void completeOAuthSignup_createsAccount() {
+            signupCodeRepository.save(
+                    "signup-code-create",
+                    new OAuthSignupContext(OAuthProvider.KAKAO, "kakao-1", "provider@example.com", "제공닉네임"),
+                    Duration.ofMinutes(10)
+            );
+
+            TokenResponse response = authCommandService.completeOAuthSignup(
+                    new OAuthSignupCompleteRequest("signup-code-create", "kakao@example.com", "카카오유저")
+            );
+
+            AuthAccount account = authAccountRepository.findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")
                     .orElseThrow();
             assertThat(response.accessToken()).isNotBlank();
             assertThat(response.refreshToken()).isNotBlank();
@@ -305,11 +333,17 @@ class AuthServiceIntegrationTest {
         }
 
         @Test
-        @DisplayName("신규 OAuth 가입 시 outbox 이벤트가 저장된다")
-        void oauthLogin_recordsOutboxEvent() {
-            OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.GOOGLE, "google-1", "google@example.com", "구글유저");
+        @DisplayName("OAuth 추가 가입 완료 시 outbox 이벤트가 저장된다")
+        void completeOAuthSignup_recordsOutboxEvent() {
+            signupCodeRepository.save(
+                    "signup-code-outbox",
+                    new OAuthSignupContext(OAuthProvider.GOOGLE, "google-1", "provider@example.com", "제공닉네임"),
+                    Duration.ofMinutes(10)
+            );
 
-            authCommandService.oauthLogin(userInfo);
+            authCommandService.completeOAuthSignup(
+                    new OAuthSignupCompleteRequest("signup-code-outbox", "google@example.com", "구글유저")
+            );
 
             assertThat(outBoxEventRepository.findAll()).hasSize(1);
             OutBoxEvent event = outBoxEventRepository.findAll().getFirst();
@@ -321,14 +355,52 @@ class AuthServiceIntegrationTest {
         @DisplayName("기존 OAuth 계정이면 새 계정을 만들지 않고 로그인 처리한다")
         void oauthLogin_existingAccount() {
             OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.NAVER, "naver-1", "naver@example.com", "네이버유저");
-            authCommandService.oauthLogin(userInfo);
+            signupCodeRepository.save(
+                    "signup-code-existing",
+                    OAuthSignupContext.from(userInfo),
+                    Duration.ofMinutes(10)
+            );
+            authCommandService.completeOAuthSignup(
+                    new OAuthSignupCompleteRequest("signup-code-existing", "naver@example.com", "네이버유저")
+            );
             outBoxEventRepository.deleteAll();
 
-            TokenResponse response = authCommandService.oauthLogin(userInfo);
+            OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
 
-            assertThat(response.accessToken()).isNotBlank();
+            assertThat(result.requiresSignup()).isFalse();
+            assertThat(result.tokenResponse().accessToken()).isNotBlank();
             assertThat(authAccountRepository.findAll()).hasSize(1);
             assertThat(outBoxEventRepository.findAll()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("OAuth 추가 가입 시 이메일이 중복되면 DuplicateEmailException이 발생한다")
+        void completeOAuthSignup_duplicateEmail() {
+            signup();
+            signupCodeRepository.save(
+                    "signup-code-duplicate-email",
+                    new OAuthSignupContext(OAuthProvider.KAKAO, "kakao-duplicate-email", null, null),
+                    Duration.ofMinutes(10)
+            );
+
+            assertThatThrownBy(() -> authCommandService.completeOAuthSignup(
+                    new OAuthSignupCompleteRequest("signup-code-duplicate-email", EMAIL, "새닉네임")
+            )).isInstanceOf(DuplicateEmailException.class);
+        }
+
+        @Test
+        @DisplayName("OAuth 추가 가입 시 닉네임이 중복되면 DuplicateNicknameException이 발생한다")
+        void completeOAuthSignup_duplicateNickname() {
+            signup();
+            signupCodeRepository.save(
+                    "signup-code-duplicate-nickname",
+                    new OAuthSignupContext(OAuthProvider.KAKAO, "kakao-duplicate-nickname", null, null),
+                    Duration.ofMinutes(10)
+            );
+
+            assertThatThrownBy(() -> authCommandService.completeOAuthSignup(
+                    new OAuthSignupCompleteRequest("signup-code-duplicate-nickname", "new@example.com", NICKNAME)
+            )).isInstanceOf(DuplicateNicknameException.class);
         }
 
         @Test

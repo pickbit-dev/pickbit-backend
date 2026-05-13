@@ -24,3 +24,4 @@ jwt:
 
 frontend:
   oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL:http://192.168.20.70:3000/oauth/callback}
+  oauth-signup-url: ${FRONTEND_OAUTH_SIGNUP_URL:http://192.168.20.70:3000/oauth/signup}

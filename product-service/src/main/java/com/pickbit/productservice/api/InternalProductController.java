@@ -30,6 +30,12 @@ public class InternalProductController {
     private final ProductCommandService productCommandService;
     private final ProductQueryService productQueryService;
 
+    /**
+     * 내부 서비스에서 사용할 상품 상세 정보를 조회합니다.
+     *
+     * @param id 조회할 상품 ID
+     * @return 내부 검증에 필요한 상품 상세 정보
+     */
     @GetMapping("/{id}")
     public ResponseEntity<ProductDetailResponse> getInternalProduct(@PathVariable Long id) {
         return ResponseEntity.ok(productQueryService.getInternalProduct(id));

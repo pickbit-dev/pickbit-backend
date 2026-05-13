@@ -3,7 +3,6 @@ package com.pickbit.authservice.security.oauth;
 import com.pickbit.authservice.domain.enums.OAuthProvider;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.util.Map;
 
@@ -35,9 +34,6 @@ public class OAuthUserInfoExtractor {
         Map<String, Object> properties = (Map<String, Object>) attributes.getOrDefault("properties", Map.of());
         String email = stringValue(account.get("email"));
         String nickname = stringValue(properties.get("nickname"));
-        if (!StringUtils.hasText(email)) {
-            email = providerId + "@kakao.oauth.pickbit.local";
-        }
         return validate(new OAuthUserInfo(OAuthProvider.KAKAO, providerId, email, nickname));
     }
 
@@ -51,7 +47,7 @@ public class OAuthUserInfoExtractor {
     }
 
     private OAuthUserInfo validate(OAuthUserInfo userInfo) {
-        if (!StringUtils.hasText(userInfo.providerId()) || !StringUtils.hasText(userInfo.email())) {
+        if (userInfo.providerId() == null || userInfo.providerId().isBlank()) {
             throw new IllegalArgumentException("OAuth 사용자 식별 정보가 올바르지 않습니다. provider=" + userInfo.provider());
         }
         return userInfo;

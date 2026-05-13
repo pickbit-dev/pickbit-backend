@@ -10,6 +10,10 @@ public interface AuthAccountRepository extends JpaRepository<AuthAccount, Long> 
 
     boolean existsByEmailAndOauthProvider(String email, OAuthProvider oauthProvider);
 
+    boolean existsByEmail(String email);
+
+    boolean existsByNickname(String nickname);
+
     Optional<AuthAccount> findByEmailAndOauthProvider(String email, OAuthProvider oauthProvider);
 
     Optional<AuthAccount> findByOauthProviderAndOauthProviderId(OAuthProvider oauthProvider, String oauthProviderId);
