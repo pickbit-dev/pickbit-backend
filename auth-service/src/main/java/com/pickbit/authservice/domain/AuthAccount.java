@@ -91,6 +91,10 @@ public class AuthAccount extends BaseEntity {
         this.lastLoginAt = LocalDateTime.now();
     }
 
+    public void changeNickname(String nickname) {
+        this.nickname = normalizeNickname(nickname, email);
+    }
+
     private static String normalizeNickname(String nickname, String email) {
         if (StringUtils.hasText(nickname)) {
             return nickname.length() <= 50 ? nickname : nickname.substring(0, 50);

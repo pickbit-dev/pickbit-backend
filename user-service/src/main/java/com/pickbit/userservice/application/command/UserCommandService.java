@@ -2,6 +2,7 @@ package com.pickbit.userservice.application.command;
 
 import com.pickbit.userservice.api.dto.ProfileUpdateRequest;
 import com.pickbit.userservice.api.dto.UserResponse;
+import com.pickbit.userservice.application.OutboxRecorder;
 import com.pickbit.userservice.domain.User;
 import com.pickbit.userservice.exception.DuplicateNicknameException;
 import com.pickbit.userservice.exception.UserNotFoundException;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserCommandService {
 
     private final UserRepository userRepository;
+    private final OutboxRecorder outboxRecorder;
 
     @Transactional
     public UserResponse updateMe(Long accountId, ProfileUpdateRequest request) {
@@ -24,6 +26,7 @@ public class UserCommandService {
             throw new DuplicateNicknameException(request.nickname());
         }
         user.changeProfile(request.nickname(), request.profileImageUrl());
+        outboxRecorder.nicknameUpdatedEvent(user);
         return UserResponse.from(user);
     }
 }

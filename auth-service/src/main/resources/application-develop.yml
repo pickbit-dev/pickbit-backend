@@ -63,6 +63,9 @@ spring:
       host: localhost
       port: 18500
 
+  kafka:
+    bootstrap-servers: localhost:19092
+
   jpa:
     defer-datasource-initialization: false
     show-sql: false

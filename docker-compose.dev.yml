@@ -68,6 +68,7 @@ services:
       done;
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic AuthAccount-topic --partitions 3 --replication-factor 1;
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Product-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic User-topic --partitions 3 --replication-factor 1;
       "
 
   kafka-connect:

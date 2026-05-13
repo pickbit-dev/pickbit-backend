@@ -63,6 +63,9 @@ spring:
       host: ${CONSUL_HOST:consul-server}
       port: ${CONSUL_PORT:18500}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+
   jpa:
     database: mysql
     hibernate:

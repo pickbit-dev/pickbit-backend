@@ -10,6 +10,7 @@ import com.pickbit.authservice.api.dto.response.AuthAccountResponse;
 import com.pickbit.authservice.api.dto.response.TokenResponse;
 import com.pickbit.authservice.api.dto.response.ValidateTokenResponse;
 import com.pickbit.authservice.application.command.AuthCommandService;
+import com.pickbit.authservice.application.event.UserNicknameEventHandler;
 import com.pickbit.authservice.application.query.AuthQueryService;
 import com.pickbit.authservice.config.TestContainerConfig;
 import com.pickbit.authservice.domain.AuthAccount;
@@ -20,6 +21,7 @@ import com.pickbit.authservice.exception.DuplicateEmailException;
 import com.pickbit.authservice.exception.InvalidCredentialException;
 import com.pickbit.authservice.exception.InvalidTokenException;
 import com.pickbit.authservice.infrastructure.persistence.AuthAccountRepository;
+import com.pickbit.authservice.infrastructure.persistence.InboxRepository;
 import com.pickbit.authservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.RefreshTokenRedisRepository;
@@ -56,7 +58,13 @@ class AuthServiceIntegrationTest {
     private AuthQueryService authQueryService;
 
     @Autowired
+    private UserNicknameEventHandler userNicknameEventHandler;
+
+    @Autowired
     private AuthAccountRepository authAccountRepository;
+
+    @Autowired
+    private InboxRepository inboxRepository;
 
     @Autowired
     private OutBoxEventRepository outBoxEventRepository;
@@ -248,6 +256,27 @@ class AuthServiceIntegrationTest {
             authCommandService.logout(new LogoutRequest(token.refreshToken()));
 
             assertThat(refreshTokenRedisRepository.findByAccountId(account.getId())).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("사용자 이벤트 동기화")
+    class UserEventSync {
+
+        @Test
+        @DisplayName("닉네임 변경 이벤트를 처리하면 AuthAccount 닉네임이 갱신된다")
+        void nicknameUpdatedEvent_updatesAuthAccount() {
+            AuthAccount account = signup();
+            String eventId = "user-service-test-event";
+            String aggregateId = "User:" + account.getId();
+            String messageBody = """
+                    {"eventId":"%s","accountId":%d,"nickname":"changed","updatedAt":"2026-05-13T00:00:00"}
+                    """.formatted(eventId, account.getId());
+
+            userNicknameEventHandler.handleNicknameUpdated(eventId, aggregateId, messageBody);
+
+            assertThat(account.getNickname()).isEqualTo("changed");
+            assertThat(inboxRepository.existsByEventId(eventId)).isTrue();
         }
     }
 
