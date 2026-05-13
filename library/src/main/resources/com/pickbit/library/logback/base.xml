@@ -1,0 +1,81 @@
+<included>
+    <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
+    <property name="APP_NAME" value="${APP_NAME:-pickbit-app}"/>
+    <property name="ENV" value="${ENV:-local}"/>
+    <property resource="META-INF/build-info.properties"/>
+    <property name="LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}.log"/>
+    <property name="ERROR_LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}-error.log"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%green(%d{yyyy-MM-dd HH:mm:ss}) %magenta([%thread]) %highlight(%-5level) %cyan(%logger{36}) - %yellow(%msg%n)</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} ${ENV} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${ERROR_LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}-error.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} ERROR [%thread] %logger{36} - %msg%n%ex</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <if condition='isDefined("LOGSTASH_DESTINATION")'>
+        <then>
+            <appender name="LOGSTASH_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+                <destination>${LOGSTASH_DESTINATION}</destination>
+                <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                    <providers>
+                        <timestamp/>
+                        <logLevel/>
+                        <message/>
+                        <mdc/>
+                        <stackTrace/>
+                        <pattern>
+                            <pattern>
+                                {
+                                "application": "${APP_NAME}",
+                                "environment": "${ENV}",
+                                "host": "${HOSTNAME:-localhost}",
+                                "thread": "%thread",
+                                "logger": "%logger",
+                                "version": "${build.version:-unknown}"
+                                }
+                            </pattern>
+                        </pattern>
+                    </providers>
+                </encoder>
+                <keepAliveDuration>1 minute</keepAliveDuration>
+                <reconnectionDelay>5 seconds</reconnectionDelay>
+            </appender>
+
+            <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+                <appender-ref ref="LOGSTASH_TCP"/>
+                <queueSize>256</queueSize>
+                <discardingThreshold>0</discardingThreshold>
+                <neverBlock>true</neverBlock>
+            </appender>
+        </then>
+    </if>
+</included>

@@ -1,0 +1,32 @@
+<configuration>
+    <property name="APP_NAME" value="auction-service"/>
+    <springProperty scope="context" name="ENV" source="spring.profiles.active" defaultValue="local"/>
+
+    <include resource="com/pickbit/library/logback/base.xml"/>
+
+    <springProfile name="default,local,develop,test">
+        <root level="info">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="qa,deploy">
+        <if condition='isDefined("LOGSTASH_DESTINATION")'>
+            <then>
+                <root level="info">
+                    <appender-ref ref="CONSOLE"/>
+                    <appender-ref ref="FILE"/>
+                    <appender-ref ref="ERROR_FILE"/>
+                    <appender-ref ref="ASYNC_LOGSTASH"/>
+                </root>
+            </then>
+            <else>
+                <root level="info">
+                    <appender-ref ref="CONSOLE"/>
+                    <appender-ref ref="FILE"/>
+                    <appender-ref ref="ERROR_FILE"/>
+                </root>
+            </else>
+        </if>
+    </springProfile>
+</configuration>
