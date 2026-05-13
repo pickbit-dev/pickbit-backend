@@ -34,6 +34,7 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String AUTH_SERVICE_VALIDATE_URL = "http://auth-service/api/auth/validate";
+    private static final String ACCESS_TOKEN_COOKIE = "accessToken";
     private static final String USER_ID_HEADER = "X-User-Id";
     private static final String USER_ROLE_HEADER = "X-User-Role";
     private static final String USER_NICKNAME_HEADER = "X-User-Nickname";
@@ -53,9 +54,9 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        String token = resolveBearerToken(request);
+        String token = resolveAccessToken(request);
         if (!StringUtils.hasText(token)) {
-            return writeProblem(exchange, HttpStatus.UNAUTHORIZED, "Authorization Bearer 토큰이 필요합니다.");
+            return writeProblem(exchange, HttpStatus.UNAUTHORIZED, "인증 토큰이 필요합니다.");
         }
 
         return validate(token)
@@ -97,12 +98,14 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
                 .bodyToMono(AuthValidateResponse.class);
     }
 
-    private String resolveBearerToken(ServerHttpRequest request) {
+    private String resolveAccessToken(ServerHttpRequest request) {
         String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (!StringUtils.hasText(authorization) || !authorization.startsWith(BEARER_PREFIX)) {
-            return null;
+        if (StringUtils.hasText(authorization) && authorization.startsWith(BEARER_PREFIX)) {
+            return authorization.substring(BEARER_PREFIX.length());
         }
-        return authorization.substring(BEARER_PREFIX.length());
+        return request.getCookies().getFirst(ACCESS_TOKEN_COOKIE) == null
+                ? null
+                : request.getCookies().getFirst(ACCESS_TOKEN_COOKIE).getValue();
     }
 
     private boolean isPublicPath(String path) {

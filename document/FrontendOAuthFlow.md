@@ -128,8 +128,8 @@ Response:
 ```json
 {
   "provider": "KAKAO",
-  "email": "user@example.com",
-  "nickname": "카카오유저"
+  "email": null,
+  "nickname": null
 }
 ```
 
@@ -141,11 +141,12 @@ Response:
 {
   "provider": "KAKAO",
   "email": null,
-  "nickname": "카카오유저"
+  "nickname": null
 }
 ```
 
-특히 Kakao는 이메일 동의가 없으면 `email`이 `null`일 수 있습니다.
+Kakao는 이메일/닉네임 동의항목을 요청하지 않습니다.
+Kakao OAuth는 계정 식별만 처리하고, 서비스 가입에 필요한 `email`과 `nickname`은 추가 정보 입력 페이지에서 직접 입력받습니다.
 
 ### OAuth Signup API
 

@@ -6,7 +6,10 @@ import com.pickbit.authservice.api.dto.request.RefreshRequest;
 import com.pickbit.authservice.api.dto.request.SignupRequest;
 import com.pickbit.authservice.api.dto.response.AuthAccountResponse;
 import com.pickbit.authservice.api.dto.response.TokenResponse;
+import com.pickbit.authservice.application.AuthCookieService;
 import com.pickbit.authservice.application.command.AuthCommandService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthCommandService authCommandService;
+    private final AuthCookieService authCookieService;
 
     /**
      * 로컬 계정을 생성합니다.
@@ -45,8 +49,10 @@ public class AuthController {
      * @return 발급된 토큰 정보
      */
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
-        return authCommandService.login(request);
+    public TokenResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        TokenResponse tokenResponse = authCommandService.login(request);
+        authCookieService.addTokenCookies(response, tokenResponse);
+        return tokenResponse;
     }
 
     /**
@@ -56,8 +62,14 @@ public class AuthController {
      * @return 재발급된 토큰 정보
      */
     @PostMapping("/refresh")
-    public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
-        return authCommandService.refresh(request);
+    public TokenResponse refresh(
+            @RequestBody(required = false) RefreshRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse response
+    ) {
+        TokenResponse tokenResponse = authCommandService.refresh(resolveRefreshToken(request, servletRequest));
+        authCookieService.addTokenCookies(response, tokenResponse);
+        return tokenResponse;
     }
 
     /**
@@ -67,7 +79,26 @@ public class AuthController {
      */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody LogoutRequest request) {
-        authCommandService.logout(request);
+    public void logout(
+            @RequestBody(required = false) LogoutRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse response
+    ) {
+        authCommandService.logout(resolveRefreshToken(request, servletRequest));
+        authCookieService.clearTokenCookies(response);
+    }
+
+    private String resolveRefreshToken(RefreshRequest request, HttpServletRequest servletRequest) {
+        if (request != null && request.refreshToken() != null) {
+            return request.refreshToken();
+        }
+        return authCookieService.getRefreshToken(servletRequest);
+    }
+
+    private String resolveRefreshToken(LogoutRequest request, HttpServletRequest servletRequest) {
+        if (request != null && request.refreshToken() != null) {
+            return request.refreshToken();
+        }
+        return authCookieService.getRefreshToken(servletRequest);
     }
 }

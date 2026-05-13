@@ -58,9 +58,6 @@ public class AuthAccount extends BaseEntity {
     private Boolean enabled = true;
 
     @Column
-    private Boolean emailVerified;
-
-    @Column
     private LocalDateTime lastLoginAt;
 
     public static AuthAccount local(String email, String encodedPassword, String nickname) {
@@ -71,7 +68,6 @@ public class AuthAccount extends BaseEntity {
                 .oauthProvider(OAuthProvider.LOCAL)
                 .role(Role.USER)
                 .enabled(true)
-                .emailVerified(false)
                 .build();
     }
 
@@ -83,7 +79,6 @@ public class AuthAccount extends BaseEntity {
                 .oauthProviderId(providerId)
                 .role(Role.USER)
                 .enabled(true)
-                .emailVerified(true)
                 .build();
     }
 

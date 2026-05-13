@@ -23,5 +23,15 @@ jwt:
   refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY_MS:1209600000}
 
 frontend:
-  oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL:http://192.168.20.70:3000/oauth/callback}
-  oauth-signup-url: ${FRONTEND_OAUTH_SIGNUP_URL:http://192.168.20.70:3000/oauth/signup}
+  oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL:http://192.168.20.231:1125/oauth/callback}
+  oauth-signup-url: ${FRONTEND_OAUTH_SIGNUP_URL:http://192.168.20.231:1125/oauth/signup}
+
+auth:
+  cookie:
+    access-token-name: ${AUTH_ACCESS_TOKEN_COOKIE_NAME:accessToken}
+    refresh-token-name: ${AUTH_REFRESH_TOKEN_COOKIE_NAME:refreshToken}
+    path: ${AUTH_COOKIE_PATH:/}
+    domain: ${AUTH_COOKIE_DOMAIN:}
+    http-only: ${AUTH_COOKIE_HTTP_ONLY:true}
+    secure: ${AUTH_COOKIE_SECURE:false}
+    same-site: ${AUTH_COOKIE_SAME_SITE:Lax}

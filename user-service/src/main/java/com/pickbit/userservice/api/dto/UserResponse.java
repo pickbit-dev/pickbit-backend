@@ -9,8 +9,7 @@ public record UserResponse(
         String email,
         String profileImageUrl,
         String provider,
-        String role,
-        Boolean nicknameVerified
+        String role
 ) {
 
     public static UserResponse from(User user) {
@@ -21,8 +20,7 @@ public record UserResponse(
                 user.getEmail(),
                 user.getProfileImageUrl(),
                 user.getProvider(),
-                user.getRole(),
-                user.getNicknameVerified()
+                user.getRole()
         );
     }
 }

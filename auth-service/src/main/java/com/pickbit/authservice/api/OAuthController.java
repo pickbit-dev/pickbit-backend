@@ -4,7 +4,9 @@ import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
 import com.pickbit.authservice.api.dto.request.OAuthSignupCompleteRequest;
 import com.pickbit.authservice.api.dto.response.OAuthSignupContextResponse;
 import com.pickbit.authservice.api.dto.response.TokenResponse;
+import com.pickbit.authservice.application.AuthCookieService;
 import com.pickbit.authservice.application.command.AuthCommandService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OAuthController {
 
     private final AuthCommandService authCommandService;
+    private final AuthCookieService authCookieService;
 
     /**
      * OAuth 신규 가입용 code로 provider가 제공한 기본 사용자 정보를 조회합니다.
@@ -42,8 +45,10 @@ public class OAuthController {
      * @return 발급된 토큰 정보
      */
     @PostMapping("/signup")
-    public TokenResponse signup(@Valid @RequestBody OAuthSignupCompleteRequest request) {
-        return authCommandService.completeOAuthSignup(request);
+    public TokenResponse signup(@Valid @RequestBody OAuthSignupCompleteRequest request, HttpServletResponse response) {
+        TokenResponse tokenResponse = authCommandService.completeOAuthSignup(request);
+        authCookieService.addTokenCookies(response, tokenResponse);
+        return tokenResponse;
     }
 
     /**
@@ -53,7 +58,9 @@ public class OAuthController {
      * @return 발급된 토큰 정보
      */
     @PostMapping("/exchange")
-    public TokenResponse exchange(@Valid @RequestBody OAuthExchangeRequest request) {
-        return authCommandService.exchangeOAuthCode(request);
+    public TokenResponse exchange(@Valid @RequestBody OAuthExchangeRequest request, HttpServletResponse response) {
+        TokenResponse tokenResponse = authCommandService.exchangeOAuthCode(request);
+        authCookieService.addTokenCookies(response, tokenResponse);
+        return tokenResponse;
     }
 }

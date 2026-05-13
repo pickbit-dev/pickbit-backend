@@ -5,7 +5,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -35,10 +34,6 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String role;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean nicknameVerified = false;
-
     public static User create(Long accountId, String email, String nickname, String provider, String role) {
         return User.builder()
                 .accountId(accountId)
@@ -46,13 +41,11 @@ public class User extends BaseEntity {
                 .nickname(nickname)
                 .provider(provider)
                 .role(role)
-                .nicknameVerified(false)
                 .build();
     }
 
     public void changeProfile(String nickname, String profileImageUrl) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
-        this.nicknameVerified = true;
     }
 }

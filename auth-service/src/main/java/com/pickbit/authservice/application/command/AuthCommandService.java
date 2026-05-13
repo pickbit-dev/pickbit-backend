@@ -28,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 
@@ -115,8 +116,16 @@ public class AuthCommandService {
 
     @Transactional
     public TokenResponse refresh(RefreshRequest request) {
-        Long accountId = jwtTokenProvider.parseRefreshTokenSubject(request.refreshToken());
-        if (!refreshTokenRedisRepository.existsAndMatches(accountId, request.refreshToken())) {
+        return refresh(request.refreshToken());
+    }
+
+    @Transactional
+    public TokenResponse refresh(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new InvalidTokenException("refresh token이 필요합니다.");
+        }
+        Long accountId = jwtTokenProvider.parseRefreshTokenSubject(refreshToken);
+        if (!refreshTokenRedisRepository.existsAndMatches(accountId, refreshToken)) {
             throw new InvalidTokenException("저장된 refresh token과 일치하지 않습니다.");
         }
 
@@ -128,7 +137,15 @@ public class AuthCommandService {
 
     @Transactional
     public void logout(LogoutRequest request) {
-        Long accountId = jwtTokenProvider.parseRefreshTokenSubject(request.refreshToken());
+        logout(request.refreshToken());
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new InvalidTokenException("refresh token이 필요합니다.");
+        }
+        Long accountId = jwtTokenProvider.parseRefreshTokenSubject(refreshToken);
         refreshTokenRedisRepository.delete(accountId);
     }
 

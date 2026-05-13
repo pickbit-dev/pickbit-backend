@@ -32,10 +32,10 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     private final OAuthSignupCodeRepository signupCodeRepository;
     private final OAuthUserInfoExtractor userInfoExtractor;
 
-    @Value("${frontend.oauth-callback-url:http://localhost:3000/oauth/callback}")
+    @Value("${frontend.oauth-callback-url}")
     private String frontendCallbackUrl;
 
-    @Value("${frontend.oauth-signup-url:http://localhost:3000/oauth/signup}")
+    @Value("${frontend.oauth-signup-url}")
     private String frontendSignupUrl;
 
     @Override

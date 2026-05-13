@@ -128,7 +128,6 @@ class AuthServiceIntegrationTest {
             assertThat(account.getOauthProvider()).isEqualTo(OAuthProvider.LOCAL);
             assertThat(account.getRole()).isEqualTo(Role.USER);
             assertThat(account.getEnabled()).isTrue();
-            assertThat(account.getEmailVerified()).isFalse();
         }
 
         @Test
@@ -295,15 +294,15 @@ class AuthServiceIntegrationTest {
         @Test
         @DisplayName("신규 OAuth 사용자면 추가 가입 정보 입력이 필요하다")
         void oauthLogin_newUserRequiresSignup() {
-            OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-1", "kakao@example.com", "카카오유저");
+            OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-1", null, null);
 
             OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
 
             assertThat(result.requiresSignup()).isTrue();
             assertThat(result.signupContext().provider()).isEqualTo(OAuthProvider.KAKAO);
             assertThat(result.signupContext().providerId()).isEqualTo("kakao-1");
-            assertThat(result.signupContext().email()).isEqualTo("kakao@example.com");
-            assertThat(result.signupContext().nickname()).isEqualTo("카카오유저");
+            assertThat(result.signupContext().email()).isNull();
+            assertThat(result.signupContext().nickname()).isNull();
             assertThat(authAccountRepository.findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")).isEmpty();
         }
 
@@ -329,7 +328,6 @@ class AuthServiceIntegrationTest {
             assertThat(account.getOauthProvider()).isEqualTo(OAuthProvider.KAKAO);
             assertThat(account.getOauthProviderId()).isEqualTo("kakao-1");
             assertThat(account.getRole()).isEqualTo(Role.USER);
-            assertThat(account.getEmailVerified()).isTrue();
         }
 
         @Test
