@@ -7,7 +7,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:3306/pickbit_user_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:13306/pickbit_user_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
 
   jpa:
     defer-datasource-initialization: false
@@ -23,16 +23,16 @@ spring:
       ddl-auto: create
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:19092
 
   cloud:
     consul:
       enabled: true
       host: localhost
-      port: 8500
+      port: 18500
 
 server:
-  port: 8082
+  port: 18082
 
 openapi:
   docs-export:

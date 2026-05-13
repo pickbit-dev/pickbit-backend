@@ -7,7 +7,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:3306/pickbit_auction_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:13306/pickbit_auction_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
 
   data:
     redis:
@@ -18,7 +18,7 @@ spring:
     consul:
       enabled: true
       host: localhost
-      port: 8500
+      port: 18500
 
   jpa:
     defer-datasource-initialization: false
@@ -34,12 +34,12 @@ spring:
       ddl-auto: create
 
 server:
-  port: 8085
+  port: 18085
 
 
 client:
   product-service:
-    base-url: http://localhost:8083
+    base-url: http://localhost:18083
 
 auction:
   scheduler:

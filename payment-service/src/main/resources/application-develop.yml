@@ -3,10 +3,10 @@ spring:
     consul:
       enabled: true
       host: localhost
-      port: 8500
+      port: 18500
 
 server:
-  port: 8086
+  port: 18086
 
 openapi:
   docs-export:

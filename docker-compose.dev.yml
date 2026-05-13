@@ -1,0 +1,112 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: pickbit-mysql
+    ports:
+      - "13306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Rlawhdgns4!
+      MYSQL_ROOT_HOST: "%"
+      TZ: Asia/Seoul
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --default-time-zone=+09:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - pickbit-mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  consul-server:
+    image: hashicorp/consul:1.20
+    container_name: pickbit-consul
+    ports:
+      - "18500:8500"
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-kafka
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - pickbit-kafka-data:/var/lib/kafka/data
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-kafka-init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
+        sleep 2;
+      done;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic AuthAccount-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Product-topic --partitions 3 --replication-factor 1;
+      "
+
+  kafka-connect:
+    image: quay.io/debezium/connect:3.0
+    container_name: pickbit-kafka-connect
+    ports:
+      - "18088:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: pickbit-connect-cluster
+      CONFIG_STORAGE_TOPIC: pickbit-connect-configs
+      OFFSET_STORAGE_TOPIC: pickbit-connect-offsets
+      STATUS_STORAGE_TOPIC: pickbit-connect-statuses
+      KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_started
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: pickbit-kafka-ui
+    ports:
+      - "19090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pickbit-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: pickbit-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+    depends_on:
+      - kafka
+      - kafka-connect
+
+volumes:
+  pickbit-mysql-data:
+  pickbit-kafka-data:

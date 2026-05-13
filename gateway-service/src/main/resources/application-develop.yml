@@ -7,14 +7,14 @@ spring:
     consul:
       enabled: true
       host: localhost
-      port: 8500
+      port: 18500
       discovery:
         service-name: gateway-service
         health-check-path: /actuator/health
         health-check-interval: 10s
 
 server:
-  port: 8080
+  port: 18080
 
 cors:
   allowed-origins:

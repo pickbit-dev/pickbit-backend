@@ -61,7 +61,7 @@ spring:
     consul:
       enabled: true
       host: ${CONSUL_HOST:consul-server}
-      port: ${CONSUL_PORT:8500}
+      port: ${CONSUL_PORT:18500}
 
   jpa:
     database: mysql
@@ -69,7 +69,7 @@ spring:
       ddl-auto: validate
 
 server:
-  port: ${AUTH_SERVER_PORT:8081}
+  port: ${AUTH_SERVER_PORT:18081}
 
 jwt:
   secret: ${JWT_SECRET}
