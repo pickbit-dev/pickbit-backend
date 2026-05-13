@@ -1,2 +1,10 @@
 description = 'payment-service'
 version = '0.0.1-SNAPSHOT'
+
+springBoot {
+    buildInfo()
+}
+
+tasks.named('processResources') {
+    dependsOn tasks.named('bootBuildInfo')
+}

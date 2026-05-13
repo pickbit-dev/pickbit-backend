@@ -1,6 +1,14 @@
 description = 'product-service'
 version = '0.0.1-SNAPSHOT'
 
+springBoot {
+    buildInfo()
+}
+
+tasks.named('processResources') {
+    dependsOn tasks.named('bootBuildInfo')
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
