@@ -20,6 +20,7 @@ public class AuthQueryService {
         return new ValidateTokenResponse(
                 principal.accountId(),
                 principal.email(),
+                principal.nickname(),
                 principal.role(),
                 principal.provider(),
                 jwtTokenProvider.getExpiresAt(request.token())

@@ -36,8 +36,10 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
     private static final String AUTH_SERVICE_VALIDATE_URL = "http://auth-service/api/auth/validate";
     private static final String USER_ID_HEADER = "X-User-Id";
     private static final String USER_ROLE_HEADER = "X-User-Role";
+    private static final String USER_NICKNAME_HEADER = "X-User-Nickname";
     private static final String USER_PROVIDER_HEADER = "X-User-Provider";
     private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String LEGACY_NICKNAME_HEADER = "nickname";
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
@@ -59,10 +61,19 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
         return validate(token)
                 .flatMap(user -> {
                     ServerHttpRequest modifiedRequest = request.mutate()
-                            .header(USER_ID_HEADER, String.valueOf(user.accountId()))
-                            .header(USER_ROLE_HEADER, user.role())
-                            .header(USER_PROVIDER_HEADER, user.provider())
-                            .header(USER_EMAIL_HEADER, user.email())
+                            .headers(headers -> {
+                                headers.remove(USER_ID_HEADER);
+                                headers.remove(USER_ROLE_HEADER);
+                                headers.remove(USER_NICKNAME_HEADER);
+                                headers.remove(USER_PROVIDER_HEADER);
+                                headers.remove(USER_EMAIL_HEADER);
+                                headers.remove(LEGACY_NICKNAME_HEADER);
+                                headers.set(USER_ID_HEADER, String.valueOf(user.accountId()));
+                                headers.set(USER_ROLE_HEADER, user.role());
+                                headers.set(USER_NICKNAME_HEADER, user.nickname());
+                                headers.set(USER_PROVIDER_HEADER, user.provider());
+                                headers.set(USER_EMAIL_HEADER, user.email());
+                            })
                             .build();
                     return chain.filter(exchange.mutate().request(modifiedRequest).build());
                 })

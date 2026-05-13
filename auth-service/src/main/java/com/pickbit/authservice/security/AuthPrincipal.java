@@ -12,6 +12,7 @@ import java.util.List;
 public record AuthPrincipal(
         Long accountId,
         String email,
+        String nickname,
         Role role,
         OAuthProvider provider
 ) implements UserDetails {

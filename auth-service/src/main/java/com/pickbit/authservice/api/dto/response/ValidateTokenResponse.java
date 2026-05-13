@@ -8,6 +8,7 @@ import java.time.Instant;
 public record ValidateTokenResponse(
         Long accountId,
         String email,
+        String nickname,
         Role role,
         OAuthProvider provider,
         Instant expiresAt

@@ -2,6 +2,7 @@ package com.pickbit.productservice.api;
 
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
+import com.pickbit.library.auth.AuthContextHolder;
 import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
 import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ProductController {
 
-    private static final String NICKNAME_HEADER = "nickname";
     private final ProductCommandService productCommandService;
     private final ProductQueryService productQueryService;
 
@@ -50,16 +50,14 @@ public class ProductController {
      * 신규 상품을 등록합니다.
      * 이미지는 file-service를 통해 사전 업로드 후 URL을 전달합니다.
      *
-     * @param nickname 요청한 판매자 닉네임
      * @param request 등록할 상품 정보 (images 포함)
      * @return 등록된 상품 상세 정보 (HTTP 201)
      */
     @PostMapping
     public ResponseEntity<ProductDetailResponse> createProduct(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @Valid @RequestBody ProductCreateRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(productCommandService.createProduct(nickname, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productCommandService.createProduct(AuthContextHolder.getNickname(), request));
     }
 
 
@@ -77,33 +75,29 @@ public class ProductController {
     /**
      * 기존 상품 정보를 수정합니다
      *
-     * @param nickname 요청한 판매자 닉네임
      * @param id 수정할 상품 ID
      * @param request 수정할 상품 정보
      * @return 수정된 상품 상세 정보
      */
     @PatchMapping("/{id}")
     public ResponseEntity<ProductDetailResponse> updateProduct(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
-        return ResponseEntity.ok(productCommandService.updateProduct(nickname, id, request));
+        return ResponseEntity.ok(productCommandService.updateProduct(AuthContextHolder.getNickname(), id, request));
     }
 
     /**
      * 상품을 삭제합니다.
      *
-     * @param nickname 요청한 판매자 닉네임
      * @param id 삭제할 상품 ID
      * @return 응답 본문 없음 (HTTP 204)
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long id
     ) {
-        productCommandService.deleteProduct(nickname, id);
+        productCommandService.deleteProduct(AuthContextHolder.getNickname(), id);
         return ResponseEntity.noContent().build();
     }
 }

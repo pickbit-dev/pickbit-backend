@@ -4,6 +4,7 @@ import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
 import com.pickbit.auctionservice.application.BidCommandService;
 import com.pickbit.auctionservice.application.BidQueryService;
+import com.pickbit.library.auth.AuthContextHolder;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,8 +26,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class BidController {
 
-    private static final String NICKNAME_HEADER = "nickname";
-
     private final BidCommandService bidCommandService;
     private final BidQueryService bidQueryService;
 
@@ -38,19 +37,17 @@ public class BidController {
      * 판매자 본인은 입찰할 수 없습니다.
      * 즉시 구매가 이상의 금액으로 입찰 시 경매가 즉시 종료됩니다.
      *
-     * @param nickname  입찰자 닉네임 (요청 헤더)
      * @param auctionId 경매 ID
      * @param request   입찰 요청 데이터
      * @return 입찰 결과 (HTTP 201)
      */
     @PostMapping
     public ResponseEntity<BidResponse> placeBid(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long auctionId,
             @Valid @RequestBody BidCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(bidCommandService.placeBid(nickname, auctionId, request));
+                .body(bidCommandService.placeBid(AuthContextHolder.getNickname(), auctionId, request));
     }
 
     /**

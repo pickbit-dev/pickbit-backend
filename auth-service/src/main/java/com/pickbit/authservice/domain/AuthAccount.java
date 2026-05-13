@@ -15,6 +15,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +35,9 @@ public class AuthAccount extends BaseEntity {
 
     @Column(nullable = false, length = 255)
     private String email;
+
+    @Column(length = 50)
+    private String nickname;
 
     @Column(length = 255)
     private String password;
@@ -59,9 +63,10 @@ public class AuthAccount extends BaseEntity {
     @Column
     private LocalDateTime lastLoginAt;
 
-    public static AuthAccount local(String email, String encodedPassword) {
+    public static AuthAccount local(String email, String encodedPassword, String nickname) {
         return AuthAccount.builder()
                 .email(email)
+                .nickname(normalizeNickname(nickname, email))
                 .password(encodedPassword)
                 .oauthProvider(OAuthProvider.LOCAL)
                 .role(Role.USER)
@@ -70,9 +75,10 @@ public class AuthAccount extends BaseEntity {
                 .build();
     }
 
-    public static AuthAccount oauth(String email, OAuthProvider provider, String providerId) {
+    public static AuthAccount oauth(String email, OAuthProvider provider, String providerId, String nickname) {
         return AuthAccount.builder()
                 .email(email)
+                .nickname(normalizeNickname(nickname, email))
                 .oauthProvider(provider)
                 .oauthProviderId(providerId)
                 .role(Role.USER)
@@ -83,5 +89,13 @@ public class AuthAccount extends BaseEntity {
 
     public void recordLogin() {
         this.lastLoginAt = LocalDateTime.now();
+    }
+
+    private static String normalizeNickname(String nickname, String email) {
+        if (StringUtils.hasText(nickname)) {
+            return nickname.length() <= 50 ? nickname : nickname.substring(0, 50);
+        }
+        String fallback = email.split("@")[0];
+        return fallback.length() <= 50 ? fallback : fallback.substring(0, 50);
     }
 }

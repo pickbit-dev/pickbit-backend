@@ -6,6 +6,7 @@ import com.pickbit.auctionservice.api.dto.response.AuctionSummaryResponse;
 import com.pickbit.auctionservice.application.AuctionCommandService;
 import com.pickbit.auctionservice.application.AuctionQueryService;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
+import com.pickbit.library.auth.AuthContextHolder;
 import com.pickbit.library.dto.PageResponse;
 import com.pickbit.library.dto.PageableRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +20,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,15 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
  * 경매 관리 API 컨트롤러.
  *
  * <p>경매 생성, 목록 조회, 상세 조회, 취소 기능을 제공합니다.
- * 판매자 식별은 {@code nickname} 요청 헤더를 통해 이루어집니다.
+ * 판매자 식별은 게이트웨이에서 전달한 인증 컨텍스트를 통해 이루어집니다.
  */
 @Tag(name = "Auction", description = "경매 관리 API")
 @RestController
 @RequestMapping("/api/auctions")
 @RequiredArgsConstructor
 public class AuctionController {
-
-    private static final String NICKNAME_HEADER = "nickname";
 
     private final AuctionCommandService auctionCommandService;
     private final AuctionQueryService auctionQueryService;
@@ -46,17 +44,15 @@ public class AuctionController {
      *
      * <p>요청자가 해당 상품의 판매자여야 하며, 상품은 {@code ACTIVE} 상태여야 합니다.
      *
-     * @param nickname 판매자 닉네임 (요청 헤더)
      * @param request  경매 생성 요청 데이터
      * @return 생성된 경매 상세 정보 (HTTP 201)
      */
     @PostMapping
     public ResponseEntity<AuctionDetailResponse> createAuction(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @Valid @RequestBody AuctionCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(auctionCommandService.createAuction(nickname, request));
+                .body(auctionCommandService.createAuction(AuthContextHolder.getNickname(), request));
     }
 
     /**
@@ -91,16 +87,14 @@ public class AuctionController {
      * <p>{@code SCHEDULED} 상태의 경매만 취소할 수 있으며,
      * 요청자가 해당 경매의 판매자여야 합니다.
      *
-     * @param nickname  판매자 닉네임 (요청 헤더)
      * @param auctionId 취소할 경매 ID
      * @return 응답 본문 없음 (HTTP 204)
      */
     @DeleteMapping("/{auctionId}")
     public ResponseEntity<Void> cancelAuction(
-            @RequestHeader(NICKNAME_HEADER) String nickname,
             @PathVariable Long auctionId
     ) {
-        auctionCommandService.cancelAuction(nickname, auctionId);
+        auctionCommandService.cancelAuction(AuthContextHolder.getNickname(), auctionId);
         return ResponseEntity.noContent().build();
     }
 }

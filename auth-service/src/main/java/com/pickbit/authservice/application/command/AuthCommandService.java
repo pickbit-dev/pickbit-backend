@@ -42,7 +42,7 @@ public class AuthCommandService {
             throw new DuplicateEmailException(request.email());
         }
 
-        AuthAccount account = AuthAccount.local(request.email(), passwordEncoder.encode(request.password()));
+        AuthAccount account = AuthAccount.local(request.email(), passwordEncoder.encode(request.password()), request.nickname());
         AuthAccount saved = authAccountRepository.save(account);
         outboxRecorder.signupEvent(saved, request.nickname());
         return AuthAccountResponse.from(saved);
@@ -115,7 +115,7 @@ public class AuthCommandService {
 
     private AuthAccount createOAuthAccount(OAuthUserInfo userInfo) {
         AuthAccount saved = authAccountRepository.save(
-                AuthAccount.oauth(userInfo.email(), userInfo.provider(), userInfo.providerId())
+                AuthAccount.oauth(userInfo.email(), userInfo.provider(), userInfo.providerId(), userInfo.nickname())
         );
         outboxRecorder.signupEvent(saved, userInfo.nickname());
         return saved;

@@ -11,6 +11,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +48,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(String.valueOf(account.getId()))
                 .claim("email", account.getEmail())
+                .claim("nickname", resolveNickname(account))
                 .claim("role", account.getRole().name())
                 .claim("provider", account.getOauthProvider().name())
                 .issuedAt(Date.from(now))
@@ -72,12 +74,14 @@ public class JwtTokenProvider {
         String role = claims.get("role", String.class);
         String provider = claims.get("provider", String.class);
         String email = claims.get("email", String.class);
-        if (role == null || provider == null || email == null) {
+        String nickname = claims.get("nickname", String.class);
+        if (role == null || provider == null || email == null || nickname == null) {
             throw new InvalidTokenException("access token claim이 올바르지 않습니다.");
         }
         return new AuthPrincipal(
                 Long.valueOf(claims.getSubject()),
                 email,
+                nickname,
                 Role.valueOf(role),
                 OAuthProvider.valueOf(provider)
         );
@@ -106,5 +110,12 @@ public class JwtTokenProvider {
         } catch (JwtException | IllegalArgumentException e) {
             throw new InvalidTokenException("유효하지 않은 토큰입니다.");
         }
+    }
+
+    private String resolveNickname(AuthAccount account) {
+        if (StringUtils.hasText(account.getNickname())) {
+            return account.getNickname();
+        }
+        return account.getEmail().split("@")[0];
     }
 }
