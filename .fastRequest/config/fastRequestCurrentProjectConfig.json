@@ -35,6 +35,15 @@
 				}
 			],
 			"name":"pickbit-backend.file-service"
+		},
+		{
+			"hostGroup":[
+				{
+					"env":"local",
+					"url":"http://localhost:8080"
+				}
+			],
+			"name":"pickbit-backend.auth-service"
 		}
 	],
 	"envList":[
@@ -50,7 +59,8 @@
 	"projectList":[
 		"pickbit-backend.auction-service",
 		"pickbit-backend.product-service",
-		"pickbit-backend.file-service"
+		"pickbit-backend.file-service",
+		"pickbit-backend.auth-service"
 	],
 	"searchTruncatedCode":"",
 	"syncModel":{

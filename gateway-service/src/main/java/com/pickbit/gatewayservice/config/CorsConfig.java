@@ -18,7 +18,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "cors")
 public class CorsConfig {
 
-    private List<String> allowedOrigins = new ArrayList<>(List.of("http://localhost:*"));
+    private List<String> allowedOrigins = new ArrayList<>();
 
     @Bean
     public CorsWebFilter corsWebFilter() {
