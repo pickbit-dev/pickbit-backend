@@ -20,7 +20,7 @@ spring:
         default_batch_fetch_size: 100
     database: mysql
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
 
   kafka:
     bootstrap-servers: localhost:19092
