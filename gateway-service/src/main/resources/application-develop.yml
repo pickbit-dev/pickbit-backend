@@ -3,6 +3,11 @@ spring:
     activate:
       on-profile: develop
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   cloud:
     consul:
       enabled: true

@@ -24,13 +24,24 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +70,9 @@ class BidServiceIntegrationTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @MockitoBean
     private ProductServiceClient productServiceClient;
@@ -240,6 +254,141 @@ class BidServiceIntegrationTest {
             assertThatThrownBy(() -> bidQueryService.getBidHistory(
                     999_999L, PageRequest.of(0, 10)))
                     .isInstanceOf(AuctionNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 - 낙관적 잠금")
+    class OptimisticLockConcurrency {
+
+        @Test
+        @DisplayName("두 스레드가 stale 상태로 동일 Auction 수정 시 한 쪽은 ObjectOptimisticLockingFailureException")
+        @Transactional(propagation = Propagation.NEVER)
+        void detects_stale_write() throws Exception {
+            Long auctionId = createCommittedAuction();
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            try {
+                CountDownLatch readDone = new CountDownLatch(2);
+                CountDownLatch releaseWrite = new CountDownLatch(1);
+
+                Callable<Throwable> staleWriteTask = () -> {
+                    try {
+                        transactionTemplate.execute(status -> {
+                            Auction a = auctionRepository.findById(auctionId).orElseThrow();
+                            readDone.countDown();
+                            try {
+                                releaseWrite.await(5, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                return null;
+                            }
+                            a.placeBid(BigDecimal.valueOf(20_000));
+                            auctionRepository.saveAndFlush(a);
+                            return null;
+                        });
+                        return null;
+                    } catch (Throwable t) {
+                        return t;
+                    }
+                };
+
+                Future<Throwable> f1 = executor.submit(staleWriteTask);
+                Future<Throwable> f2 = executor.submit(staleWriteTask);
+
+                assertThat(readDone.await(5, TimeUnit.SECONDS)).isTrue();
+                releaseWrite.countDown();
+
+                Throwable r1 = f1.get(10, TimeUnit.SECONDS);
+                Throwable r2 = f2.get(10, TimeUnit.SECONDS);
+
+                long failures = Stream.of(r1, r2)
+                        .filter(t -> t instanceof ObjectOptimisticLockingFailureException)
+                        .count();
+                long successes = Stream.of(r1, r2).filter(Objects::isNull).count();
+
+                assertThat(failures).isEqualTo(1);
+                assertThat(successes).isEqualTo(1);
+            } finally {
+                executor.shutdown();
+                cleanupCommittedAuction(auctionId);
+            }
+        }
+
+        @Test
+        @DisplayName("BidCommandService를 통한 동시 입찰은 Redisson 락이 직렬화하여 ObjectOptimisticLockingFailureException이 발생하지 않는다")
+        @Transactional(propagation = Propagation.NEVER)
+        void redisson_lock_prevents_version_conflict() throws Exception {
+            Long auctionId = createCommittedAuction();
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            try {
+                CountDownLatch start = new CountDownLatch(1);
+
+                Callable<Throwable> bidTask = () -> {
+                    try {
+                        start.await(5, TimeUnit.SECONDS);
+                        bidCommandService.placeBid(
+                                "bidder-" + Thread.currentThread().getId(),
+                                auctionId,
+                                new BidCreateRequest(BigDecimal.valueOf(15_000)));
+                        return null;
+                    } catch (Throwable t) {
+                        return t;
+                    }
+                };
+
+                Future<Throwable> f1 = executor.submit(bidTask);
+                Future<Throwable> f2 = executor.submit(bidTask);
+                start.countDown();
+
+                Throwable r1 = f1.get(10, TimeUnit.SECONDS);
+                Throwable r2 = f2.get(10, TimeUnit.SECONDS);
+
+                long versionConflicts = Stream.of(r1, r2)
+                        .filter(t -> t instanceof ObjectOptimisticLockingFailureException)
+                        .count();
+                long successes = Stream.of(r1, r2).filter(Objects::isNull).count();
+                long invalidAmountFailures = Stream.of(r1, r2)
+                        .filter(t -> t instanceof InvalidBidAmountException)
+                        .count();
+
+                assertThat(versionConflicts)
+                        .as("Redisson 락이 직렬화하므로 버전 충돌이 발생하면 안 됨")
+                        .isZero();
+                assertThat(successes).isEqualTo(1);
+                assertThat(invalidAmountFailures).isEqualTo(1);
+
+                Auction reloaded = transactionTemplate.execute(status ->
+                        auctionRepository.findById(auctionId).orElseThrow());
+                assertThat(reloaded.getCurrentPrice()).isEqualByComparingTo(BigDecimal.valueOf(15_000));
+            } finally {
+                executor.shutdown();
+                cleanupCommittedAuction(auctionId);
+            }
+        }
+
+        private Long createCommittedAuction() {
+            return transactionTemplate.execute(status ->
+                    auctionRepository.save(Auction.builder()
+                            .productId(99L)
+                            .productName("동시성 테스트 상품")
+                            .sellerNickname("seller-cc")
+                            .startingPrice(BigDecimal.valueOf(10_000))
+                            .currentPrice(BigDecimal.valueOf(10_000))
+                            .buyNowPrice(BigDecimal.valueOf(1_000_000))
+                            .minimumBidIncrement(BigDecimal.valueOf(1_000))
+                            .auctionStatus(AuctionStatus.ACTIVE)
+                            .startTime(LocalDateTime.now().minusHours(1))
+                            .endTime(LocalDateTime.now().plusDays(1))
+                            .build())
+                            .getId());
+        }
+
+        private void cleanupCommittedAuction(Long auctionId) {
+            transactionTemplate.execute(status -> {
+                bidRepository.findByAuctionId(auctionId).forEach(bidRepository::delete);
+                auctionRepository.findById(auctionId).ifPresent(auctionRepository::delete);
+                return null;
+            });
         }
     }
 }
