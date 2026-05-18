@@ -34,6 +34,20 @@ services:
       - "18500:8500"
     command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
 
+  redis:
+    image: redis:7-alpine
+    container_name: pickbit-redis
+    ports:
+      - "16379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - pickbit-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   kafka:
     image: apache/kafka:3.8.0
     container_name: pickbit-kafka
@@ -111,3 +125,4 @@ services:
 volumes:
   pickbit-mysql-data:
   pickbit-kafka-data:
+  pickbit-redis-data:

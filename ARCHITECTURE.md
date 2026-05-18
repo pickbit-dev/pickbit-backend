@@ -12,6 +12,8 @@
 - `auction-service`
 - `payment-service`
 - `notification-service`
+- `file-service`
+- `gateway-service`
 
 각 서비스는 독립적으로 실행 가능한 Spring Boot 애플리케이션이며, `library`는 여러 서비스에서 공유하는 공통 코드 전용 모듈이다.
 
@@ -57,9 +59,11 @@ pickbit-backend/
 |- build.gradle
 |- settings.gradle
 |- library/
+|- gateway-service/
 |- user-service/
 |- product-service/
 |- auction-service/
+|- file-service/
 |- payment-service/
 `- notification-service/
 ```
@@ -69,16 +73,45 @@ pickbit-backend/
 - `library`
   - 공통 DTO, 예외, 유틸리티 등 공유 코드 관리
   - 실행 애플리케이션이 아닌 공용 라이브러리 모듈
+- `gateway-service`
+  - 외부 요청의 단일 진입점
+  - 인증 토큰 검증, 인증 헤더 전파, Consul 기반 라우팅, Redis 기반 rate limit 처리
 - `user-service`
   - 사용자 관련 도메인 처리
 - `product-service`
   - 상품 관련 도메인 처리
 - `auction-service`
   - 경매 관련 도메인 처리
+- `file-service`
+  - 상품 이미지 등 파일 업로드 처리
+  - Object Storage 연동 담당
 - `payment-service`
   - 결제 관련 도메인 처리
 - `notification-service`
   - 알림 관련 도메인 처리
+
+## 개발 인프라 구성
+
+로컬 개발 환경은 `docker-compose.dev.yml`로 공통 인프라를 띄운다.
+
+- MySQL: `localhost:13306`
+  - 각 도메인 서비스의 데이터베이스 저장소
+  - Debezium outbox CDC를 위해 binlog 설정 활성화
+- Consul: `localhost:18500`
+  - 서비스 디스커버리
+  - Gateway의 동적 라우팅 메타데이터 제공
+- Redis: `localhost:16379`
+  - `auth-service`의 refresh token, OAuth 임시 code 저장
+  - `gateway-service`의 Redis rate limiter 저장소
+  - `auction-service`의 Redisson 입찰 락, ShedLock, 경매 상세 캐시, WebSocket Pub/Sub 브리지
+- Kafka: `localhost:19092`
+  - 서비스 간 이벤트 전달
+- Kafka Connect: `localhost:18088`
+  - Debezium outbox connector 실행
+- Kafka UI: `localhost:19090`
+  - Kafka topic 및 connector 상태 확인
+
+Redis는 컨테이너 내부 기본 포트 `6379`를 사용하지만, 로컬 호스트에서는 기존 Redis와 충돌하지 않도록 `16379`로 노출한다. 따라서 `develop` 프로파일의 Redis 설정은 `localhost:16379`를 기준으로 맞춘다.
 
 ## 빌드 및 의존성 관리 전략
 
