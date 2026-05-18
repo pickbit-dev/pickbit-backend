@@ -9,3 +9,5 @@ server:
 auction:
   cache:
     auction-ttl-seconds: 1
+  ws:
+    debounce-ms: 20

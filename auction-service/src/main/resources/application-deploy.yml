@@ -34,6 +34,8 @@ auction:
     cron: ${AUCTION_SCHEDULER_CRON:0 * * * * *}
   cache:
     auction-ttl-seconds: ${AUCTION_CACHE_TTL_SECONDS:10}
+  ws:
+    debounce-ms: ${AUCTION_WS_DEBOUNCE_MS:100}
 
 resilience4j:
   circuitbreaker:
