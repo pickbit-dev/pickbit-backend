@@ -3,6 +3,11 @@ spring:
     activate:
       on-profile: deploy
 
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     consul:
       enabled: true

@@ -10,6 +10,19 @@ spring:
             locator:
               enabled: false
           routes:
+            - id: auction-bid-ratelimit
+              uri: lb://auction-service
+              order: -1
+              predicates:
+                - Path=/api/auctions/*/bids
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 2
+                    redis-rate-limiter.burstCapacity: 5
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
             - id: auth-service-openapi
               uri: lb://auth-service
               predicates:
