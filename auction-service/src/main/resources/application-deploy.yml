@@ -32,6 +32,8 @@ client:
 auction:
   scheduler:
     cron: ${AUCTION_SCHEDULER_CRON:0 * * * * *}
+  ws:
+    debounce-ms: ${AUCTION_WS_DEBOUNCE_MS:100}
 
 resilience4j:
   circuitbreaker:

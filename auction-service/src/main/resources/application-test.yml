@@ -5,3 +5,7 @@ spring:
 
 server:
   port: 18085
+
+auction:
+  ws:
+    debounce-ms: 20
