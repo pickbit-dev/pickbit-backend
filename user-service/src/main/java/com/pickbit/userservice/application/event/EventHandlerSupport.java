@@ -1,10 +1,9 @@
 package com.pickbit.userservice.application.event;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.userservice.exception.kafka.KafkaInvalidMessageException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
@@ -19,7 +18,7 @@ public class EventHandlerSupport {
                 throw new KafkaInvalidMessageException(dtoClass.getSimpleName(), "역직렬화 결과가 null입니다.");
             }
             return dto;
-        } catch (JsonProcessingException e) {
+        } catch (RuntimeException e) {
             throw new KafkaInvalidMessageException(dtoClass.getSimpleName(), e.getMessage());
         }
     }

@@ -2,6 +2,7 @@ package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.request.AuctionCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionDetailResponse;
+import com.pickbit.auctionservice.application.event.AuctionCacheEvictEvent;
 import com.pickbit.auctionservice.application.mapper.AuctionMapper;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
@@ -13,6 +14,7 @@ import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class AuctionCommandService {
     private final ProductServiceClient productServiceClient;
     private final AuctionMapper auctionMapper;
     private final OutboxRecorder outboxRecorder;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuctionDetailResponse createAuction(String sellerNickname, AuctionCreateRequest request) {
         ProductResponse product = productServiceClient.getProduct(request.productId());
@@ -77,6 +80,7 @@ public class AuctionCommandService {
 
         auction.cancel();
         recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_CANCELLED", auction.getId());
+        eventPublisher.publishEvent(new AuctionCacheEvictEvent(auctionId));
     }
 
     private void recordProductStatusUpdate(Long productId, String status, String reason, Long auctionId) {

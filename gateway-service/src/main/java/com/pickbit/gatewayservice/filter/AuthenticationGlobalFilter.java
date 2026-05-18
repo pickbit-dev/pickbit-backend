@@ -1,6 +1,5 @@
 package com.pickbit.gatewayservice.filter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.gatewayservice.dto.AuthValidateRequest;
 import com.pickbit.gatewayservice.dto.AuthValidateResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +21,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

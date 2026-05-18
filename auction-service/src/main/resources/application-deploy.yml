@@ -32,6 +32,8 @@ client:
 auction:
   scheduler:
     cron: ${AUCTION_SCHEDULER_CRON:0 * * * * *}
+  cache:
+    auction-ttl-seconds: ${AUCTION_CACHE_TTL_SECONDS:10}
 
 resilience4j:
   circuitbreaker:

@@ -1,6 +1,5 @@
 package com.pickbit.library.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickbit.library.logging.config.FilterProperties;
 import com.pickbit.library.logging.logger.LoggingFilter;
 import com.pickbit.library.logging.logger.RequestLogger;
@@ -10,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
 
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
