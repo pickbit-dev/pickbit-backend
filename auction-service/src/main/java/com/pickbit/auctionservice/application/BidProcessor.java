@@ -3,6 +3,7 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.api.dto.request.BidCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
 import com.pickbit.auctionservice.api.dto.response.BidResponse;
+import com.pickbit.auctionservice.application.event.AuctionCacheEvictEvent;
 import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.application.mapper.BidMapper;
 import com.pickbit.auctionservice.domain.Auction;
@@ -93,6 +94,8 @@ public class BidProcessor {
                     AuctionBidEvent.ofNewBid(request.bidAmount(), bidderNickname, now)
             ));
         }
+
+        eventPublisher.publishEvent(new AuctionCacheEvictEvent(auctionId));
 
         return bidMapper.toResponse(bid);
     }

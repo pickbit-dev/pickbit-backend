@@ -1,8 +1,8 @@
 package com.pickbit.library.persistence.converter;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import tools.jackson.databind.json.JsonMapper;
 
 @Converter
 public abstract class BaseJsonConverter<T> implements AttributeConverter<T, String> {

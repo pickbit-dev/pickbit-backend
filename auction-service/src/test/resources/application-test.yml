@@ -29,6 +29,8 @@ springdoc:
 auction:
   scheduler:
     cron: "-"
+  cache:
+    auction-ttl-seconds: 1
 
 client:
   product-service:

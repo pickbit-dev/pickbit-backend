@@ -1,6 +1,7 @@
 package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.response.AuctionBidEvent;
+import com.pickbit.auctionservice.application.event.AuctionCacheEvictEvent;
 import com.pickbit.auctionservice.application.event.AuctionRealtimeEvent;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
@@ -51,6 +52,7 @@ public class AuctionScheduler {
         toActivate.forEach(auction -> {
             auction.activate();
             recordProductStatusUpdate(auction.getProductId(), "IN_AUCTION", "AUCTION_STARTED", auction.getId());
+            eventPublisher.publishEvent(new AuctionCacheEvictEvent(auction.getId()));
         });
         log.info("경매 활성화: {}건", toActivate.size());
     }
@@ -114,6 +116,8 @@ public class AuctionScheduler {
             publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEndedNoBids());
             recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_ENDED_NO_BIDS", auction.getId());
         }
+
+        eventPublisher.publishEvent(new AuctionCacheEvictEvent(auction.getId()));
     }
 
 
