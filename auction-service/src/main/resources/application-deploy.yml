@@ -28,6 +28,8 @@ spring:
 client:
   product-service:
     base-url: ${PRODUCT_SERVICE_BASE_URL:http://product-service}
+  user-service:
+    base-url: ${USER_SERVICE_BASE_URL:http://user-service}
 
 auction:
   scheduler:
@@ -46,9 +48,18 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
+      userService:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
   bulkhead:
     instances:
       productService:
+        maxConcurrentCalls: 30
+        maxWaitDuration: 100ms
+      userService:
         maxConcurrentCalls: 30
         maxWaitDuration: 100ms
 

@@ -1,0 +1,22 @@
+package com.pickbit.paymentservice.application;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class JsonUtils {
+
+    private final JsonMapper objectMapper;
+
+    public String toJson(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        return objectMapper.writeValueAsString(object);
+    }
+}

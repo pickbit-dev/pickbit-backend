@@ -15,19 +15,37 @@ public class RestClientConfig {
     private String productServiceBaseUrl;
 
     @Value("${client.product-service.connect-timeout-ms:500}")
-    private long connectTimeoutMs;
+    private long productConnectTimeoutMs;
 
     @Value("${client.product-service.read-timeout-ms:2000}")
-    private long readTimeoutMs;
+    private long productReadTimeoutMs;
+
+    @Value("${client.user-service.base-url}")
+    private String userServiceBaseUrl;
+
+    @Value("${client.user-service.connect-timeout-ms:500}")
+    private long userConnectTimeoutMs;
+
+    @Value("${client.user-service.read-timeout-ms:2000}")
+    private long userReadTimeoutMs;
 
     @Bean
     public RestClient productServiceRestClient() {
+        return buildClient(productServiceBaseUrl, productConnectTimeoutMs, productReadTimeoutMs);
+    }
+
+    @Bean
+    public RestClient userServiceRestClient() {
+        return buildClient(userServiceBaseUrl, userConnectTimeoutMs, userReadTimeoutMs);
+    }
+
+    private RestClient buildClient(String baseUrl, long connectTimeoutMs, long readTimeoutMs) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
         factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 
         return RestClient.builder()
-                .baseUrl(productServiceBaseUrl)
+                .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .build();
     }

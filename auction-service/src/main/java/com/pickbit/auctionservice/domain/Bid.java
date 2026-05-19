@@ -27,6 +27,9 @@ public class Bid extends BaseEntity {
     @JoinColumn(nullable = false, comment = "경매 ID")
     private Auction auction;
 
+    @Column(comment = "입찰자 사용자 ID")
+    private Long bidderUserId;
+
     @Column(comment = "입찰자 닉네임", nullable = false, length = 50)
     private String bidderNickname;
 

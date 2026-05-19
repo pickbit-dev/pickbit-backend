@@ -1,4 +1,35 @@
 spring:
+  config:
+    activate:
+      on-profile: develop
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: Rlawhdgns4!
+    url: jdbc:mysql://localhost:13306/pickbit_payment_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        use_sql_comments: false
+        default_batch_fetch_size: 100
+    database: mysql
+    hibernate:
+      ddl-auto: update
+
+  kafka:
+    bootstrap-servers: localhost:19092
+
+  data:
+    redis:
+      host: localhost
+      port: 16379
+
   cloud:
     consul:
       enabled: true
@@ -8,6 +39,44 @@ spring:
 server:
   port: 18086
 
+payment:
+  deadline-hours: 24
+  confirm-timeout-days: 10
+  expiry-scheduler:
+    cron: "0 * * * * *"
+
+client:
+  toss-payments:
+    base-url: https://api.tosspayments.com
+    secret-key: ${TOSS_SECRET_KEY:test_sk_unset}
+    success-url: ${TOSS_SUCCESS_URL:http://localhost:3000/payment/success}
+    fail-url: ${TOSS_FAIL_URL:http://localhost:3000/payment/fail}
+    webhook-secret: ${TOSS_WEBHOOK_SECRET:test_webhook_secret}
+    connect-timeout-ms: 500
+    read-timeout-ms: 5000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      tossPayments:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  bulkhead:
+    instances:
+      tossPayments:
+        maxConcurrentCalls: 32
+        maxWaitDuration: 100ms
+
 openapi:
   docs-export:
     enabled: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: false

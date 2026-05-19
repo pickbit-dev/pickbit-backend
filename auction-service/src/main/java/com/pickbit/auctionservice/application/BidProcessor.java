@@ -14,6 +14,8 @@ import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
+import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
+import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,8 @@ public class BidProcessor {
     private final BidMapper bidMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final OutboxRecorder outboxRecorder;
+    private final UserServiceClient userServiceClient;
+    private final AuctionCompleter auctionCompleter;
 
     public BidResponse process(String bidderNickname, Long auctionId, BidCreateRequest request) {
         Auction auction = auctionRepository.findById(auctionId)
@@ -61,12 +65,15 @@ public class BidProcessor {
             throw new InvalidBidAmountException(message);
         }
 
+        UserResponse bidder = userServiceClient.getByNickname(bidderNickname);
+
         // 기존 ACTIVE 입찰을 OUTBID로 전환
         bidRepository.updateAllActiveBidsByAuctionId(auctionId, BidStatus.OUTBID);
 
         LocalDateTime now = LocalDateTime.now();
         Bid bid = Bid.builder()
                 .auction(auction)
+                .bidderUserId(bidder.id())
                 .bidderNickname(bidderNickname)
                 .amount(request.bidAmount())
                 .bidTime(now)
@@ -79,15 +86,12 @@ public class BidProcessor {
         // 즉시 구매가 충족 시 경매 즉시 종료
         if (auction.getBuyNowPrice() != null
                 && request.bidAmount().compareTo(auction.getBuyNowPrice()) >= 0) {
-            bid.markWinning();
-            auction.complete(bidderNickname, request.bidAmount());
+            auctionCompleter.completeWithWinner(auction, bid, "BUY_NOW_COMPLETED");
 
             eventPublisher.publishEvent(new AuctionRealtimeEvent(
                     auctionId,
                     AuctionBidEvent.ofEnded(bidderNickname, request.bidAmount())
             ));
-            outboxRecorder.productStatusUpdateEvent(
-                    auction.getProductId(), "AUCTION_COMPLETED", "BUY_NOW_COMPLETED", auction.getId());
         } else {
             eventPublisher.publishEvent(new AuctionRealtimeEvent(
                     auctionId,

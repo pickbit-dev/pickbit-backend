@@ -36,6 +36,7 @@ public class AuctionScheduler {
     private final ApplicationEventPublisher eventPublisher;
     private final RedissonClient redissonClient;
     private final OutboxRecorder outboxRecorder;
+    private final AuctionCompleter auctionCompleter;
 
     @Scheduled(cron = "${auction.scheduler.cron}")
     @SchedulerLock(name = "processAuctions", lockAtMostFor = "PT30S", lockAtLeastFor = "PT5S")
@@ -105,11 +106,9 @@ public class AuctionScheduler {
         if (topBid.isPresent()) {
             Bid winner = topBid.get();
             bidRepository.updateAllActiveBidsByAuctionId(auction.getId(), BidStatus.OUTBID);
-            winner.markWinning();
-            auction.complete(winner.getBidderNickname(), winner.getAmount());
+            auctionCompleter.completeWithWinner(auction, winner, "AUCTION_ENDED_SOLD");
 
             publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEnded(winner.getBidderNickname(), winner.getAmount()));
-            recordProductStatusUpdate(auction.getProductId(), "AUCTION_COMPLETED", "AUCTION_ENDED_SOLD", auction.getId());
         } else {
             auction.endWithNoBids();
 

@@ -11,7 +11,9 @@ import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidProductForAuctionException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
+import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
+import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,6 +29,7 @@ public class AuctionCommandService {
 
     private final AuctionRepository auctionRepository;
     private final ProductServiceClient productServiceClient;
+    private final UserServiceClient userServiceClient;
     private final AuctionMapper auctionMapper;
     private final OutboxRecorder outboxRecorder;
     private final ApplicationEventPublisher eventPublisher;
@@ -48,10 +51,13 @@ public class AuctionCommandService {
             throw new InvalidAuctionStatusException("경매 종료 시각은 시작 시각보다 늦어야 합니다.");
         }
 
+        UserResponse seller = userServiceClient.getByNickname(sellerNickname);
+
         Auction auction = Auction.builder()
                 .productId(request.productId())
                 .productName(product.name())
                 .productThumbnailUrl(product.thumbnailUrl())
+                .sellerUserId(seller.id())
                 .sellerNickname(sellerNickname)
                 .startingPrice(request.startingPrice())
                 .currentPrice(request.startingPrice())

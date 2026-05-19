@@ -40,6 +40,8 @@ server:
 client:
   product-service:
     base-url: http://localhost:18083
+  user-service:
+    base-url: http://localhost:18082
 
 auction:
   scheduler:
@@ -59,9 +61,19 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
         registerHealthIndicator: true
+      userService:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
   bulkhead:
     instances:
       productService:
+        maxConcurrentCalls: 30
+        maxWaitDuration: 100ms
+      userService:
         maxConcurrentCalls: 30
         maxWaitDuration: 100ms
 

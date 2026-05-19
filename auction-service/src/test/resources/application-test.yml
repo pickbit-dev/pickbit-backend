@@ -35,3 +35,5 @@ auction:
 client:
   product-service:
     base-url: http://localhost:0
+  user-service:
+    base-url: http://localhost:0

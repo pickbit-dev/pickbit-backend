@@ -24,4 +24,11 @@ public class UserQueryService {
     public UserResponse getByAccountId(Long accountId) {
         return getMe(accountId);
     }
+
+    @Transactional(readOnly = true)
+    public UserResponse getByNickname(String nickname) {
+        return userRepository.findByNickname(nickname)
+                .map(UserResponse::from)
+                .orElseThrow(() -> new UserNotFoundException(nickname));
+    }
 }

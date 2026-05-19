@@ -16,3 +16,11 @@ management:
     web:
       exposure:
         include: health,info
+
+client:
+  toss-payments:
+    base-url: https://api.tosspayments.com
+    secret-key: test_sk_unset
+    success-url: http://localhost:3000/payment/success
+    fail-url: http://localhost:3000/payment/fail
+    webhook-secret: test_webhook_secret

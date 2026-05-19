@@ -11,6 +11,8 @@ import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
+import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
+import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
@@ -43,8 +45,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 
 @SpringBootTest
 @Transactional
@@ -77,10 +80,18 @@ class BidServiceIntegrationTest {
     @MockitoBean
     private ProductServiceClient productServiceClient;
 
+    @MockitoBean
+    private UserServiceClient userServiceClient;
+
     private Auction activeAuction;
 
     @BeforeEach
     void setUp() {
+        given(userServiceClient.getByNickname(anyString()))
+                .willAnswer(invocation -> {
+                    String nickname = invocation.getArgument(0);
+                    return new UserResponse((long) nickname.hashCode(), nickname);
+                });
         activeAuction = auctionRepository.save(Auction.builder()
                 .productId(1L)
                 .productName("테스트 상품")

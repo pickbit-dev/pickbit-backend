@@ -3,6 +3,11 @@ spring:
     activate:
       on-profile: deploy
 
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     consul:
       enabled: true
@@ -11,6 +16,36 @@ spring:
 
 server:
   port: ${PAYMENT_SERVER_PORT:18086}
+
+payment:
+  expiry-scheduler:
+    cron: "0 * * * * *"
+
+client:
+  toss-payments:
+    base-url: ${TOSS_BASE_URL:https://api.tosspayments.com}
+    secret-key: ${TOSS_SECRET_KEY}
+    success-url: ${TOSS_SUCCESS_URL}
+    fail-url: ${TOSS_FAIL_URL}
+    webhook-secret: ${TOSS_WEBHOOK_SECRET}
+    connect-timeout-ms: 500
+    read-timeout-ms: 5000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      tossPayments:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  bulkhead:
+    instances:
+      tossPayments:
+        maxConcurrentCalls: 32
+        maxWaitDuration: 100ms
 
 springdoc:
   api-docs:

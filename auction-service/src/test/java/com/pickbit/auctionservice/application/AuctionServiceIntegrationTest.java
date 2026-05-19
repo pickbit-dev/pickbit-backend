@@ -11,7 +11,9 @@ import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidProductForAuctionException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
+import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
+import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.library.dto.PageResponse;
@@ -32,8 +34,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 @SpringBootTest
@@ -58,11 +60,20 @@ class AuctionServiceIntegrationTest {
     @MockitoBean
     private ProductServiceClient productServiceClient;
 
+    @MockitoBean
+    private UserServiceClient userServiceClient;
+
     private AuctionCreateRequest defaultRequest;
     private ProductResponse defaultProduct;
 
     @BeforeEach
     void setUp() {
+
+        given(userServiceClient.getByNickname(anyString()))
+                .willAnswer(invocation -> {
+                    String nickname = invocation.getArgument(0);
+                    return new UserResponse((long) nickname.hashCode(), nickname);
+                });
         defaultRequest = new AuctionCreateRequest(
                 1L,
                 BigDecimal.valueOf(10_000),

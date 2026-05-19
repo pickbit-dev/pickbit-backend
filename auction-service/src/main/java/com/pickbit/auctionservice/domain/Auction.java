@@ -34,6 +34,9 @@ public class Auction extends BaseEntity {
     @Column(comment = "썸네일 URL 스냅샷", length = 1000)
     private String productThumbnailUrl;
 
+    @Column(comment = "판매자 사용자 ID")
+    private Long sellerUserId;
+
     @Column(comment = "판매자 닉네임 스냅샷", nullable = false, length = 50)
     private String sellerNickname;
 
@@ -59,6 +62,9 @@ public class Auction extends BaseEntity {
     @Column(comment = "경매 종료 시각", nullable = false)
     private LocalDateTime endTime;
 
+    @Column(comment = "낙찰자 사용자 ID")
+    private Long winnerUserId;
+
     @Column(comment = "낙찰자 닉네임", length = 50)
     private String winnerNickname;
 
@@ -81,6 +87,10 @@ public class Auction extends BaseEntity {
         this.auctionStatus = AuctionStatus.ENDED;
         this.winnerNickname = winnerNickname;
         this.finalPrice = finalPrice;
+    }
+
+    public void assignWinnerUserId(Long winnerUserId) {
+        this.winnerUserId = winnerUserId;
     }
 
     public void endWithNoBids() {
