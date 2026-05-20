@@ -2,6 +2,13 @@ spring:
   application:
     name: product-service
 
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY: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}
+      chat:
+        model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+        temperature: 0.2
+
   cloud:
     consul:
       discovery:

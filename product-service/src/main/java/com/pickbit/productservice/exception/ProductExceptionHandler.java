@@ -34,4 +34,10 @@ public class ProductExceptionHandler extends GlobalExceptionHandler {
         logException(HttpStatus.CONFLICT, e);
         return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
     }
+
+    @ExceptionHandler(ProductAiSuggestionException.class)
+    protected ResponseEntity<ProblemDetail> handleProductAiSuggestion(ProductAiSuggestionException e, HttpServletRequest request) {
+        logException(HttpStatus.BAD_GATEWAY, e);
+        return buildResponse(HttpStatus.BAD_GATEWAY, e.getMessage(), request);
+    }
 }
