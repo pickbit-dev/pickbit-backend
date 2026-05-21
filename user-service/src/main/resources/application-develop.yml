@@ -1,13 +1,14 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:13306/pickbit_user_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    username: ${USER_MYSQL_USERNAME}
+    password: ${USER_MYSQL_PASSWORD}
+    url: ${USER_MYSQL_URL}
 
   jpa:
     defer-datasource-initialization: false

@@ -1,5 +1,6 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 

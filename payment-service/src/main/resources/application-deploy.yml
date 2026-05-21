@@ -1,29 +1,46 @@
 spring:
   config:
+    import: optional:file:./secrets/application-deploy-secret.yml
     activate:
       on-profile: deploy
 
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${PAYMENT_MYSQL_USERNAME}
+    password: ${PAYMENT_MYSQL_PASSWORD}
+    url: ${PAYMENT_MYSQL_URL}
+
+  jpa:
+    database: mysql
+    hibernate:
+      ddl-auto: validate
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
   data:
     redis:
-      host: ${REDIS_HOST:redis}
-      port: ${REDIS_PORT:6379}
+      host: redis
+      port: 6379
 
   cloud:
     consul:
       enabled: true
-      host: ${CONSUL_HOST:consul-server}
-      port: ${CONSUL_PORT:18500}
+      host: consul-server
+      port: 8500
 
 server:
-  port: ${PAYMENT_SERVER_PORT:18086}
+  port: 18086
 
 payment:
+  deadline-hours: 24
+  confirm-timeout-days: 10
   expiry-scheduler:
     cron: "0 * * * * *"
 
 client:
   toss-payments:
-    base-url: ${TOSS_BASE_URL:https://api.tosspayments.com}
+    base-url: ${TOSS_BASE_URL}
     secret-key: ${TOSS_SECRET_KEY}
     success-url: ${TOSS_SUCCESS_URL}
     fail-url: ${TOSS_FAIL_URL}

@@ -1,0 +1,293 @@
+x-app-common: &app-common
+  restart: unless-stopped
+  networks:
+    - pickbit-deploy
+  environment: &app-common-env
+    SPRING_PROFILES_ACTIVE: deploy
+    ENV: deploy
+    LOG_PATH: /logs
+    LOGSTASH_DESTINATION: logstash:5000
+    JAVA_OPTS: -Xms512m -Xmx1024m
+    CONSUL_HOST: consul-server
+    CONSUL_PORT: 8500
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    SPRING_CLOUD_CONSUL_HOST: consul-server
+    SPRING_CLOUD_CONSUL_PORT: 8500
+    SPRING_DATA_REDIS_HOST: redis
+    SPRING_DATA_REDIS_PORT: 6379
+    SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    consul-server:
+      condition: service_started
+    kafka:
+      condition: service_started
+    logstash:
+      condition: service_started
+  volumes:
+    - pickbit-deploy-logs:/logs
+    - ./secrets:/app/secrets:ro
+
+x-build-common: &build-common
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: pickbit-deploy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_ROOT_HOST: "%"
+      TZ: Asia/Seoul
+    secrets:
+      - mysql_root_password
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --default-time-zone=+09:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - pickbit-deploy-mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pickbit-deploy
+
+  redis:
+    image: redis:7-alpine
+    container_name: pickbit-deploy-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - pickbit-deploy-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pickbit-deploy
+
+  consul-server:
+    image: hashicorp/consul:1.20
+    container_name: pickbit-deploy-consul
+    restart: unless-stopped
+    ports:
+      - "18500:8500"
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+    networks:
+      - pickbit-deploy
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-deploy-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - pickbit-deploy-kafka-data:/var/lib/kafka/data
+    networks:
+      - pickbit-deploy
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-deploy-kafka-init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do sleep 2; done;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic AuthAccount-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Product-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic User-topic --partitions 3 --replication-factor 1;
+      "
+    networks:
+      - pickbit-deploy
+
+  kafka-connect:
+    image: quay.io/debezium/connect:3.0
+    container_name: pickbit-deploy-kafka-connect
+    restart: unless-stopped
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: pickbit-deploy-connect-cluster
+      CONFIG_STORAGE_TOPIC: pickbit-deploy-connect-configs
+      OFFSET_STORAGE_TOPIC: pickbit-deploy-connect-offsets
+      STATUS_STORAGE_TOPIC: pickbit-deploy-connect-statuses
+      KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+    networks:
+      - pickbit-deploy
+
+  kafka-connect-init:
+    image: python:3.13-alpine
+    container_name: pickbit-deploy-kafka-connect-init
+    depends_on:
+      - kafka-connect
+    environment:
+      CONNECT_URL: http://kafka-connect:8083
+    volumes:
+      - ./docker/kafka-connect:/scripts:ro
+    command: sh -c "apk add --no-cache bash curl >/dev/null && /scripts/register-connectors.sh"
+    networks:
+      - pickbit-deploy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: pickbit-deploy-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms1024m -Xmx1024m
+    volumes:
+      - pickbit-deploy-elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - pickbit-deploy
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.3
+    container_name: pickbit-deploy-logstash
+    restart: unless-stopped
+    environment:
+      ENV: deploy
+      LS_JAVA_OPTS: -Xms512m -Xmx512m
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    volumes:
+      - ./docker/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - pickbit-deploy
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: pickbit-deploy-kibana
+    restart: unless-stopped
+    ports:
+      - "15601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - pickbit-deploy
+
+  gateway-service:
+    <<: *app-common
+    container_name: pickbit-deploy-gateway-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: gateway-service
+    ports:
+      - "18080:18080"
+
+  auth-service:
+    <<: *app-common
+    container_name: pickbit-deploy-auth-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: auth-service
+
+  user-service:
+    <<: *app-common
+    container_name: pickbit-deploy-user-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: user-service
+
+  product-service:
+    <<: *app-common
+    container_name: pickbit-deploy-product-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: product-service
+
+  file-service:
+    <<: *app-common
+    container_name: pickbit-deploy-file-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: file-service
+
+  auction-service:
+    <<: *app-common
+    container_name: pickbit-deploy-auction-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: auction-service
+
+  payment-service:
+    <<: *app-common
+    container_name: pickbit-deploy-payment-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: payment-service
+
+  notification-service:
+    <<: *app-common
+    container_name: pickbit-deploy-notification-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: notification-service
+
+networks:
+  pickbit-deploy:
+    name: pickbit-deploy
+
+volumes:
+  pickbit-deploy-mysql-data:
+  pickbit-deploy-redis-data:
+  pickbit-deploy-kafka-data:
+  pickbit-deploy-elasticsearch-data:
+  pickbit-deploy-logs:
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql-root-password.txt

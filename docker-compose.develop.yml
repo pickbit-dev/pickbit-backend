@@ -1,0 +1,337 @@
+x-app-common: &app-common
+  restart: unless-stopped
+  networks:
+    - pickbit-develop
+  environment: &app-common-env
+    SPRING_PROFILES_ACTIVE: develop
+    ENV: develop
+    LOG_PATH: /logs
+    LOGSTASH_DESTINATION: logstash:5000
+    JAVA_OPTS: -Xms256m -Xmx512m
+    SPRING_CLOUD_CONSUL_HOST: consul-server
+    SPRING_CLOUD_CONSUL_PORT: 8500
+    SPRING_DATA_REDIS_HOST: redis
+    SPRING_DATA_REDIS_PORT: 6379
+    SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    CONSUL_HOST: consul-server
+    CONSUL_PORT: 8500
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    consul-server:
+      condition: service_started
+    kafka:
+      condition: service_started
+    logstash:
+      condition: service_started
+  volumes:
+    - pickbit-develop-logs:/logs
+    - ./secrets:/app/secrets:ro
+
+x-build-common: &build-common
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: pickbit-develop-mysql
+    restart: unless-stopped
+    ports:
+      - "13306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_ROOT_HOST: "%"
+      TZ: Asia/Seoul
+    secrets:
+      - mysql_root_password
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --default-time-zone=+09:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - pickbit-develop-mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pickbit-develop
+
+  redis:
+    image: redis:7-alpine
+    container_name: pickbit-develop-redis
+    restart: unless-stopped
+    ports:
+      - "16379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - pickbit-develop-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pickbit-develop
+
+  consul-server:
+    image: hashicorp/consul:1.20
+    container_name: pickbit-develop-consul
+    restart: unless-stopped
+    ports:
+      - "18500:8500"
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+    networks:
+      - pickbit-develop
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-develop-kafka
+    restart: unless-stopped
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - pickbit-develop-kafka-data:/var/lib/kafka/data
+    networks:
+      - pickbit-develop
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    container_name: pickbit-develop-kafka-init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do sleep 2; done;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic AuthAccount-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Product-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic User-topic --partitions 3 --replication-factor 1;
+      "
+    networks:
+      - pickbit-develop
+
+  kafka-connect:
+    image: quay.io/debezium/connect:3.0
+    container_name: pickbit-develop-kafka-connect
+    restart: unless-stopped
+    ports:
+      - "18088:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: pickbit-develop-connect-cluster
+      CONFIG_STORAGE_TOPIC: pickbit-develop-connect-configs
+      OFFSET_STORAGE_TOPIC: pickbit-develop-connect-offsets
+      STATUS_STORAGE_TOPIC: pickbit-develop-connect-statuses
+      KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+    networks:
+      - pickbit-develop
+
+  kafka-connect-init:
+    image: python:3.13-alpine
+    container_name: pickbit-develop-kafka-connect-init
+    depends_on:
+      - kafka-connect
+    environment:
+      CONNECT_URL: http://kafka-connect:8083
+    volumes:
+      - ./docker/kafka-connect:/scripts:ro
+    command: sh -c "apk add --no-cache bash curl >/dev/null && /scripts/register-connectors.sh"
+    networks:
+      - pickbit-develop
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: pickbit-develop-kafka-ui
+    restart: unless-stopped
+    ports:
+      - "19090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pickbit-develop
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: pickbit-develop-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+    depends_on:
+      - kafka
+      - kafka-connect
+    networks:
+      - pickbit-develop
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: pickbit-develop-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "19200:9200"
+      - "19300:9300"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - pickbit-develop-elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - pickbit-develop
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.3
+    container_name: pickbit-develop-logstash
+    restart: unless-stopped
+    ports:
+      - "15000:5000"
+      - "19600:9600"
+    environment:
+      ENV: develop
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    volumes:
+      - ./docker/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - pickbit-develop
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: pickbit-develop-kibana
+    restart: unless-stopped
+    ports:
+      - "15601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - pickbit-develop
+
+  gateway-service:
+    <<: *app-common
+    container_name: pickbit-develop-gateway-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: gateway-service
+    ports:
+      - "18080:18080"
+
+  auth-service:
+    <<: *app-common
+    container_name: pickbit-develop-auth-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: auth-service
+    ports:
+      - "18081:18081"
+
+  user-service:
+    <<: *app-common
+    container_name: pickbit-develop-user-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: user-service
+    ports:
+      - "18082:18082"
+
+  product-service:
+    <<: *app-common
+    container_name: pickbit-develop-product-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: product-service
+    ports:
+      - "18083:18083"
+
+  file-service:
+    <<: *app-common
+    container_name: pickbit-develop-file-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: file-service
+    ports:
+      - "18084:18084"
+
+  auction-service:
+    <<: *app-common
+    container_name: pickbit-develop-auction-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: auction-service
+    ports:
+      - "18085:18085"
+
+  payment-service:
+    <<: *app-common
+    container_name: pickbit-develop-payment-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: payment-service
+    ports:
+      - "18086:18086"
+
+  notification-service:
+    <<: *app-common
+    container_name: pickbit-develop-notification-service
+    build:
+      <<: *build-common
+      args:
+        SERVICE_NAME: notification-service
+    ports:
+      - "18087:18087"
+
+networks:
+  pickbit-develop:
+    name: pickbit-develop
+
+volumes:
+  pickbit-develop-mysql-data:
+  pickbit-develop-redis-data:
+  pickbit-develop-kafka-data:
+  pickbit-develop-elasticsearch-data:
+  pickbit-develop-logs:
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql-root-password.txt

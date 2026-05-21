@@ -1,5 +1,6 @@
 spring:
   config:
+    import: optional:file:./secrets/application-deploy-secret.yml
     activate:
       on-profile: deploy
 
@@ -11,8 +12,8 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
+      host: redis
+      port: 6379
 
   security:
     oauth2:
@@ -58,11 +59,11 @@ spring:
   cloud:
     consul:
       enabled: true
-      host: ${CONSUL_HOST:consul-server}
-      port: ${CONSUL_PORT:18500}
+      host: consul-server
+      port: 8500
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: kafka:9092
 
   jpa:
     database: mysql
@@ -70,12 +71,12 @@ spring:
       ddl-auto: validate
 
 server:
-  port: ${AUTH_SERVER_PORT:18081}
+  port: 18081
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
-  refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY_MS:1209600000}
+  access-token-validity-ms: 1800000
+  refresh-token-validity-ms: 1209600000
 
 frontend:
   oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL}

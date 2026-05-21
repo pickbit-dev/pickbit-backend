@@ -1,13 +1,14 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:13306/pickbit_auth_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    username: ${AUTH_MYSQL_USERNAME}
+    password: ${AUTH_MYSQL_PASSWORD}
+    url: ${AUTH_MYSQL_URL}
 
   data:
     redis:
@@ -19,26 +20,26 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID:google-client-id}
-            client-secret: ${GOOGLE_CLIENT_SECRET:google-client-secret}
-            redirect-uri: "${OAUTH_REDIRECT_BASE_URL:http://192.168.20.70:18080}/api/auth/oauth2/code/{registrationId}"
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "${OAUTH_REDIRECT_BASE_URL}/api/auth/oauth2/code/{registrationId}"
             scope:
               - email
               - profile
           kakao:
             provider: kakao
-            client-id: ${KAKAO_CLIENT_ID:24d64f15c3bbf660398dc6631186c76a}
-            client-secret: ${KAKAO_CLIENT_SECRET:p7rc26sMqjLF1c7Sp96nohjui5TO31LJ}
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
-            redirect-uri: "${OAUTH_REDIRECT_BASE_URL:http://192.168.20.70:18080}/api/auth/oauth2/code/{registrationId}"
+            redirect-uri: "${OAUTH_REDIRECT_BASE_URL}/api/auth/oauth2/code/{registrationId}"
             client-name: Kakao
           naver:
             provider: naver
-            client-id: ${NAVER_CLIENT_ID:HxeWlZ4OLcjpNJ38mPHA}
-            client-secret: ${NAVER_CLIENT_SECRET:CuHRoEAgH1}
+            client-id: ${NAVER_CLIENT_ID}
+            client-secret: ${NAVER_CLIENT_SECRET}
             authorization-grant-type: authorization_code
-            redirect-uri: "${OAUTH_REDIRECT_BASE_URL:http://192.168.20.70:18080}/api/auth/oauth2/code/{registrationId}"
+            redirect-uri: "${OAUTH_REDIRECT_BASE_URL}/api/auth/oauth2/code/{registrationId}"
             scope:
               - email
               - name

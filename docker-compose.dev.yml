@@ -5,9 +5,11 @@ services:
     ports:
       - "13306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: Rlawhdgns4!
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_ROOT_HOST: "%"
       TZ: Asia/Seoul
+    secrets:
+      - mysql_root_password
     command:
       - --server-id=1
       - --log-bin=mysql-bin
@@ -126,3 +128,7 @@ volumes:
   pickbit-mysql-data:
   pickbit-kafka-data:
   pickbit-redis-data:
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql-root-password.txt

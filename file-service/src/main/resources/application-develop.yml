@@ -1,5 +1,6 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 
@@ -24,8 +25,8 @@ springdoc:
 
 ncp:
   storage:
-    access-key: ncp_iam_BPAMKRhKcD2Ez1trhMv1
-    secret-key: ncp_iam_BPKMKRQjQvHCpjkY9yhn9VlbVPtwmmGcJ6
-    endpoint: https://kr.object.ncloudstorage.com
-    region: kr-standard
-    bucket-name: pickbit-server-develop-storage
+    access-key: ${NCP_STORAGE_ACCESS_KEY}
+    secret-key: ${NCP_STORAGE_SECRET_KEY}
+    endpoint: ${NCP_STORAGE_ENDPOINT}
+    region: ${NCP_STORAGE_REGION}
+    bucket-name: ${NCP_STORAGE_BUCKET_NAME}

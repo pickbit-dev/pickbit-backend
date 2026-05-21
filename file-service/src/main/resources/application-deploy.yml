@@ -11,7 +11,15 @@ spring:
       port: 8500
 
 server:
-  port: 18087
+  port: 18084
+
+ncp:
+  storage:
+    access-key: ${NCP_STORAGE_ACCESS_KEY}
+    secret-key: ${NCP_STORAGE_SECRET_KEY}
+    endpoint: ${NCP_STORAGE_ENDPOINT}
+    region: ${NCP_STORAGE_REGION}
+    bucket-name: ${NCP_STORAGE_BUCKET_NAME}
 
 springdoc:
   api-docs:

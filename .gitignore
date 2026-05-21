@@ -38,5 +38,14 @@ out/
 openapi
 
 ### Local profile secrets ###
+.env
+.env.*
+!.env.example
+secrets/
+*secret*.yml
+*secret*.yaml
 **/*.yml
 **/*.yaml
+!docker-compose.develop.yml
+!docker-compose.deploy.yml
+!application-secret.example.yml

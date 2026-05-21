@@ -1,0 +1,15 @@
+.git
+.gradle
+**/build
+**/out
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+HELP.md
+portfolio.html
+pickbit-portfolio.html
+docker-compose*.yml
+document
+openapi

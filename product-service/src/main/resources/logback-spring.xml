@@ -4,13 +4,13 @@
 
     <include resource="com/pickbit/library/logback/base.xml"/>
 
-    <springProfile name="default,local,develop,test">
+    <springProfile name="default,local,test">
         <root level="info">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
-    <springProfile name="qa,deploy">
+    <springProfile name="develop,qa,deploy">
         <if condition='isDefined("LOGSTASH_DESTINATION")'>
             <then>
                 <root level="info">

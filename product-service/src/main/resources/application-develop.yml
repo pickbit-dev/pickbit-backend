@@ -1,13 +1,14 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:13306/pickbit_product_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    username: ${PRODUCT_MYSQL_USERNAME}
+    password: ${PRODUCT_MYSQL_PASSWORD}
+    url: ${PRODUCT_MYSQL_URL}
 
   jpa:
     defer-datasource-initialization: false
@@ -37,11 +38,11 @@ server:
 
 ncp:
   storage:
-    access-key: ncp_iam_BPAMKRhKcD2Ez1trhMv1
-    secret-key: ncp_iam_BPKMKRQjQvHCpjkY9yhn9VlbVPtwmmGcJ6
-    endpoint: https://kr.object.ncloudstorage.com
-    region: kr-standard
-    bucket-name: pickbit-server-develop-storage
+    access-key: ${NCP_STORAGE_ACCESS_KEY}
+    secret-key: ${NCP_STORAGE_SECRET_KEY}
+    endpoint: ${NCP_STORAGE_ENDPOINT}
+    region: ${NCP_STORAGE_REGION}
+    bucket-name: ${NCP_STORAGE_BUCKET_NAME}
 
 openapi:
   docs-export:

@@ -1,13 +1,14 @@
 spring:
   config:
+    import: optional:file:./secrets/application-develop-secret.yml
     activate:
       on-profile: develop
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: Rlawhdgns4!
-    url: jdbc:mysql://localhost:13306/pickbit_payment_server?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&allowPublicKeyRetrieval=true
+    username: ${PAYMENT_MYSQL_USERNAME}
+    password: ${PAYMENT_MYSQL_PASSWORD}
+    url: ${PAYMENT_MYSQL_URL}
 
   jpa:
     defer-datasource-initialization: false
@@ -47,11 +48,11 @@ payment:
 
 client:
   toss-payments:
-    base-url: https://api.tosspayments.com
-    secret-key: ${TOSS_SECRET_KEY:test_sk_unset}
-    success-url: ${TOSS_SUCCESS_URL:http://localhost:3000/payment/success}
-    fail-url: ${TOSS_FAIL_URL:http://localhost:3000/payment/fail}
-    webhook-secret: ${TOSS_WEBHOOK_SECRET:test_webhook_secret}
+    base-url: ${TOSS_BASE_URL}
+    secret-key: ${TOSS_SECRET_KEY}
+    success-url: ${TOSS_SUCCESS_URL}
+    fail-url: ${TOSS_FAIL_URL}
+    webhook-secret: ${TOSS_WEBHOOK_SECRET}
     connect-timeout-ms: 500
     read-timeout-ms: 5000
 

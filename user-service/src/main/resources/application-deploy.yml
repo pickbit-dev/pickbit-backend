@@ -1,5 +1,6 @@
 spring:
   config:
+    import: optional:file:./secrets/application-deploy-secret.yml
     activate:
       on-profile: deploy
 
@@ -10,13 +11,13 @@ spring:
     url: ${USER_MYSQL_URL}
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: kafka:9092
 
   cloud:
     consul:
       enabled: true
-      host: ${CONSUL_HOST:consul-server}
-      port: ${CONSUL_PORT:18500}
+      host: consul-server
+      port: 8500
 
   jpa:
     database: mysql
@@ -24,7 +25,7 @@ spring:
       ddl-auto: validate
 
 server:
-  port: ${USER_SERVER_PORT:18082}
+  port: 18082
 
 springdoc:
   api-docs:

@@ -1,5 +1,6 @@
 spring:
   config:
+    import: optional:file:./secrets/application-deploy-secret.yml
     activate:
       on-profile: deploy
 
@@ -11,14 +12,14 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
+      host: redis
+      port: 6379
 
   cloud:
     consul:
       enabled: true
-      host: ${CONSUL_HOST:consul-server}
-      port: ${CONSUL_PORT:18500}
+      host: consul-server
+      port: 8500
 
   jpa:
     database: mysql
@@ -27,17 +28,17 @@ spring:
 
 client:
   product-service:
-    base-url: ${PRODUCT_SERVICE_BASE_URL:http://product-service}
+    base-url: http://product-service:18083
   user-service:
-    base-url: ${USER_SERVICE_BASE_URL:http://user-service}
+    base-url: http://user-service:18082
 
 auction:
   scheduler:
-    cron: ${AUCTION_SCHEDULER_CRON:0 * * * * *}
+    cron: "0 * * * * *"
   cache:
-    auction-ttl-seconds: ${AUCTION_CACHE_TTL_SECONDS:10}
+    auction-ttl-seconds: 10
   ws:
-    debounce-ms: ${AUCTION_WS_DEBOUNCE_MS:100}
+    debounce-ms: 100
 
 resilience4j:
   circuitbreaker:
@@ -64,7 +65,7 @@ resilience4j:
         maxWaitDuration: 100ms
 
 server:
-  port: ${AUCTION_SERVER_PORT:18085}
+  port: 18085
 
 springdoc:
   api-docs:

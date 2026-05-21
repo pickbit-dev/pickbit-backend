@@ -2,6 +2,8 @@ CREATE DATABASE IF NOT EXISTS pickbit_auth_server CHARACTER SET utf8mb4 COLLATE 
 CREATE DATABASE IF NOT EXISTS pickbit_user_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS pickbit_product_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS pickbit_auction_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS pickbit_payment_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS pickbit_notification_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE USER IF NOT EXISTS 'debezium'@'%' IDENTIFIED BY 'debezium';
 GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'debezium'@'%';

@@ -19,8 +19,8 @@ management:
 
 client:
   toss-payments:
-    base-url: https://api.tosspayments.com
-    secret-key: test_sk_unset
-    success-url: http://localhost:3000/payment/success
-    fail-url: http://localhost:3000/payment/fail
-    webhook-secret: test_webhook_secret
+    base-url: ${TOSS_BASE_URL}
+    secret-key: ${TOSS_SECRET_KEY}
+    success-url: ${TOSS_SUCCESS_URL}
+    fail-url: ${TOSS_FAIL_URL}
+    webhook-secret: ${TOSS_WEBHOOK_SECRET}
