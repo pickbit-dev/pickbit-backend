@@ -1,4 +1,5 @@
 <included>
+    <!-- 기본 프로퍼티 설정 (외부에서 주입 가능) -->
     <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
     <property name="APP_NAME" value="${APP_NAME:-pickbit-app}"/>
     <property name="ENV" value="${ENV:-local}"/>
@@ -6,6 +7,7 @@
     <property name="LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}.log"/>
     <property name="ERROR_LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}-error.log"/>
 
+    <!-- 1. 콘솔 출력 (컬러 패턴) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
             <layout class="ch.qos.logback.classic.PatternLayout">
@@ -14,6 +16,7 @@
         </encoder>
     </appender>
 
+    <!-- 2. 일반 로그 파일 -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -25,6 +28,7 @@
         </encoder>
     </appender>
 
+    <!-- 3. 에러 로그 전용 파일 -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${ERROR_LOG_FILE}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -41,6 +45,7 @@
         </filter>
     </appender>
 
+    <!-- 4. Logstash TCP 연동 (선택 사항) -->
     <if condition='isDefined("LOGSTASH_DESTINATION")'>
         <then>
             <appender name="LOGSTASH_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">

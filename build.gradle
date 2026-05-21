@@ -36,11 +36,12 @@ subprojects {
 
 }
 
-configure(subprojects.findAll { it.name != 'library' && it.name != 'gateway-service' }) {
+configure(subprojects.findAll { !['library', 'logging-library', 'gateway-service'].contains(it.name) }) {
     apply plugin: 'org.springframework.boot'
 
     dependencies {
         implementation project(':library')
+        implementation project(':logging-library')
         implementation 'org.springframework.boot:spring-boot-starter-web'
         implementation 'org.springframework.boot:spring-boot-starter-actuator'
         implementation 'org.springframework.cloud:spring-cloud-starter-consul-discovery'

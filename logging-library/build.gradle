@@ -1,0 +1,6 @@
+plugins {
+    id 'java-library'
+}
+
+description = 'Shared logging resources'
+version = '0.0.1-SNAPSHOT'

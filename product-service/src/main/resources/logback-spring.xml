@@ -2,7 +2,7 @@
     <property name="APP_NAME" value="product-service"/>
     <springProperty scope="context" name="ENV" source="spring.profiles.active" defaultValue="local"/>
 
-    <include resource="com/pickbit/library/logback/base.xml"/>
+    <include resource="com/pickbit/logback/base.xml"/>
 
     <springProfile name="default,local,test">
         <root level="info">

@@ -7,7 +7,15 @@ ARG SERVICE_NAME
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
 COPY library ./library
-COPY ${SERVICE_NAME} ./${SERVICE_NAME}
+COPY logging-library ./logging-library
+COPY auth-service ./auth-service
+COPY user-service ./user-service
+COPY product-service ./product-service
+COPY auction-service ./auction-service
+COPY payment-service ./payment-service
+COPY notification-service ./notification-service
+COPY file-service ./file-service
+COPY gateway-service ./gateway-service
 
 RUN chmod +x ./gradlew \
     && ./gradlew --no-daemon :${SERVICE_NAME}:bootJar \
