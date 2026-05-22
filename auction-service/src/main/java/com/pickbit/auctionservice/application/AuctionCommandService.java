@@ -11,9 +11,7 @@ import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidProductForAuctionException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
-import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
-import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,18 +27,22 @@ public class AuctionCommandService {
 
     private final AuctionRepository auctionRepository;
     private final ProductServiceClient productServiceClient;
-    private final UserServiceClient userServiceClient;
     private final AuctionMapper auctionMapper;
     private final OutboxRecorder outboxRecorder;
     private final ApplicationEventPublisher eventPublisher;
 
-    public AuctionDetailResponse createAuction(String sellerNickname, AuctionCreateRequest request) {
+    public AuctionDetailResponse createAuction(Long sellerUserId, String sellerNickname, AuctionCreateRequest request) {
+
+        System.out.printf("111111");
         ProductResponse product = productServiceClient.getProduct(request.productId());
+
+        System.out.println("sellerUserId = " + sellerUserId);
+        System.out.println("product.sellerUserId() = " + product.sellerUserId());
 
         if (!"ACTIVE".equals(product.productStatus())) {
             throw new InvalidProductForAuctionException("경매 등록 가능한 상태의 상품이 아닙니다. 현재 상태: " + product.productStatus());
         }
-        if (!product.sellerNickname().equals(sellerNickname)) {
+        if (!sellerUserId.equals(product.sellerUserId())) {
             throw new UnauthorizedAuctionAccessException();
         }
         if (auctionRepository.existsByProductIdAndAuctionStatusIn(
@@ -51,14 +53,12 @@ public class AuctionCommandService {
             throw new InvalidAuctionStatusException("경매 종료 시각은 시작 시각보다 늦어야 합니다.");
         }
 
-        UserResponse seller = userServiceClient.getByNickname(sellerNickname);
-
         Auction auction = Auction.builder()
                 .productId(request.productId())
                 .productName(product.name())
                 .productThumbnailUrl(product.thumbnailUrl())
-                .sellerUserId(seller.id())
-                .sellerNickname(sellerNickname)
+                .sellerUserId(sellerUserId)
+                .sellerNickname(product.sellerNickname())
                 .startingPrice(request.startingPrice())
                 .currentPrice(request.startingPrice())
                 .buyNowPrice(request.buyNowPrice())
@@ -73,11 +73,11 @@ public class AuctionCommandService {
         return auctionMapper.toDetailResponse(saved);
     }
 
-    public void cancelAuction(String sellerNickname, Long auctionId) {
+    public void cancelAuction(Long sellerUserId, Long auctionId) {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
-        if (!auction.getSellerNickname().equals(sellerNickname)) {
+        if (!auction.getSellerUserId().equals(sellerUserId)) {
             throw new UnauthorizedAuctionAccessException();
         }
         if (auction.getAuctionStatus() != AuctionStatus.SCHEDULED) {

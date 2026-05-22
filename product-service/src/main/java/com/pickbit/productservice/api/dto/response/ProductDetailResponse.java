@@ -18,6 +18,7 @@ import java.util.List;
  * @param startingPrice 경매 시작가
  * @param productStatus 상품 상태
  * @param productCondition 상품 컨디션
+ * @param sellerUserId 판매자 계정 ID
  * @param sellerNickname 판매자 닉네임
  * @param categoryId 카테고리 ID
  * @param categoryName 카테고리명
@@ -33,6 +34,7 @@ public record ProductDetailResponse(
         BigDecimal startingPrice,
         ProductStatus productStatus,
         ProductCondition productCondition,
+        Long sellerUserId,
         String sellerNickname,
         Long categoryId,
         String categoryName,

@@ -52,7 +52,8 @@ public class AuctionController {
             @Valid @RequestBody AuctionCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(auctionCommandService.createAuction(AuthContextHolder.getNickname(), request));
+                .body(auctionCommandService.createAuction(
+                        AuthContextHolder.getUserId(), AuthContextHolder.getNickname(), request));
     }
 
     /**
@@ -94,7 +95,7 @@ public class AuctionController {
     public ResponseEntity<Void> cancelAuction(
             @PathVariable Long auctionId
     ) {
-        auctionCommandService.cancelAuction(AuthContextHolder.getNickname(), auctionId);
+        auctionCommandService.cancelAuction(AuthContextHolder.getUserId(), auctionId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -21,14 +21,14 @@ public class BidCommandService {
     private final BidProcessor bidProcessor;
     private final TransactionTemplate transactionTemplate;
 
-    public BidResponse placeBid(String bidderNickname, Long auctionId, BidCreateRequest request) {
+    public BidResponse placeBid(Long bidderUserId, String bidderNickname, Long auctionId, BidCreateRequest request) {
         RLock lock = redissonClient.getLock(BID_LOCK_KEY + auctionId);
         try {
             boolean acquired = lock.tryLock(5, TimeUnit.SECONDS);
             if (!acquired) {
                 throw new InvalidAuctionStatusException("입찰 처리 중입니다. 잠시 후 다시 시도해주세요.");
             }
-            return transactionTemplate.execute(status -> bidProcessor.process(bidderNickname, auctionId, request));
+            return transactionTemplate.execute(status -> bidProcessor.process(bidderUserId, bidderNickname, auctionId, request));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new InvalidAuctionStatusException("입찰 처리 중 오류가 발생했습니다.");

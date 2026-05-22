@@ -7,8 +7,6 @@ import com.pickbit.auctionservice.config.TestContainerConfig;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
-import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
-import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -39,8 +37,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
 
 @SpringBootTest
 @Import(TestContainerConfig.class)
@@ -78,25 +74,18 @@ class AuctionCacheTest {
     private ProductServiceClient productServiceClient;
 
     @MockitoBean
-    private UserServiceClient userServiceClient;
-
-    @MockitoBean
     private SimpMessagingTemplate simpMessagingTemplate;
 
     private Long auctionId;
 
     @BeforeEach
     void setUp() {
-        given(userServiceClient.getByNickname(anyString()))
-                .willAnswer(invocation -> {
-                    String nickname = invocation.getArgument(0);
-                    return new UserResponse((long) nickname.hashCode(), nickname);
-                });
         clearRedis();
         auctionId = transactionTemplate.execute(status ->
                 auctionRepository.save(Auction.builder()
                         .productId(1L)
                         .productName("캐시 테스트 상품")
+                        .sellerUserId(1L)
                         .sellerNickname("seller-cache")
                         .startingPrice(BigDecimal.valueOf(10_000))
                         .currentPrice(BigDecimal.valueOf(10_000))
@@ -161,7 +150,7 @@ class AuctionCacheTest {
         assertThat(cache).isNotNull();
         assertCacheKeyPresent(auctionId);
 
-        bidCommandService.placeBid("bidder1", auctionId, new BidCreateRequest(BigDecimal.valueOf(15_000)));
+        bidCommandService.placeBid(101L, "bidder1", auctionId, new BidCreateRequest(BigDecimal.valueOf(15_000)));
 
         assertCacheKeyAbsent(auctionId, "AFTER_COMMIT 후 evict 되어 캐시 비어 있어야 함");
 
@@ -177,6 +166,7 @@ class AuctionCacheTest {
                 auctionRepository.save(Auction.builder()
                         .productId(2L)
                         .productName("취소 테스트 상품")
+                        .sellerUserId(2L)
                         .sellerNickname("seller-cancel")
                         .startingPrice(BigDecimal.valueOf(10_000))
                         .currentPrice(BigDecimal.valueOf(10_000))
@@ -194,7 +184,7 @@ class AuctionCacheTest {
             assertThat(cache).isNotNull();
             assertCacheKeyPresent(scheduledId);
 
-            auctionCommandService.cancelAuction("seller-cancel", scheduledId);
+            auctionCommandService.cancelAuction(2L, scheduledId);
 
             assertCacheKeyAbsent(scheduledId, "cancel AFTER_COMMIT evict");
 

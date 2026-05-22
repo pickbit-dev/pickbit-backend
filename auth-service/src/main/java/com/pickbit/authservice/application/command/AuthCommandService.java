@@ -46,16 +46,17 @@ public class AuthCommandService {
 
     @Transactional
     public AuthAccountResponse signup(SignupRequest request) {
+        String normalizedNickname = AuthAccount.normalizeNickname(request.nickname(), request.email());
         if (authAccountRepository.existsByEmail(request.email())) {
             throw new DuplicateEmailException(request.email());
         }
-        if (authAccountRepository.existsByNickname(request.nickname())) {
-            throw new DuplicateNicknameException(request.nickname());
+        if (authAccountRepository.existsByNickname(normalizedNickname)) {
+            throw new DuplicateNicknameException(normalizedNickname);
         }
 
-        AuthAccount account = AuthAccount.local(request.email(), passwordEncoder.encode(request.password()), request.nickname());
+        AuthAccount account = AuthAccount.local(request.email(), passwordEncoder.encode(request.password()), normalizedNickname);
         AuthAccount saved = authAccountRepository.save(account);
-        outboxRecorder.signupEvent(saved, request.nickname());
+        outboxRecorder.signupEvent(saved, normalizedNickname);
         return AuthAccountResponse.from(saved);
     }
 
@@ -99,11 +100,12 @@ public class AuthCommandService {
         OAuthSignupContext context = signupCodeRepository.consume(request.code())
                 .orElseThrow(() -> new InvalidTokenException("유효하지 않은 OAuth signup code입니다."));
 
-        validateOAuthSignup(context, request);
+        String normalizedNickname = AuthAccount.normalizeNickname(request.nickname(), request.email());
+        validateOAuthSignup(context, request, normalizedNickname);
 
-        AuthAccount account = AuthAccount.oauth(request.email(), context.provider(), context.providerId(), request.nickname());
+        AuthAccount account = AuthAccount.oauth(request.email(), context.provider(), context.providerId(), normalizedNickname);
         AuthAccount saved = authAccountRepository.save(account);
-        outboxRecorder.signupEvent(saved, request.nickname());
+        outboxRecorder.signupEvent(saved, normalizedNickname);
         saved.recordLogin();
         return issueTokens(saved);
     }
@@ -161,15 +163,15 @@ public class AuthCommandService {
         );
     }
 
-    private void validateOAuthSignup(OAuthSignupContext context, OAuthSignupCompleteRequest request) {
+    private void validateOAuthSignup(OAuthSignupContext context, OAuthSignupCompleteRequest request, String normalizedNickname) {
         if (authAccountRepository.findByOauthProviderAndOauthProviderId(context.provider(), context.providerId()).isPresent()) {
             throw new DuplicateEmailException(request.email());
         }
         if (authAccountRepository.existsByEmail(request.email())) {
             throw new DuplicateEmailException(request.email());
         }
-        if (authAccountRepository.existsByNickname(request.nickname())) {
-            throw new DuplicateNicknameException(request.nickname());
+        if (authAccountRepository.existsByNickname(normalizedNickname)) {
+            throw new DuplicateNicknameException(normalizedNickname);
         }
     }
 }

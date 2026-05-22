@@ -29,7 +29,7 @@ public class ProductCommandService {
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
 
-    public ProductDetailResponse createProduct(String sellerNickname, ProductCreateRequest request) {
+    public ProductDetailResponse createProduct(Long sellerUserId, String sellerNickname, ProductCreateRequest request) {
         Category category = resolveCategory(request.categoryId());
 
         Product product = Product.builder()
@@ -38,6 +38,7 @@ public class ProductCommandService {
                 .startingPrice(request.startingPrice())
                 .productStatus(ProductStatus.ACTIVE)
                 .productCondition(request.productCondition())
+                .sellerUserId(sellerUserId)
                 .sellerNickname(sellerNickname)
                 .category(category)
                 .build();
@@ -54,10 +55,10 @@ public class ProductCommandService {
         return productMapper.toDetailResponse(productRepository.save(product));
     }
 
-    public ProductDetailResponse updateProduct(String nickname, Long id, ProductUpdateRequest request) {
+    public ProductDetailResponse updateProduct(Long sellerUserId, Long id, ProductUpdateRequest request) {
         Product product = findActiveProduct(id);
 
-        validateOwner(product, nickname);
+        validateOwner(product, sellerUserId);
         validateEditable(product);
 
         Category category = resolveCategory(request.categoryId());
@@ -82,9 +83,9 @@ public class ProductCommandService {
         return productMapper.toDetailResponse(product);
     }
 
-    public void deleteProduct(String nickname, Long id) {
+    public void deleteProduct(Long sellerUserId, Long id) {
         Product product = findActiveProduct(id);
-        validateOwner(product, nickname);
+        validateOwner(product, sellerUserId);
         try {
             product.delete();
         } catch (IllegalStateException e) {
@@ -115,8 +116,8 @@ public class ProductCommandService {
         return product;
     }
 
-    private void validateOwner(Product product, String nickname) {
-        if (!product.getSellerNickname().equals(nickname)) {
+    private void validateOwner(Product product, Long sellerUserId) {
+        if (!sellerUserId.equals(product.getSellerUserId())) {
             throw new UnauthorizedProductAccessException();
         }
     }

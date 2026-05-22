@@ -47,7 +47,8 @@ public class BidController {
             @Valid @RequestBody BidCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(bidCommandService.placeBid(AuthContextHolder.getNickname(), auctionId, request));
+                .body(bidCommandService.placeBid(
+                        AuthContextHolder.getUserId(), AuthContextHolder.getNickname(), auctionId, request));
     }
 
     /**

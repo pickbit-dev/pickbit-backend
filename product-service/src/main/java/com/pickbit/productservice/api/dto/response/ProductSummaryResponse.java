@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
  * @param startingPrice 경매 시작가
  * @param productStatus 상품 상태
  * @param productCondition 상품 컨디션
+ * @param sellerUserId 판매자 계정 ID
  * @param sellerNickname 판매자 닉네임
  * @param categoryName 카테고리명
  * @param thumbnailUrl 대표 썸네일 이미지 URL
@@ -27,6 +28,7 @@ public record ProductSummaryResponse(
         BigDecimal startingPrice,
         ProductStatus productStatus,
         ProductCondition productCondition,
+        Long sellerUserId,
         String sellerNickname,
         String categoryName,
         String thumbnailUrl,

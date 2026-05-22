@@ -143,6 +143,30 @@ class AuthServiceIntegrationTest {
         }
 
         @Test
+        @DisplayName("회원가입 닉네임은 공백을 제거해서 저장하고 이벤트에도 같은 값을 기록한다")
+        void signup_normalizesNicknameWhitespace() {
+            AuthAccountResponse response = authCommandService.signup(
+                    new SignupRequest("space@example.com", PASSWORD, "Mr. Stanley Toy"));
+
+            AuthAccount account = authAccountRepository.findById(response.accountId()).orElseThrow();
+            OutBoxEvent event = outBoxEventRepository.findAll().getFirst();
+
+            assertThat(account.getNickname()).isEqualTo("Mr.StanleyToy");
+            assertThat(event.getPayload()).contains("Mr.StanleyToy");
+            assertThat(event.getPayload()).doesNotContain("Mr. Stanley Toy");
+        }
+
+        @Test
+        @DisplayName("공백만 다른 닉네임은 중복으로 처리한다")
+        void signup_duplicateNormalizedNickname() {
+            authCommandService.signup(new SignupRequest("first@example.com", PASSWORD, "Mr.StanleyToy"));
+
+            assertThatThrownBy(() -> authCommandService.signup(
+                    new SignupRequest("second@example.com", PASSWORD, "Mr. Stanley Toy")))
+                    .isInstanceOf(DuplicateNicknameException.class);
+        }
+
+        @Test
         @DisplayName("중복 이메일로 가입하면 DuplicateEmailException이 발생한다")
         void signup_duplicateEmail() {
             authCommandService.signup(signupRequest());

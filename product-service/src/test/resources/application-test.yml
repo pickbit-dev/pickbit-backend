@@ -1,4 +1,11 @@
 spring:
+  ai:
+    openai:
+      api-key: test-openai-api-key
+      chat:
+        model: gpt-4o-mini
+        temperature: 0.7
+
   cloud:
     consul:
       enabled: false

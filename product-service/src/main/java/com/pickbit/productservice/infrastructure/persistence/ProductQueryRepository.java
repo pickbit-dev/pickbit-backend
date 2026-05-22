@@ -58,6 +58,7 @@ public class ProductQueryRepository extends QueryBaseRepository<Product, QProduc
                         prod.startingPrice,
                         prod.productStatus,
                         prod.productCondition,
+                        prod.sellerUserId,
                         prod.sellerNickname,
                         cat.name,
                         JPAExpressions

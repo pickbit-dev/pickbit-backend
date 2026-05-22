@@ -14,8 +14,6 @@ import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
-import com.pickbit.auctionservice.infrastructure.client.UserServiceClient;
-import com.pickbit.auctionservice.infrastructure.client.dto.UserResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,10 +33,9 @@ public class BidProcessor {
     private final BidMapper bidMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final OutboxRecorder outboxRecorder;
-    private final UserServiceClient userServiceClient;
     private final AuctionCompleter auctionCompleter;
 
-    public BidResponse process(String bidderNickname, Long auctionId, BidCreateRequest request) {
+    public BidResponse process(Long bidderUserId, String bidderNickname, Long auctionId, BidCreateRequest request) {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
@@ -48,7 +45,7 @@ public class BidProcessor {
         if (auction.getEndTime() != null && auction.getEndTime().isBefore(LocalDateTime.now())) {
             throw new InvalidAuctionStatusException("종료된 경매에는 입찰할 수 없습니다.");
         }
-        if (auction.getSellerNickname().equals(bidderNickname)) {
+        if (auction.getSellerUserId().equals(bidderUserId)) {
             throw new UnauthorizedAuctionAccessException();
         }
 
@@ -65,15 +62,13 @@ public class BidProcessor {
             throw new InvalidBidAmountException(message);
         }
 
-        UserResponse bidder = userServiceClient.getByNickname(bidderNickname);
-
         // 기존 ACTIVE 입찰을 OUTBID로 전환
         bidRepository.updateAllActiveBidsByAuctionId(auctionId, BidStatus.OUTBID);
 
         LocalDateTime now = LocalDateTime.now();
         Bid bid = Bid.builder()
                 .auction(auction)
-                .bidderUserId(bidder.id())
+                .bidderUserId(bidderUserId)
                 .bidderNickname(bidderNickname)
                 .amount(request.bidAmount())
                 .bidTime(now)

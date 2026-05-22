@@ -90,11 +90,14 @@ public class AuthAccount extends BaseEntity {
         this.nickname = normalizeNickname(nickname, email);
     }
 
-    private static String normalizeNickname(String nickname, String email) {
+    public static String normalizeNickname(String nickname, String email) {
         if (StringUtils.hasText(nickname)) {
-            return nickname.length() <= 50 ? nickname : nickname.substring(0, 50);
+            String normalized = nickname.replaceAll("\\s+", "");
+            if (normalized.length() >= 2) {
+                return normalized.length() <= 20 ? normalized : normalized.substring(0, 20);
+            }
         }
         String fallback = email.split("@")[0];
-        return fallback.length() <= 50 ? fallback : fallback.substring(0, 50);
+        return fallback.length() <= 20 ? fallback : fallback.substring(0, 20);
     }
 }

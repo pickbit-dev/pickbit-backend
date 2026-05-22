@@ -49,6 +49,9 @@ public class Product extends BaseEntity {
     @Column(comment = "판매자 닉네임", nullable = false, length = 50)
     private String sellerNickname;
 
+    @Column(comment = "판매자 계정 ID")
+    private Long sellerUserId;
+
     @Column(comment = "조회수", nullable = false)
     @Builder.Default
     private Long viewCount = 0L;

@@ -14,7 +14,8 @@ public class AuctionExceptionHandler extends GlobalExceptionHandler {
 
     @ExceptionHandler({
             AuctionNotFoundException.class,
-            AuctionProductNotFoundException.class
+            AuctionProductNotFoundException.class,
+            AuctionUserNotFoundException.class
     })
     protected ResponseEntity<ProblemDetail> handleNotFound(RuntimeException e, HttpServletRequest request) {
         logException(HttpStatus.NOT_FOUND, e);

@@ -57,7 +57,8 @@ public class ProductController {
     public ResponseEntity<ProductDetailResponse> createProduct(
             @Valid @RequestBody ProductCreateRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(productCommandService.createProduct(AuthContextHolder.getNickname(), request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productCommandService.createProduct(
+                AuthContextHolder.getUserId(), AuthContextHolder.getNickname(), request));
     }
 
 
@@ -84,7 +85,7 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
-        return ResponseEntity.ok(productCommandService.updateProduct(AuthContextHolder.getNickname(), id, request));
+        return ResponseEntity.ok(productCommandService.updateProduct(AuthContextHolder.getUserId(), id, request));
     }
 
     /**
@@ -97,7 +98,7 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(
             @PathVariable Long id
     ) {
-        productCommandService.deleteProduct(AuthContextHolder.getNickname(), id);
+        productCommandService.deleteProduct(AuthContextHolder.getUserId(), id);
         return ResponseEntity.noContent().build();
     }
 }

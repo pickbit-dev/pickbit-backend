@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Toss Payment Test</title>
+  <script src="https://js.tosspayments.com/v1/payment"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 32px 20px;
+      color: #202632;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f8fb;
+    }
+    h1 { margin: 0 0 8px; font-size: 26px; }
+    h2 { margin: 28px 0 12px; font-size: 18px; }
+    p { color: #5b6472; line-height: 1.6; }
+    .card {
+      margin-top: 18px;
+      padding: 20px;
+      border: 1px solid #dde3ee;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(20, 35, 60, 0.06);
+    }
+    label {
+      display: block;
+      margin-top: 14px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      margin-top: 6px;
+      padding: 11px 12px;
+      border: 1px solid #cfd7e6;
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff;
+    }
+    button {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      background: #2764ff;
+    }
+    button.secondary { margin-left: 8px; background: #465468; }
+    pre {
+      overflow: auto;
+      padding: 14px;
+      border-radius: 10px;
+      background: #111827;
+      color: #e5e7eb;
+      line-height: 1.5;
+    }
+    .muted { color: #727b8c; font-size: 13px; }
+    .error { color: #c01f2f; white-space: pre-wrap; }
+    .success { color: #16794c; }
+  </style>
+</head>
+<body>
+  <h1>Toss Payment Test</h1>
+  <p>프론트 앱 없이 payment-service와 토스 결제창을 확인하기 위한 로컬 테스트 페이지입니다.</p>
+
+  <section id="redirectResult" class="card" hidden>
+    <h2>Redirect Result</h2>
+    <p id="redirectMessage" class="success"></p>
+    <pre id="confirmPayload"></pre>
+    <p class="muted">위 JSON을 Postman에서 <code>POST /api/payments/confirm</code> body로 사용하세요. 헤더에는 <code>X-User-Id</code>가 필요합니다.</p>
+  </section>
+
+  <section class="card">
+    <h2>1. Load Payment Info</h2>
+    <p class="muted">paymentId와 buyerUserId를 넣으면 <code>/api/payments/{paymentId}/request-info</code>를 호출해서 값을 채웁니다.</p>
+
+    <label for="paymentId">paymentId</label>
+    <input id="paymentId" placeholder="예: 1">
+
+    <label for="buyerUserId">buyerUserId / X-User-Id</label>
+    <input id="buyerUserId" placeholder="예: 100">
+
+    <button type="button" onclick="loadRequestInfo()">request-info 불러오기</button>
+    <button type="button" class="secondary" onclick="fillSample()">샘플값 채우기</button>
+    <p id="loadError" class="error"></p>
+  </section>
+
+  <section class="card">
+    <h2>2. Open Toss Payment Window</h2>
+
+    <label for="clientKey">Toss Client Key</label>
+    <input id="clientKey" value="test_ck_yZqmkKeP8gWD4zLNbDEp8bQRxB9l">
+
+    <label for="orderId">orderId</label>
+    <input id="orderId" placeholder="request-info의 pgOrderId">
+
+    <label for="amount">amount</label>
+    <input id="amount" type="number" placeholder="예: 50000">
+
+    <label for="orderName">orderName</label>
+    <input id="orderName" placeholder="예: 경매 #1 낙찰">
+
+    <label for="customerName">customerName</label>
+    <input id="customerName" value="테스트 구매자">
+
+    <label for="successUrl">successUrl</label>
+    <input id="successUrl">
+
+    <label for="failUrl">failUrl</label>
+    <input id="failUrl">
+
+    <button type="button" onclick="requestPayment()">토스 결제창 열기</button>
+    <p id="paymentError" class="error"></p>
+  </section>
+
+  <section class="card">
+    <h2>Postman Confirm</h2>
+    <pre>POST http://localhost:18086/api/payments/confirm
+Headers:
+  Content-Type: application/json
+  X-User-Id: {buyerUserId}
+
+Body:
+{
+  "paymentKey": "success redirect에서 받은 값",
+  "orderId": "success redirect에서 받은 값",
+  "amount": 50000
+}</pre>
+  </section>
+
+  <script>
+    const defaultPageUrl = window.location.origin + window.location.pathname;
+
+    document.getElementById("successUrl").value = defaultPageUrl;
+    document.getElementById("failUrl").value = defaultPageUrl;
+    showRedirectResult();
+
+    function showRedirectResult() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentKey = params.get("paymentKey");
+      const orderId = params.get("orderId");
+      const amount = params.get("amount");
+      const code = params.get("code");
+      const message = params.get("message");
+
+      if (!paymentKey && !code) return;
+
+      document.getElementById("redirectResult").hidden = false;
+      if (paymentKey) {
+        document.getElementById("redirectMessage").textContent = "결제 인증 성공. 아래 confirm JSON을 Postman으로 호출하세요.";
+        document.getElementById("confirmPayload").textContent = JSON.stringify({
+          paymentKey: paymentKey,
+          orderId: orderId,
+          amount: Number(amount)
+        }, null, 2);
+      } else {
+        document.getElementById("redirectMessage").className = "error";
+        document.getElementById("redirectMessage").textContent = "결제 실패: " + code + " / " + message;
+        document.getElementById("confirmPayload").textContent = "";
+      }
+    }
+
+    async function loadRequestInfo() {
+      clearErrors();
+      const paymentId = document.getElementById("paymentId").value.trim();
+      const buyerUserId = document.getElementById("buyerUserId").value.trim();
+
+      if (!paymentId || !buyerUserId) {
+        document.getElementById("loadError").textContent = "paymentId와 buyerUserId를 입력하세요.";
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/payments/${paymentId}/request-info`, {
+          headers: { "X-User-Id": buyerUserId }
+        });
+        const body = await response.text();
+        if (!response.ok) throw new Error(body);
+
+        const info = JSON.parse(body);
+        document.getElementById("orderId").value = info.pgOrderId;
+        document.getElementById("amount").value = info.amount;
+        document.getElementById("orderName").value = info.orderName;
+        document.getElementById("successUrl").value = info.successUrl || defaultPageUrl;
+        document.getElementById("failUrl").value = info.failUrl || defaultPageUrl;
+      } catch (error) {
+        document.getElementById("loadError").textContent = error.message;
+      }
+    }
+
+    function requestPayment() {
+      clearErrors();
+      const clientKey = document.getElementById("clientKey").value.trim();
+      const amount = Number(document.getElementById("amount").value);
+      const orderId = document.getElementById("orderId").value.trim();
+      const orderName = document.getElementById("orderName").value.trim();
+      const customerName = document.getElementById("customerName").value.trim();
+      const successUrl = document.getElementById("successUrl").value.trim();
+      const failUrl = document.getElementById("failUrl").value.trim();
+
+      if (!clientKey || !amount || !orderId || !orderName || !successUrl || !failUrl) {
+        document.getElementById("paymentError").textContent = "clientKey, amount, orderId, orderName, successUrl, failUrl은 필수입니다.";
+        return;
+      }
+
+      const tossPayments = TossPayments(clientKey);
+      tossPayments.requestPayment("카드", {
+        amount: amount,
+        orderId: orderId,
+        orderName: orderName,
+        customerName: customerName,
+        successUrl: successUrl,
+        failUrl: failUrl
+      }).catch(function (error) {
+        document.getElementById("paymentError").textContent = JSON.stringify(error, null, 2);
+      });
+    }
+
+    function fillSample() {
+      document.getElementById("orderId").value = crypto.randomUUID();
+      document.getElementById("amount").value = 50000;
+      document.getElementById("orderName").value = "경매 테스트 결제";
+      document.getElementById("successUrl").value = defaultPageUrl;
+      document.getElementById("failUrl").value = defaultPageUrl;
+    }
+
+    function clearErrors() {
+      document.getElementById("loadError").textContent = "";
+      document.getElementById("paymentError").textContent = "";
+    }
+  </script>
+</body>
+</html>

@@ -109,7 +109,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("정상 요청 시 상품이 저장되고 상세 응답을 반환한다")
         void createProduct_success() {
-            ProductDetailResponse response = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse response = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             assertThat(response.id()).isNotNull();
             assertThat(response.name()).isEqualTo("테스트 상품");
@@ -117,6 +117,7 @@ class ProductServiceIntegrationTest {
             assertThat(response.startingPrice()).isEqualByComparingTo(BigDecimal.valueOf(10000));
             assertThat(response.productStatus()).isEqualTo(ProductStatus.ACTIVE);
             assertThat(response.productCondition()).isEqualTo(ProductCondition.NEW);
+            assertThat(response.sellerUserId()).isEqualTo(1L);
             assertThat(response.sellerNickname()).isEqualTo("seller1");
             assertThat(response.images()).hasSize(2);
             assertThat(response.viewCount()).isZero();
@@ -125,7 +126,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("이미지가 함께 저장된다")
         void createProduct_imagesArePersisted() {
-            ProductDetailResponse response = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse response = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             assertThat(response.images())
                     .extracting("imageUrl")
@@ -138,7 +139,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("등록된 상품은 DB에서 조회된다")
         void createProduct_persistedToDatabase() {
-            ProductDetailResponse response = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse response = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             assertThat(productRepository.existsById(response.id())).isTrue();
         }
@@ -149,7 +150,7 @@ class ProductServiceIntegrationTest {
             Long categoryId = persistCategory("전자기기");
 
             ProductDetailResponse response = productCommandService.createProduct(
-                    "seller1", createRequest("스피커", BigDecimal.valueOf(5000), categoryId));
+                    1L, "seller1", createRequest("스피커", BigDecimal.valueOf(5000), categoryId));
 
             assertThat(response.categoryId()).isEqualTo(categoryId);
             assertThat(response.categoryName()).isEqualTo("전자기기");
@@ -159,7 +160,7 @@ class ProductServiceIntegrationTest {
         @DisplayName("존재하지 않는 categoryId면 CategoryNotFoundException이 발생한다")
         void createProduct_invalidCategory() {
             assertThatThrownBy(() ->
-                    productCommandService.createProduct("seller1", createRequest("p", BigDecimal.TEN, 999999L)))
+                    productCommandService.createProduct(1L, "seller1", createRequest("p", BigDecimal.TEN, 999999L)))
                     .isInstanceOf(CategoryNotFoundException.class);
         }
     }
@@ -171,7 +172,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("존재하는 상품 ID로 조회하면 상세 응답을 반환한다")
         void getProduct_success() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             ProductDetailResponse response = productQueryService.getProduct(created.id());
 
@@ -189,8 +190,8 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("DELETED 상태의 상품은 조회할 수 없다")
         void getProduct_deletedProductThrowsException() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
-            productCommandService.deleteProduct("seller1", created.id());
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
+            productCommandService.deleteProduct(1L, created.id());
 
             assertThatThrownBy(() -> productQueryService.getProduct(created.id()))
                     .isInstanceOf(ProductNotFoundException.class);
@@ -199,7 +200,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("단건 조회 시 viewCount가 1씩 증가한다")
         void getProduct_increasesViewCount() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             productQueryService.getProduct(created.id());
             productQueryService.getProduct(created.id());
@@ -217,7 +218,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("소유자가 수정하면 변경 사항이 반영된다")
         void updateProduct_success() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             ProductUpdateRequest updateRequest = new ProductUpdateRequest(
                     "수정된 상품명",
@@ -228,7 +229,7 @@ class ProductServiceIntegrationTest {
                     List.of(new ProductImageRequest("https://example.com/new.jpg", ImageType.THUMBNAIL, 0))
             );
 
-            ProductDetailResponse response = productCommandService.updateProduct("seller1", created.id(), updateRequest);
+            ProductDetailResponse response = productCommandService.updateProduct(1L, created.id(), updateRequest);
 
             assertThat(response.name()).isEqualTo("수정된 상품명");
             assertThat(response.description()).isEqualTo("수정된 설명입니다.");
@@ -239,7 +240,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("수정 시 이미지가 교체된다")
         void updateProduct_imagesAreReplaced() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             ProductUpdateRequest updateRequest = new ProductUpdateRequest(
                     "수정 상품",
@@ -250,7 +251,7 @@ class ProductServiceIntegrationTest {
                     List.of(new ProductImageRequest("https://example.com/replaced.jpg", ImageType.THUMBNAIL, 0))
             );
 
-            ProductDetailResponse response = productCommandService.updateProduct("seller1", created.id(), updateRequest);
+            ProductDetailResponse response = productCommandService.updateProduct(1L, created.id(), updateRequest);
 
             assertThat(response.images()).hasSize(1);
             assertThat(response.images().getFirst().imageUrl()).isEqualTo("https://example.com/replaced.jpg");
@@ -259,7 +260,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("소유자가 아닌 사용자가 수정하면 UnauthorizedProductAccessException이 발생한다")
         void updateProduct_unauthorizedUser() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             ProductUpdateRequest updateRequest = new ProductUpdateRequest(
                     "수정 시도",
@@ -270,7 +271,7 @@ class ProductServiceIntegrationTest {
                     List.of(new ProductImageRequest("https://example.com/img.jpg", ImageType.THUMBNAIL, 0))
             );
 
-            assertThatThrownBy(() -> productCommandService.updateProduct("other_user", created.id(), updateRequest))
+            assertThatThrownBy(() -> productCommandService.updateProduct(2L, created.id(), updateRequest))
                     .isInstanceOf(UnauthorizedProductAccessException.class);
         }
 
@@ -286,7 +287,7 @@ class ProductServiceIntegrationTest {
                     List.of(new ProductImageRequest("https://example.com/img.jpg", ImageType.THUMBNAIL, 0))
             );
 
-            assertThatThrownBy(() -> productCommandService.updateProduct("seller1", 999999L, updateRequest))
+            assertThatThrownBy(() -> productCommandService.updateProduct(1L, 999999L, updateRequest))
                     .isInstanceOf(ProductNotFoundException.class);
         }
     }
@@ -298,9 +299,9 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("소유자가 삭제하면 이후 조회 시 ProductNotFoundException이 발생한다")
         void deleteProduct_success() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
-            productCommandService.deleteProduct("seller1", created.id());
+            productCommandService.deleteProduct(1L, created.id());
 
             assertThatThrownBy(() -> productQueryService.getProduct(created.id()))
                     .isInstanceOf(ProductNotFoundException.class);
@@ -309,16 +310,16 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("소유자가 아닌 사용자가 삭제하면 UnauthorizedProductAccessException이 발생한다")
         void deleteProduct_unauthorizedUser() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
-            assertThatThrownBy(() -> productCommandService.deleteProduct("other_user", created.id()))
+            assertThatThrownBy(() -> productCommandService.deleteProduct(2L, created.id()))
                     .isInstanceOf(UnauthorizedProductAccessException.class);
         }
 
         @Test
         @DisplayName("존재하지 않는 상품 삭제 시 ProductNotFoundException이 발생한다")
         void deleteProduct_notFound() {
-            assertThatThrownBy(() -> productCommandService.deleteProduct("seller1", 999999L))
+            assertThatThrownBy(() -> productCommandService.deleteProduct(1L, 999999L))
                     .isInstanceOf(ProductNotFoundException.class);
         }
     }
@@ -330,7 +331,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("상품 상태를 INACTIVE로 변경할 수 있다")
         void updateProductStatus_toInactive() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             productCommandService.updateProductStatus(created.id(), ProductStatus.INACTIVE);
 
@@ -340,7 +341,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("상품 상태를 AUCTION_COMPLETED로 변경할 수 있다")
         void updateProductStatus_toAuctionCompleted() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             productCommandService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
             productCommandService.updateProductStatus(created.id(), ProductStatus.IN_AUCTION);
@@ -359,7 +360,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("상품 상태 이벤트로 AUCTION_SCHEDULED 상태로 변경하고 중복 이벤트는 기록하지 않는다")
         void productStatusEventHandler_scheduleAuctionAndSkipDuplicate() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
             String eventId = "auction-service-test-event-1";
             String payload = "{\"eventId\":\"%s\",\"productId\":%d,\"status\":\"AUCTION_SCHEDULED\",\"reason\":\"AUCTION_CREATED\",\"auctionId\":10}"
                     .formatted(eventId, created.id());
@@ -375,7 +376,7 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("상품 상태 이벤트로 AUCTION_SCHEDULED에서 IN_AUCTION으로 변경할 수 있다")
         void productStatusEventHandler_startAuction() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", defaultCreateRequest);
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
             productCommandService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
             String eventId = "auction-service-test-event-2";
             String payload = "{\"eventId\":\"%s\",\"productId\":%d,\"status\":\"IN_AUCTION\",\"reason\":\"AUCTION_STARTED\",\"auctionId\":10}"
@@ -398,10 +399,10 @@ class ProductServiceIntegrationTest {
             categoryId = persistCategory("전자기기");
             Long otherId = persistCategory("의류");
 
-            productCommandService.createProduct("seller1", createRequest("아이폰 15", BigDecimal.valueOf(50000), categoryId));
-            productCommandService.createProduct("seller1", createRequest("갤럭시 S24", BigDecimal.valueOf(30000), categoryId));
-            productCommandService.createProduct("seller2", createRequest("맥북 프로", BigDecimal.valueOf(100000), categoryId));
-            productCommandService.createProduct("seller2", createRequest("나이키 운동화", BigDecimal.valueOf(20000), otherId));
+            productCommandService.createProduct(1L, "seller1", createRequest("아이폰 15", BigDecimal.valueOf(50000), categoryId));
+            productCommandService.createProduct(1L, "seller1", createRequest("갤럭시 S24", BigDecimal.valueOf(30000), categoryId));
+            productCommandService.createProduct(2L, "seller2", createRequest("맥북 프로", BigDecimal.valueOf(100000), categoryId));
+            productCommandService.createProduct(2L, "seller2", createRequest("나이키 운동화", BigDecimal.valueOf(20000), otherId));
         }
 
         @Test
@@ -489,8 +490,8 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("DELETED 상태의 상품은 검색 결과에서 제외된다")
         void searchProducts_excludesDeleted() {
-            ProductDetailResponse created = productCommandService.createProduct("seller1", createRequest("삭제 상품", BigDecimal.valueOf(1000), null));
-            productCommandService.deleteProduct("seller1", created.id());
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", createRequest("삭제 상품", BigDecimal.valueOf(1000), null));
+            productCommandService.deleteProduct(1L, created.id());
 
             ProductSearchCondition condition = new ProductSearchCondition("삭제 상품", null, null, null, null, null);
 
