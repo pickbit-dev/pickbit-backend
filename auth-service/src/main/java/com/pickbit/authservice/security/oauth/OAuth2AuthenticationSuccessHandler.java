@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     private static final Duration EXCHANGE_CODE_TTL = Duration.ofMinutes(3);
@@ -42,18 +44,26 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
             throws IOException, ServletException {
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
+        String registrationId = oauthToken.getAuthorizedClientRegistrationId();
+        log.info("OAuth success handler started | provider={}", registrationId);
+
         OAuth2User oauthUser = oauthToken.getPrincipal();
-        OAuthUserInfo userInfo = userInfoExtractor.extract(oauthToken.getAuthorizedClientRegistrationId(), oauthUser);
+        OAuthUserInfo userInfo = userInfoExtractor.extract(registrationId, oauthUser);
         OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
+        log.info("OAuth login result | provider={} | requiresSignup={}", registrationId, result.requiresSignup());
 
         String code = UUID.randomUUID().toString();
         if (result.requiresSignup()) {
             signupCodeRepository.save(code, result.signupContext(), SIGNUP_CODE_TTL);
-            response.sendRedirect(frontendSignupUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
+            String redirectUrl = frontendSignupUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+            log.info("OAuth redirecting to signup | provider={} | redirectUrl={}", registrationId, redirectUrl);
+            response.sendRedirect(redirectUrl);
             return;
         }
 
         exchangeCodeRepository.save(code, result.tokenResponse(), EXCHANGE_CODE_TTL);
-        response.sendRedirect(frontendCallbackUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
+        String redirectUrl = frontendCallbackUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+        log.info("OAuth redirecting to callback | provider={} | redirectUrl={}", registrationId, redirectUrl);
+        response.sendRedirect(redirectUrl);
     }
 }

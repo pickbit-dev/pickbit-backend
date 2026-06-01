@@ -13,7 +13,6 @@ import com.pickbit.auctionservice.domain.enums.BidStatus;
 import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
-import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,9 +44,10 @@ public class BidProcessor {
         if (auction.getEndTime() != null && auction.getEndTime().isBefore(LocalDateTime.now())) {
             throw new InvalidAuctionStatusException("종료된 경매에는 입찰할 수 없습니다.");
         }
-        if (auction.getSellerUserId().equals(bidderUserId)) {
-            throw new UnauthorizedAuctionAccessException();
-        }
+
+//        if (auction.getSellerUserId().equals(bidderUserId)) {
+//            throw new UnauthorizedAuctionAccessException();
+//        }
 
         boolean isFirstBid = bidRepository.findTopByAuctionIdOrderByAmountDesc(auctionId).isEmpty();
         boolean isValidAmount = isFirstBid

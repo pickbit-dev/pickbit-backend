@@ -110,6 +110,7 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private boolean isPublicPath(String path) {
         return path.startsWith("/api/auth")
+                || path.startsWith("/api/auctions/ws")
                 || path.startsWith("/oauth2")
                 || path.startsWith("/login/oauth2")
                 || path.startsWith("/actuator")
