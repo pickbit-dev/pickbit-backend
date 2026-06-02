@@ -91,35 +91,42 @@
 
 ## 5. 결제 대기 상품 조회
 
-예상 API:
+결제 목록은 하나의 API에서 쿼리 조건으로 조회합니다.
 
 ```http
-GET /payments/me/required
+GET /api/payments/me?paymentType=REQUIRED
+GET /api/payments/me?status=ESCROWED
+GET /api/payments/me?paymentType=HISTORY&page=0&size=20
 ```
 
 응답 예시:
 
 ```json
-[
+{
+  "content": [
   {
+    "paymentId": 1,
     "auctionId": 10,
     "productId": 3,
     "productName": "아이폰 15",
-    "thumbnailUrl": "https://example.com/image.jpg",
+    "productThumbnailUrl": "https://example.com/image.jpg",
     "sellerNickname": "seller1",
-    "winnerNickname": "buyer1",
+    "buyerNickname": "buyer1",
     "amount": 100000,
-    "paymentStatus": "PAYMENT_REQUIRED",
-    "paymentDueAt": "2026-05-02T18:00:00"
+    "status": "REQUESTED",
+    "paymentDeadlineAt": "2026-05-02T18:00:00",
+    "paidAt": null,
+    "refundedAt": null
   }
-]
+  ]
+}
 ```
 
 프론트 처리:
 
 ```text
-paymentStatus가 PAYMENT_REQUIRED이면 결제하기 버튼 표시
-paymentDueAt 기준으로 남은 결제 시간 표시
+paymentType=REQUIRED 조회 결과는 결제하기 버튼 표시
+paymentDeadlineAt 기준으로 남은 결제 시간 표시
 결제 기한이 지나면 결제 불가 상태 표시
 ```
 
@@ -127,36 +134,34 @@ paymentDueAt 기준으로 남은 결제 시간 표시
 
 ## 6. 결제하기
 
-낙찰자가 결제하기 버튼을 누르면 결제 요청을 생성합니다.
+낙찰자가 결제하기 버튼을 누르면 결제창 요청 정보를 조회합니다.
 
 ```http
-POST /payments
+GET /api/payments/{paymentId}/request-info
 ```
 
-요청 예시:
+응답 예시:
 
 ```json
 {
-  "auctionId": 10,
-  "provider": "TOSS"
-}
-```
-
-또는:
-
-```json
-{
-  "auctionId": 10,
-  "provider": "NAVER_PAY"
+  "paymentId": 1,
+  "pgOrderId": "payment-1-...",
+  "amount": 100000,
+  "orderName": "아이폰 15",
+  "customerKey": "buyer-100",
+  "successUrl": "https://front.example.com/payment/success",
+  "failUrl": "https://front.example.com/payment/fail",
+  "paymentDeadlineAt": "2026-05-02T18:00:00"
 }
 ```
 
 프론트 처리:
 
 ```text
-결제 요청 생성
--> Toss 또는 Naver Pay 결제창 이동
--> 결제 결과 페이지로 복귀
+결제창 요청 정보 조회
+-> Toss 결제창 호출
+-> 결제 성공 페이지에서 POST /api/payments/confirm 호출
+-> 결제 결과 페이지 표시
 ```
 
 ---
@@ -166,8 +171,7 @@ POST /payments
 결제가 성공하면 상태가 결제 완료로 바뀝니다.
 
 ```text
-PaymentStatus: APPROVED
-TradeStatus: PAID
+PaymentStatus: ESCROWED
 ```
 
 프론트 화면:
@@ -278,8 +282,7 @@ ProductStatus: ACTIVE
 낙찰자가 정해진 시간 안에 결제하지 않으면 결제 기한이 만료됩니다.
 
 ```text
-PaymentStatus: EXPIRED
-TradeStatus: PAYMENT_EXPIRED
+PaymentStatus: FAILED
 ProductStatus: ACTIVE
 ```
 
@@ -328,13 +331,14 @@ PaymentStatus: FAILED
 ### PaymentStatus
 
 ```text
-PAYMENT_REQUIRED: 결제하기 버튼 표시
-REQUESTED: 결제 진행 중 표시
-APPROVED: 결제 완료 표시
+REQUESTED: 결제 대기, 결제하기 버튼 표시
+PG_PENDING: PG 결제창 진행 중
+ESCROWED: 결제 완료, 에스크로 보관 중
 CANCELLED: 결제 취소 표시
-FAILED: 결제 실패, 다시 결제하기 표시
-EXPIRED: 결제 기한 만료 표시
+FAILED: 결제 실패 또는 기한 만료 표시
+RELEASED: 판매자 정산 완료
 REFUNDED: 환불 완료 표시
+DISPUTED: 분쟁 중
 ```
 
 ### TradeStatus
@@ -357,8 +361,11 @@ DISPUTED: 분쟁 중
 
 ```text
 ACTIVE: 다시 판매/경매 가능
-TRADE_IN_PROGRESS: 결제/배송/확인 진행 중
-SOLD: 구매 확정 완료
+AUCTION_SCHEDULED: 경매 예정
+IN_AUCTION: 경매 중
+AUCTION_COMPLETED: 경매 종료, 결제/거래 진행 가능
+INACTIVE: 비활성화
+DELETED: 삭제됨
 ```
 
 ---

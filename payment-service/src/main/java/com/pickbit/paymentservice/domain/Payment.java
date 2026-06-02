@@ -30,11 +30,26 @@ public class Payment extends BaseEntity {
     @Column(comment = "경매 ID", nullable = false)
     private Long auctionId;
 
+    @Column(comment = "상품 ID 스냅샷")
+    private Long productId;
+
+    @Column(comment = "상품명 스냅샷", length = 150)
+    private String productName;
+
+    @Column(comment = "상품 썸네일 URL 스냅샷", length = 1000)
+    private String productThumbnailUrl;
+
     @Column(comment = "구매자 사용자 ID", nullable = false)
     private Long buyerUserId;
 
+    @Column(comment = "구매자 닉네임 스냅샷", length = 50)
+    private String buyerNickname;
+
     @Column(comment = "판매자 사용자 ID", nullable = false)
     private Long sellerUserId;
+
+    @Column(comment = "판매자 닉네임 스냅샷", length = 50)
+    private String sellerNickname;
 
     @Column(comment = "결제 금액", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;

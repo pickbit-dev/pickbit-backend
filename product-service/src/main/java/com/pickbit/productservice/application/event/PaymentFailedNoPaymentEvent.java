@@ -1,11 +1,8 @@
-package com.pickbit.paymentservice.api.dto.kafka.payment;
-
-import lombok.Builder;
+package com.pickbit.productservice.application.event;
 
 import java.time.LocalDateTime;
 
-@Builder
-public record KafkaPaymentFailedNoPaymentDto(
+public record PaymentFailedNoPaymentEvent(
         String eventId,
         Long paymentId,
         Long auctionId,

@@ -462,7 +462,7 @@ queryFactory
 
 ### 6.1 Kafka listener에 `@Profile`을 걸지 않으면서 테스트가 실제 브로커에 붙을 수 있었다
 
-Kafka consumer를 만들 때 `@Profile({"qa", "deploy"})` 같은 제한을 둘 수도 있었다. 하지만 현재 프로젝트에서는 환경별로 listener 클래스를 꺼버리기보다, 같은 코드가 모든 환경에서 뜨고 설정으로 제어되는 쪽을 선택했다.
+Kafka consumer를 만들 때 `@Profile("deploy")` 같은 제한을 둘 수도 있었다. 하지만 현재 프로젝트에서는 환경별로 listener 클래스를 꺼버리기보다, 같은 코드가 모든 환경에서 뜨고 설정으로 제어되는 쪽을 선택했다.
 
 그래서 `ProductStatusEventListener`와 `KafkaConfig`에는 `@Profile`을 걸지 않았다.
 

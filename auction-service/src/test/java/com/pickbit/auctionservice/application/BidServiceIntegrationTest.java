@@ -249,9 +249,34 @@ class BidServiceIntegrationTest {
         }
 
         @Test
+        @DisplayName("경매의 입찰 타임라인을 최신 입찰순으로 페이징해 반환한다")
+        void getBidTimeline_success() {
+            bidCommandService.placeBid(101L, "bidder1", activeAuction.getId(),
+                    new BidCreateRequest(BigDecimal.valueOf(15_000)));
+            bidCommandService.placeBid(102L, "bidder2", activeAuction.getId(),
+                    new BidCreateRequest(BigDecimal.valueOf(20_000)));
+
+            Page<BidResponse> page = bidQueryService.getBidTimeline(
+                    activeAuction.getId(), PageRequest.of(0, 10));
+
+            assertThat(page.getTotalElements()).isEqualTo(2);
+            assertThat(page.getContent())
+                    .extracting("bidderNickname")
+                    .containsExactly("bidder2", "bidder1");
+        }
+
+        @Test
         @DisplayName("존재하지 않는 경매의 입찰 이력 조회 시 예외가 발생한다")
         void getBidHistory_auctionNotFound() {
             assertThatThrownBy(() -> bidQueryService.getBidHistory(
+                    999_999L, PageRequest.of(0, 10)))
+                    .isInstanceOf(AuctionNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 경매의 입찰 타임라인 조회 시 예외가 발생한다")
+        void getBidTimeline_auctionNotFound() {
+            assertThatThrownBy(() -> bidQueryService.getBidTimeline(
                     999_999L, PageRequest.of(0, 10)))
                     .isInstanceOf(AuctionNotFoundException.class);
         }

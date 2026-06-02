@@ -10,6 +10,7 @@ public record KafkaPaymentSettledDto(
         String eventId,
         Long paymentId,
         Long auctionId,
+        Long productId,
         Long buyerUserId,
         Long sellerUserId,
         BigDecimal grossAmount,

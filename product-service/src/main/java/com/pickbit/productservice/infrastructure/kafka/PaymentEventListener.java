@@ -1,0 +1,48 @@
+package com.pickbit.productservice.infrastructure.kafka;
+
+import com.pickbit.productservice.application.event.PaymentEventHandler;
+import com.pickbit.productservice.exception.kafka.KafkaDuplicateEventException;
+import com.pickbit.productservice.exception.kafka.KafkaInvalidMessageException;
+import com.pickbit.productservice.exception.kafka.KafkaSyncException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class PaymentEventListener {
+
+    private final PaymentEventHandler eventHandler;
+
+    @KafkaListener(
+            topics = PaymentEventHandler.TOPIC,
+            containerFactory = "jsonKafkaListenerContainerFactory"
+    )
+    public void handlePaymentMessage(
+            @Header("action") String action,
+            @Header("event_id") String eventId,
+            @Header(KafkaHeaders.RECEIVED_KEY) String aggregateId,
+            @Payload String messageBody
+    ) {
+        try {
+            if (PaymentEventHandler.FAILED_NO_PAYMENT_ACTION.equals(action)) {
+                eventHandler.handleFailedNoPayment(eventId, aggregateId, messageBody);
+            } else {
+                log.warn("지원하지 않는 결제 action: {}", action);
+            }
+        } catch (KafkaDuplicateEventException e) {
+            log.warn("중복 이벤트 스킵: {}", e.getMessage());
+        } catch (KafkaInvalidMessageException e) {
+            log.error("메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
+        } catch (KafkaSyncException e) {
+            log.error("결제 이벤트 상품 동기화 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("예상치 못한 오류: action={}, eventId={}", action, eventId, e);
+        }
+    }
+}

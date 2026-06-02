@@ -27,4 +27,12 @@ public class BidQueryService {
         return bidRepository.findByAuctionIdOrderByAmountDesc(auctionId, pageable)
                 .map(bidMapper::toResponse);
     }
+
+    public Page<BidResponse> getBidTimeline(Long auctionId, Pageable pageable) {
+        if (!auctionRepository.existsById(auctionId)) {
+            throw new AuctionNotFoundException(auctionId);
+        }
+        return bidRepository.findByAuctionIdOrderByBidTimeDesc(auctionId, pageable)
+                .map(bidMapper::toResponse);
+    }
 }

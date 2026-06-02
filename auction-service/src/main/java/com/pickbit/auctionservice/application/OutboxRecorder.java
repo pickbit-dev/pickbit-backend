@@ -66,6 +66,8 @@ public class OutboxRecorder {
                 .eventId(eventId)
                 .auctionId(auction.getId())
                 .productId(auction.getProductId())
+                .productName(auction.getProductName())
+                .productThumbnailUrl(auction.getProductThumbnailUrl())
                 .buyerUserId(winner.getBidderUserId())
                 .buyerNickname(winner.getBidderNickname())
                 .sellerUserId(auction.getSellerUserId())

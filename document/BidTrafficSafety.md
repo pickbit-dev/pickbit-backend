@@ -210,7 +210,7 @@ X-RateLimit-Replenish-Rate  : 초당 보충 속도
 
 ## 4. 운영 시 주의
 
-`@Version` 컬럼은 develop 환경(`ddl-auto: update`)에서는 Hibernate가 자동으로 추가한다. 그러나 qa/deploy 환경은 `ddl-auto: validate`이라서 컬럼이 없으면 애플리케이션이 뜨지 않는다. 배포 전에 수기 DDL이 필요하다.
+`@Version` 컬럼은 develop 환경(`ddl-auto: update`)에서는 Hibernate가 자동으로 추가한다. 그러나 deploy 환경은 `ddl-auto: validate`이라서 컬럼이 없으면 애플리케이션이 뜨지 않는다. 배포 전에 수기 DDL이 필요하다.
 
 ```sql
 ALTER TABLE auction ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

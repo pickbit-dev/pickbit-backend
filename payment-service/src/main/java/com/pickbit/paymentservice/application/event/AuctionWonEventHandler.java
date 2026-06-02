@@ -59,8 +59,13 @@ public class AuctionWonEventHandler {
         LocalDateTime now = LocalDateTime.now();
         Payment payment = Payment.builder()
                 .auctionId(event.auctionId())
+                .productId(event.productId())
+                .productName(event.productName())
+                .productThumbnailUrl(event.productThumbnailUrl())
                 .buyerUserId(event.buyerUserId())
+                .buyerNickname(event.buyerNickname())
                 .sellerUserId(event.sellerUserId())
+                .sellerNickname(event.sellerNickname())
                 .amount(event.finalPrice())
                 .pgProvider(PgProvider.TOSS_PAYMENTS)
                 .status(PaymentStatus.REQUESTED)
@@ -70,8 +75,9 @@ public class AuctionWonEventHandler {
     }
 
     private void validate(String aggregateId, KafkaAuctionWonDto event) {
-        if (event.auctionId() == null || event.buyerUserId() == null || event.sellerUserId() == null || event.finalPrice() == null) {
-            throw new KafkaInvalidMessageException("auctionId/buyerUserId/sellerUserId/finalPrice 는 모두 필수입니다.");
+        if (event.auctionId() == null || event.productId() == null || event.buyerUserId() == null
+                || event.sellerUserId() == null || event.finalPrice() == null) {
+            throw new KafkaInvalidMessageException("auctionId/productId/buyerUserId/sellerUserId/finalPrice 는 모두 필수입니다.");
         }
         String expected = "Auction:" + event.auctionId();
         if (!expected.equals(aggregateId)) {

@@ -65,4 +65,19 @@ public class BidController {
     ) {
         return ResponseEntity.ok(PageResponse.from(bidQueryService.getBidHistory(auctionId, pageableRequest.toPageable(20))));
     }
+
+    /**
+     * 경매의 입찰 내역을 최신 입찰순으로 페이징 조회합니다.
+     *
+     * @param auctionId       경매 ID
+     * @param pageableRequest 페이징 및 정렬 조건
+     * @return 입찰 타임라인 목록 (페이징)
+     */
+    @GetMapping("/timeline")
+    public ResponseEntity<PageResponse<BidResponse>> getBidTimeline(
+            @PathVariable Long auctionId,
+            @ModelAttribute PageableRequest pageableRequest
+    ) {
+        return ResponseEntity.ok(PageResponse.from(bidQueryService.getBidTimeline(auctionId, pageableRequest.toPageable(20))));
+    }
 }

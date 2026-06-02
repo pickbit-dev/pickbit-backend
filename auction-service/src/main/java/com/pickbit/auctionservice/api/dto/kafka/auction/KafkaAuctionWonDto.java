@@ -9,6 +9,8 @@ public record KafkaAuctionWonDto(
         String eventId,
         Long auctionId,
         Long productId,
+        String productName,
+        String productThumbnailUrl,
         Long buyerUserId,
         String buyerNickname,
         Long sellerUserId,

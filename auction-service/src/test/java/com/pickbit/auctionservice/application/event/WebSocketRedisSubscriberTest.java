@@ -73,6 +73,8 @@ class WebSocketRedisSubscriberTest {
                 .isEqualByComparingTo(BigDecimal.valueOf(100));
         Assertions.assertThat(captor.getValue().auctionStatus())
                 .isEqualTo(AuctionStatus.ACTIVE);
+        Assertions.assertThat(captor.getValue().eventType())
+                .isEqualTo("BID_PLACED");
     }
 
     @Test

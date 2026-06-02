@@ -1,10 +1,14 @@
 package com.pickbit.paymentservice.api;
 
 import com.pickbit.library.auth.AuthContextHolder;
+import com.pickbit.library.dto.PageResponse;
+import com.pickbit.library.dto.PageableRequest;
 import com.pickbit.paymentservice.api.dto.request.PaymentConfirmRequest;
 import com.pickbit.paymentservice.api.dto.request.PaymentRefundRequest;
+import com.pickbit.paymentservice.api.dto.request.PaymentSearchCondition;
 import com.pickbit.paymentservice.api.dto.response.PaymentDetailResponse;
 import com.pickbit.paymentservice.api.dto.response.PaymentRequestInfoResponse;
+import com.pickbit.paymentservice.api.dto.response.PaymentSummaryResponse;
 import com.pickbit.paymentservice.application.PaymentCommandService;
 import com.pickbit.paymentservice.application.PaymentQueryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +31,15 @@ public class PaymentController {
 
     private final PaymentCommandService paymentCommandService;
     private final PaymentQueryService paymentQueryService;
+
+    @GetMapping("/me")
+    public ResponseEntity<PageResponse<PaymentSummaryResponse>> getMyPayments(
+            @ModelAttribute PaymentSearchCondition condition,
+            @ModelAttribute PageableRequest pageableRequest
+    ) {
+        return ResponseEntity.ok(PageResponse.from(paymentQueryService.getMyPayments(
+                AuthContextHolder.getUserId(), condition, pageableRequest.toPageable(20))));
+    }
 
     @GetMapping("/{paymentId}")
     public ResponseEntity<PaymentDetailResponse> getPayment(@PathVariable Long paymentId) {

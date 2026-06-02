@@ -9,6 +9,11 @@ import java.time.LocalDateTime;
 public record PaymentDetailResponse(
         Long paymentId,
         Long auctionId,
+        Long productId,
+        String productName,
+        String productThumbnailUrl,
+        String sellerNickname,
+        String buyerNickname,
         BigDecimal amount,
         PaymentStatus status,
         String pgOrderId,
@@ -21,6 +26,11 @@ public record PaymentDetailResponse(
         return new PaymentDetailResponse(
                 payment.getId(),
                 payment.getAuctionId(),
+                payment.getProductId(),
+                payment.getProductName(),
+                payment.getProductThumbnailUrl(),
+                payment.getSellerNickname(),
+                payment.getBuyerNickname(),
                 payment.getAmount(),
                 payment.getStatus(),
                 payment.getPgOrderId(),

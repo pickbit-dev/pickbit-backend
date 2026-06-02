@@ -97,8 +97,10 @@ public class Product extends BaseEntity {
         if (this.productStatus == ProductStatus.ACTIVE) {
             return;
         }
-        if (this.productStatus != ProductStatus.AUCTION_SCHEDULED && this.productStatus != ProductStatus.IN_AUCTION) {
-            throw new IllegalStateException("AUCTION_SCHEDULED 또는 IN_AUCTION 상태의 상품만 경매에서 해제할 수 있습니다. 현재 상태: " + this.productStatus);
+        if (this.productStatus != ProductStatus.AUCTION_SCHEDULED
+                && this.productStatus != ProductStatus.IN_AUCTION
+                && this.productStatus != ProductStatus.AUCTION_COMPLETED) {
+            throw new IllegalStateException("AUCTION_SCHEDULED, IN_AUCTION 또는 AUCTION_COMPLETED 상태의 상품만 경매에서 해제할 수 있습니다. 현재 상태: " + this.productStatus);
         }
         this.productStatus = ProductStatus.ACTIVE;
     }

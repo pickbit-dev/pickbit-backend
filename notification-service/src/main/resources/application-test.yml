@@ -1,7 +1,0 @@
-spring:
-  cloud:
-    consul:
-      enabled: false
-
-server:
-  port: 18087

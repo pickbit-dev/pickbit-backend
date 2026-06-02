@@ -10,6 +10,7 @@ public record KafkaPaymentRefundedDto(
         String eventId,
         Long paymentId,
         Long auctionId,
+        Long productId,
         Long buyerUserId,
         Long sellerUserId,
         BigDecimal amount,
