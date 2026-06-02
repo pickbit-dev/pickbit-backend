@@ -4,6 +4,25 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service to deploy
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - all
+          - gateway-service
+          - auth-service
+          - user-service
+          - product-service
+          - auction-service
+          - payment-service
+          - notification-service
+          - file-service
+          - caddy
 
 concurrency:
   group: backend-deploy-main
@@ -16,10 +35,13 @@ jobs:
 
     env:
       LOCAL_SECRETS_DIR: /Users/jonghun/Documents/git_file/pickbit-backend/secrets
+      APP_SERVICES: gateway-service auth-service user-service product-service auction-service payment-service notification-service file-service
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Copy local deploy secrets
         run: |
@@ -31,5 +53,70 @@ jobs:
       - name: Validate deploy compose
         run: docker compose -f docker-compose.deploy.yml config
 
-      - name: Deploy backend stack
-        run: docker compose -f docker-compose.deploy.yml up --build -d
+      - name: Resolve deploy targets
+        id: targets
+        run: |
+          set -euo pipefail
+
+          selected="${{ github.event.inputs.service || 'auto' }}"
+          services=""
+
+          add_service() {
+            case " $services " in
+              *" $1 "*) ;;
+              *) services="$services $1" ;;
+            esac
+          }
+
+          add_all_app_services() {
+            for service in $APP_SERVICES; do
+              add_service "$service"
+            done
+          }
+
+          if [ "$selected" = "all" ]; then
+            add_all_app_services
+            add_service caddy
+          elif [ "$selected" != "auto" ]; then
+            add_service "$selected"
+          else
+            if [ "${{ github.event_name }}" = "push" ]; then
+              before="${{ github.event.before }}"
+              after="${{ github.sha }}"
+
+              if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+                changed_files="$(git diff-tree --no-commit-id --name-only -r "$after")"
+              else
+                changed_files="$(git diff --name-only "$before" "$after")"
+              fi
+
+              if printf '%s\n' "$changed_files" | grep -Eq '^(Dockerfile|docker-compose\.deploy\.yml|build\.gradle|settings\.gradle|gradle/|library/|logging-library/)'; then
+                add_all_app_services
+              fi
+
+              if printf '%s\n' "$changed_files" | grep -q '^gateway-service/'; then add_service gateway-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^auth-service/'; then add_service auth-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^user-service/'; then add_service user-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^product-service/'; then add_service product-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^auction-service/'; then add_service auction-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^payment-service/'; then add_service payment-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^notification-service/'; then add_service notification-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^file-service/'; then add_service file-service; fi
+              if printf '%s\n' "$changed_files" | grep -q '^docker/caddy/'; then add_service caddy; fi
+            else
+              add_all_app_services
+            fi
+          fi
+
+          services="$(printf '%s' "$services" | xargs || true)"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$services" ]; then
+            echo "No deployable backend service changes detected."
+          else
+            echo "Deploy targets: $services"
+          fi
+
+      - name: Deploy resolved services
+        if: steps.targets.outputs.services != ''
+        run: docker compose -f docker-compose.deploy.yml up --build -d ${{ steps.targets.outputs.services }}
