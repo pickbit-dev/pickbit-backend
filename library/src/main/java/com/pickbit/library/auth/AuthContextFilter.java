@@ -9,6 +9,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 public class AuthContextFilter extends OncePerRequestFilter {
 
@@ -37,9 +39,22 @@ public class AuthContextFilter extends OncePerRequestFilter {
         return new AuthContext(
                 Long.valueOf(userId),
                 request.getHeader(AuthHeaders.USER_ROLE),
-                request.getHeader(AuthHeaders.USER_NICKNAME),
+                resolveNickname(request),
                 request.getHeader(AuthHeaders.USER_PROVIDER),
                 request.getHeader(AuthHeaders.USER_EMAIL)
         );
+    }
+
+    private String resolveNickname(HttpServletRequest request) {
+        String encodedNickname = request.getHeader(AuthHeaders.USER_NICKNAME_ENCODED);
+        if (StringUtils.hasText(encodedNickname)) {
+            try {
+                byte[] decoded = Base64.getUrlDecoder().decode(encodedNickname);
+                return new String(decoded, StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException ignored) {
+                // Fall back to the legacy raw header if the encoded header is malformed.
+            }
+        }
+        return request.getHeader(AuthHeaders.USER_NICKNAME);
     }
 }

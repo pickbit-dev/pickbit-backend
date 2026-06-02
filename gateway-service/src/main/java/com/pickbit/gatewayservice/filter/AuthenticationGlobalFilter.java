@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -38,6 +39,7 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
     private static final String USER_ID_HEADER = "X-User-Id";
     private static final String USER_ROLE_HEADER = "X-User-Role";
     private static final String USER_NICKNAME_HEADER = "X-User-Nickname";
+    private static final String USER_NICKNAME_ENCODED_HEADER = "X-User-Nickname-Encoded";
     private static final String USER_PROVIDER_HEADER = "X-User-Provider";
     private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String LEGACY_NICKNAME_HEADER = "nickname";
@@ -66,12 +68,15 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
                                 headers.remove(USER_ID_HEADER);
                                 headers.remove(USER_ROLE_HEADER);
                                 headers.remove(USER_NICKNAME_HEADER);
+                                headers.remove(USER_NICKNAME_ENCODED_HEADER);
                                 headers.remove(USER_PROVIDER_HEADER);
                                 headers.remove(USER_EMAIL_HEADER);
                                 headers.remove(LEGACY_NICKNAME_HEADER);
                                 headers.set(USER_ID_HEADER, String.valueOf(user.accountId()));
                                 headers.set(USER_ROLE_HEADER, user.role());
-                                headers.set(USER_NICKNAME_HEADER, user.nickname());
+                                if (StringUtils.hasText(user.nickname())) {
+                                    headers.set(USER_NICKNAME_ENCODED_HEADER, encodeHeaderValue(user.nickname()));
+                                }
                                 headers.set(USER_PROVIDER_HEADER, user.provider());
                                 headers.set(USER_EMAIL_HEADER, user.email());
                             })
@@ -106,6 +111,11 @@ public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
         return request.getCookies().getFirst(ACCESS_TOKEN_COOKIE) == null
                 ? null
                 : request.getCookies().getFirst(ACCESS_TOKEN_COOKIE).getValue();
+    }
+
+    private String encodeHeaderValue(String value) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
 
     private boolean isPublicPath(String path) {
