@@ -2,9 +2,9 @@
 
 ## 1. 목적
 
-Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose로 실행할 수 있게 구성되어 있다.
+Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose로 구성한다.
 
-Docker 스택에는 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, Kafka Connect, Kafka UI, ELK가 포함된다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500`, `9200`, `5601` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
+develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, Kafka Connect, ELK, Caddy를 실행한다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500`, `9200`, `5601` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
 
 ## 2. 포트 정책
 
@@ -15,14 +15,14 @@ Docker 스택에는 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, K
 | 구성요소 | 컨테이너 포트 | develop 호스트 포트 | deploy 호스트 포트 |
 | --- | ---: | ---: | ---: |
 | Caddy HTTP/HTTPS | `80`, `443` | 미사용 | `80`, `443` |
-| gateway-service | `18080` | `18080` | 내부 전용 |
-| auth-service | `18081` | `18081` | 내부 전용 |
-| user-service | `18082` | `18082` | 내부 전용 |
-| product-service | `18083` | `18083` | 내부 전용 |
-| file-service | `18084` | `18084` | 내부 전용 |
-| auction-service | `18085` | `18085` | 내부 전용 |
-| payment-service | `18086` | `18086` | 내부 전용 |
-| notification-service | `18087` | `18087` | 내부 전용 |
+| gateway-service | `18080` | Docker 미사용 | 내부 전용 |
+| auth-service | `18081` | Docker 미사용 | 내부 전용 |
+| user-service | `18082` | Docker 미사용 | 내부 전용 |
+| product-service | `18083` | Docker 미사용 | 내부 전용 |
+| file-service | `18084` | Docker 미사용 | 내부 전용 |
+| auction-service | `18085` | Docker 미사용 | 내부 전용 |
+| payment-service | `18086` | Docker 미사용 | 내부 전용 |
+| notification-service | `18087` | Docker 미사용 | 내부 전용 |
 | MySQL | `3306` | `13306` | 내부 전용 |
 | Redis | `6379` | `16379` | 내부 전용 |
 | Consul UI/API | `8500` | `18500` | `28500` |
@@ -95,7 +95,7 @@ Docker 컨테이너에서는 `./secrets` 디렉터리가 `/app/secrets`로 read-
 
 ## 4. Develop 환경
 
-develop 환경은 로컬 개발과 디버깅을 위한 구성이다. 각 백엔드 서비스 포트와 Kafka UI, Kibana, Elasticsearch, Kafka Connect를 외부에 노출한다.
+develop 환경은 로컬 개발과 디버깅을 위한 인프라 전용 구성이다. 백엔드 애플리케이션 컨테이너는 실행하지 않고 MySQL, Redis, Consul, Kafka, Kafka Connect, Kafka UI, ELK만 실행한다. 각 Spring Boot 서비스는 IDE 또는 Gradle로 직접 실행한다.
 
 최초 실행 전 시크릿 파일을 만든다.
 
@@ -108,21 +108,20 @@ printf 'replace-me\n' > secrets/mysql-root-password.txt
 실행:
 
 ```bash
-docker compose -f docker-compose.develop.yml up --build
+docker compose -f docker-compose.develop.yml up -d
 ```
 
 주요 접속 URL:
 
 | 도구 | URL |
 | --- | --- |
-| Gateway | `http://localhost:18080` |
 | Consul UI | `http://localhost:18500` |
 | Kafka UI | `http://localhost:19090` |
 | Kibana | `http://localhost:15601` |
 | Elasticsearch | `http://localhost:19200` |
 | Kafka Connect | `http://localhost:18088` |
 
-일반 클라이언트 트래픽은 Gateway를 통해 호출하는 것을 기준으로 한다. 개별 서비스 포트는 디버깅용이다.
+Spring Boot 서비스는 로컬에서 직접 실행한다. 예를 들어 Gateway는 IDE에서 실행하거나 `./gradlew :gateway-service:bootRun`으로 실행한 뒤 `http://localhost:18080`으로 접근한다.
 
 ## 5. Deploy 환경
 
