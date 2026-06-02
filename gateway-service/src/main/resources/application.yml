@@ -10,6 +10,11 @@ spring:
             locator:
               enabled: false
           routes:
+            - id: auction-websocket-sockjs
+              uri: lb://auction-service
+              order: -10
+              predicates:
+                - Path=/api/auctions/ws,/api/auctions/ws/**
             - id: auction-bid-ratelimit
               uri: lb://auction-service
               order: -1

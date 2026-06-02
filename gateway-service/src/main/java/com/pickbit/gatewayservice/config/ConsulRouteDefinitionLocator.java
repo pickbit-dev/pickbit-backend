@@ -32,6 +32,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
 
     private static final String GATEWAY_PATH_METADATA = "gateway-path";
+    private static final String AUCTION_SERVICE = "auction-service";
+    private static final String AUCTION_WS_EXACT_PATH = "/api/auctions/ws";
+    private static final String AUCTION_WS_WILDCARD_PATH = "/api/auctions/ws/**";
 
     private final ConsulDiscoveryClient consulDiscoveryClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -103,15 +106,22 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
 
     private List<RouteDefinition> createRouteDefinitions(String serviceName) {
         List<String> paths = resolveGatewayPaths(serviceName);
-        return paths.stream()
-                .map(path -> createRouteDefinition(serviceName, path, paths.indexOf(path)))
-                .toList();
+        java.util.ArrayList<RouteDefinition> definitions = new java.util.ArrayList<>();
+        if (AUCTION_SERVICE.equals(serviceName)) {
+            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_EXACT_PATH, "ws-exact", -10));
+            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_WILDCARD_PATH, "ws-wildcard", -10));
+        }
+        for (int i = 0; i < paths.size(); i++) {
+            definitions.add(createRouteDefinition(serviceName, paths.get(i), String.valueOf(i), 0));
+        }
+        return definitions;
     }
 
-    private RouteDefinition createRouteDefinition(String serviceName, String path, int index) {
+    private RouteDefinition createRouteDefinition(String serviceName, String path, String routeSuffix, int order) {
         RouteDefinition definition = new RouteDefinition();
-        definition.setId(routeId(serviceName, index));
+        definition.setId(routeId(serviceName, routeSuffix));
         definition.setUri(URI.create("lb://" + serviceName));
+        definition.setOrder(order);
 
         PredicateDefinition pathPredicate = new PredicateDefinition();
         pathPredicate.setName("Path");
@@ -171,8 +181,8 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
-    private String routeId(String serviceName, int index) {
-        return routePrefix(serviceName) + index;
+    private String routeId(String serviceName, String routeSuffix) {
+        return routePrefix(serviceName) + routeSuffix;
     }
 
     private String routePrefix(String serviceName) {

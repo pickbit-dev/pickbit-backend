@@ -3,133 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auction WebSocket Test</title>
+    <title>Auction SockJS Test</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 0 16px;
-            color: #1f2937;
-        }
-
-        h1 {
-            margin-bottom: 8px;
-        }
-
-        p {
-            line-height: 1.5;
-        }
-
-        .panel {
-            border: 1px solid #d1d5db;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
-            background: #f9fafb;
-        }
-
-        .row {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        label {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 220px;
-            flex: 1;
-        }
-
-        input {
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        button {
-            padding: 10px 14px;
-            border: 0;
-            border-radius: 8px;
-            background: #111827;
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #status {
-            font-weight: 600;
-        }
-
-        #log {
-            width: 100%;
-            min-height: 320px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 12px;
-            background: #0f172a;
-            color: #e2e8f0;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            white-space: pre-wrap;
-            box-sizing: border-box;
-        }
-
-        code {
-            background: #e5e7eb;
-            padding: 2px 6px;
-            border-radius: 6px;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 900px; margin: 36px auto; padding: 0 16px; color: #172033; }
+        .panel { border: 1px solid #d0d7e2; border-radius: 12px; padding: 16px; margin: 16px 0; background: #f8fafc; }
+        .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+        label { display: flex; flex: 1; min-width: 220px; flex-direction: column; gap: 6px; font-weight: 600; }
+        input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        button { padding: 10px 14px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-weight: 700; }
+        button.secondary { background: #475467; }
+        button.danger { background: #dc2626; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+        code, pre { background: #e8eef8; padding: 8px; border-radius: 8px; white-space: pre-wrap; }
+        #log { width: 100%; min-height: 340px; border: 0; border-radius: 12px; padding: 12px; background: #101828; color: #d6e1ff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; box-sizing: border-box; }
     </style>
 </head>
 <body>
-<h1>Auction WebSocket Test</h1>
-<p>이 페이지는 SockJS + STOMP로 <code>/ws</code>에 연결하고 <code>/topic/auctions/{auctionId}</code>를 구독합니다.</p>
-<p>입찰은 REST API로 요청하고, 입찰 결과는 구독 중인 WebSocket 토픽에서 수신합니다.</p>
+<h1>Auction SockJS Test</h1>
+<p>SockJS + STOMP로 <code>/api/auctions/ws</code>에 연결하고 <code>/topic/auctions/{auctionId}</code>를 구독합니다.</p>
 
 <div class="panel">
     <div class="row">
-        <label>
-            Server URL
-            <input id="serverUrl" type="text" placeholder="http://localhost:8080">
-        </label>
-        <label>
-            Auction ID
-            <input id="auctionId" type="number" min="1" value="1">
-        </label>
+        <label>Gateway Base URL <input id="serverUrl" type="text" value="http://192.168.20.70:18080"></label>
+        <label>Auction ID <input id="auctionId" type="number" min="1" value="1"></label>
     </div>
+    <pre id="preview"></pre>
     <div class="row">
         <button id="connectBtn" type="button">Connect & Subscribe</button>
-        <button id="disconnectBtn" type="button" disabled>Disconnect</button>
-        <button id="clearBtn" type="button">Clear Log</button>
+        <button id="disconnectBtn" class="danger" type="button" disabled>Disconnect</button>
+        <button id="clearBtn" class="secondary" type="button">Clear Log</button>
     </div>
-    <div>Status: <span id="status">DISCONNECTED</span></div>
+    <strong>Status: <span id="status">DISCONNECTED</span></strong>
 </div>
 
 <div class="panel">
     <div class="row">
-        <label>
-            Nickname
-            <input id="nickname" type="text" value="bidder1">
-        </label>
-        <label>
-            Bid Amount
-            <input id="bidAmount" type="number" min="1" value="12000">
-        </label>
+        <label>Nickname Header <input id="nickname" type="text" value="bidder1"></label>
+        <label>Bid Amount <input id="bidAmount" type="number" min="1" value="12000"></label>
     </div>
+    <pre id="bidPreview"></pre>
     <div class="row">
         <button id="placeBidBtn" type="button">Place Bid</button>
     </div>
-    <p>연결 후 입찰 요청을 보내면 REST 응답과 WebSocket 수신 메시지를 로그에서 함께 확인할 수 있습니다.</p>
-    <pre id="curlExample"></pre>
 </div>
 
 <textarea id="log" readonly></textarea>
@@ -139,137 +54,91 @@
 <script>
     const serverUrlInput = document.getElementById('serverUrl');
     const auctionIdInput = document.getElementById('auctionId');
+    const preview = document.getElementById('preview');
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const clearBtn = document.getElementById('clearBtn');
     const placeBidBtn = document.getElementById('placeBidBtn');
     const nicknameInput = document.getElementById('nickname');
     const bidAmountInput = document.getElementById('bidAmount');
+    const bidPreview = document.getElementById('bidPreview');
     const statusText = document.getElementById('status');
     const logArea = document.getElementById('log');
-    const curlExample = document.getElementById('curlExample');
 
     let stompClient = null;
     let subscription = null;
+    let connecting = false;
 
-    serverUrlInput.value = window.location.origin && window.location.origin !== 'null'
-        ? window.location.origin
-        : 'http://localhost:8080';
-
-    function appendLog(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        logArea.value += `[${timestamp}] ${message}\n`;
-        logArea.scrollTop = logArea.scrollHeight;
+    function baseUrl() {
+        return serverUrlInput.value.trim().replace(/\/$/, '').replace(/\/api\/auctions\/ws$/, '').replace(/\/api$/, '');
     }
 
-    function setStatus(message) {
-        statusText.textContent = message;
+    function endpoint() {
+        return `${baseUrl()}/api/auctions/ws`;
     }
 
     function topic() {
         return `/topic/auctions/${auctionIdInput.value}`;
     }
 
-    function updateCurlExample() {
-        curlExample.textContent = `curl -X POST "${serverUrlInput.value}/auctions/${auctionIdInput.value}/bids" \\
-  -H "Content-Type: application/json" \\
-  -H "nickname: ${nicknameInput.value}" \\
-  -d '{"bidAmount":${bidAmountInput.value}}'`;
+    function log(message) {
+        logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+        logArea.scrollTop = logArea.scrollHeight;
     }
 
-    async function placeBid() {
-        const serverUrl = serverUrlInput.value.replace(/\/$/, '');
-        const auctionId = auctionIdInput.value;
-        const nickname = nicknameInput.value.trim();
-        const bidAmount = bidAmountInput.value;
-
-        if (!auctionId) {
-            appendLog('bid failed: Auction ID is required');
-            return;
-        }
-        if (!nickname) {
-            appendLog('bid failed: Nickname is required');
-            return;
-        }
-        if (!bidAmount || Number(bidAmount) <= 0) {
-            appendLog('bid failed: Bid Amount must be greater than 0');
-            return;
-        }
-
-        const url = `${serverUrl}/auctions/${auctionId}/bids`;
-        appendLog(`REST POST ${url}`);
-
-        try {
-            placeBidBtn.disabled = true;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'nickname': nickname
-                },
-                body: JSON.stringify({bidAmount: Number(bidAmount)})
-            });
-
-            const contentType = response.headers.get('content-type') || '';
-            const body = contentType.includes('application/json')
-                ? JSON.stringify(await response.json(), null, 2)
-                : await response.text();
-
-            appendLog(`REST response: ${response.status} ${response.statusText}`);
-            if (body) {
-                appendLog(body);
-            }
-        } catch (error) {
-            appendLog(`REST error: ${error.message}`);
-        } finally {
-            placeBidBtn.disabled = false;
-        }
+    function setStatus(status) {
+        statusText.textContent = status;
     }
 
-    async function connect() {
-        if (stompClient && stompClient.connected) {
-            appendLog('already connected');
+    function updatePreview() {
+        preview.textContent = `SockJS endpoint: ${endpoint()}\nSubscribe topic: ${topic()}`;
+        bidPreview.textContent = `POST ${baseUrl()}/api/auctions/${auctionIdInput.value}/bids\nHeader nickname: ${nicknameInput.value}\nBody: {"bidAmount":${bidAmountInput.value}}`;
+    }
+
+    function connect() {
+        if (connecting || (stompClient && stompClient.active)) {
+            log('already connecting or connected');
             return;
         }
-
-        const serverUrl = serverUrlInput.value.replace(/\/$/, '');
-        const endpoint = `${serverUrl}/ws`;
-
+        connecting = true;
         setStatus('CONNECTING');
-        appendLog(`connecting to ${endpoint}`);
+        log(`connect SockJS: ${endpoint()}`);
 
         stompClient = new StompJs.Client({
-            webSocketFactory: () => new SockJS(endpoint),
-            reconnectDelay: 5000,
-            debug: (message) => appendLog(`[stomp] ${message}`),
+            reconnectDelay: 0,
+            webSocketFactory: () => new SockJS(endpoint()),
+            debug: (message) => log(`[stomp] ${message}`),
             onConnect: () => {
+                connecting = false;
                 setStatus('CONNECTED');
-                appendLog('connected');
+                log('connected');
                 subscription = stompClient.subscribe(topic(), (frame) => {
-                    appendLog(`message from ${topic()}`);
-                    appendLog(frame.body);
+                    log(`message from ${topic()}`);
+                    log(frame.body);
                 });
-                appendLog(`subscribed to ${topic()}`);
+                log(`subscribed: ${topic()}`);
                 connectBtn.disabled = true;
                 disconnectBtn.disabled = false;
             },
             onStompError: (frame) => {
+                connecting = false;
                 setStatus('STOMP ERROR');
-                appendLog(`broker error: ${frame.headers['message'] || 'unknown'}`);
-                appendLog(frame.body || '');
+                log(`broker error: ${frame.headers.message || 'unknown'}`);
+                if (frame.body) log(frame.body);
             },
             onWebSocketClose: (event) => {
+                connecting = false;
                 setStatus('DISCONNECTED');
-                appendLog(`socket closed: code=${event.code}, reason=${event.reason || 'none'}`);
+                log(`socket closed: code=${event.code}, reason=${event.reason || 'none'}`);
                 connectBtn.disabled = false;
                 disconnectBtn.disabled = true;
             },
             onWebSocketError: () => {
+                connecting = false;
                 setStatus('SOCKET ERROR');
-                appendLog('websocket error');
+                log('socket error');
             }
         });
-
         stompClient.activate();
     }
 
@@ -278,30 +147,71 @@
             subscription.unsubscribe();
             subscription = null;
         }
-
         if (stompClient) {
             await stompClient.deactivate();
             stompClient = null;
         }
-
+        connecting = false;
         setStatus('DISCONNECTED');
-        appendLog('disconnected');
+        log('disconnected');
         connectBtn.disabled = false;
         disconnectBtn.disabled = true;
+    }
+
+    async function placeBid() {
+        const auctionId = auctionIdInput.value;
+        const nickname = nicknameInput.value.trim();
+        const bidAmount = Number(bidAmountInput.value);
+
+        if (!auctionId) {
+            log('bid failed: auctionId is required');
+            return;
+        }
+        if (!nickname) {
+            log('bid failed: nickname is required');
+            return;
+        }
+        if (!bidAmount || bidAmount <= 0) {
+            log('bid failed: bidAmount must be greater than 0');
+            return;
+        }
+
+        const url = `${baseUrl()}/api/auctions/${auctionId}/bids`;
+        log(`REST POST ${url}`);
+
+        try {
+            placeBidBtn.disabled = true;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    nickname
+                },
+                body: JSON.stringify({bidAmount})
+            });
+            const contentType = response.headers.get('content-type') || '';
+            const body = contentType.includes('application/json')
+                ? JSON.stringify(await response.json(), null, 2)
+                : await response.text();
+
+            log(`REST response: ${response.status} ${response.statusText}`);
+            if (body) log(body);
+        } catch (error) {
+            log(`REST error: ${error.message}`);
+        } finally {
+            placeBidBtn.disabled = false;
+        }
     }
 
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
     placeBidBtn.addEventListener('click', placeBid);
-    clearBtn.addEventListener('click', () => {
-        logArea.value = '';
-    });
-    serverUrlInput.addEventListener('input', updateCurlExample);
-    auctionIdInput.addEventListener('input', updateCurlExample);
-    nicknameInput.addEventListener('input', updateCurlExample);
-    bidAmountInput.addEventListener('input', updateCurlExample);
-
-    updateCurlExample();
+    clearBtn.addEventListener('click', () => logArea.value = '');
+    serverUrlInput.addEventListener('input', updatePreview);
+    auctionIdInput.addEventListener('input', updatePreview);
+    nicknameInput.addEventListener('input', updatePreview);
+    bidAmountInput.addEventListener('input', updatePreview);
+    updatePreview();
 </script>
 </body>
 </html>
