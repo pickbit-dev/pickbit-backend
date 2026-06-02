@@ -4,11 +4,28 @@ spring:
     activate:
       on-profile: deploy
 
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${NOTIFICATION_MYSQL_USERNAME}
+    password: ${NOTIFICATION_MYSQL_PASSWORD}
+    url: ${NOTIFICATION_MYSQL_URL}
+
   cloud:
     consul:
       enabled: true
       host: consul-server
       port: 8500
+
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        use_sql_comments: false
+        default_batch_fetch_size: 100
+    database: mysql
 
 server:
   port: 18087

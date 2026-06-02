@@ -53,6 +53,12 @@ spring:
                 - Path=/v3/api-docs/file-service
               filters:
                 - RewritePath=/v3/api-docs/file-service, /v3/api-docs
+            - id: notification-service-openapi
+              uri: lb://notification-service
+              predicates:
+                - Path=/v3/api-docs/notification-service
+              filters:
+                - RewritePath=/v3/api-docs/notification-service, /v3/api-docs
     loadbalancer:
       enabled: true
 
@@ -78,3 +84,5 @@ springdoc:
         url: /v3/api-docs/auction-service
       - name: file-service
         url: /v3/api-docs/file-service
+      - name: notification-service
+        url: /v3/api-docs/notification-service
