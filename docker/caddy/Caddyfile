@@ -1,0 +1,11 @@
+api.pickbit.co.kr {
+    reverse_proxy gateway-service:18080
+}
+
+pickbit.co.kr {
+    reverse_proxy frontend:3000
+}
+
+www.pickbit.co.kr {
+    redir https://pickbit.co.kr{uri}
+}

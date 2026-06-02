@@ -2,19 +2,20 @@
 
 ## 1. 목적
 
-Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose 하나로 실행할 수 있게 구성되어 있다.
+Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose로 실행할 수 있게 구성되어 있다.
 
 Docker 스택에는 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, Kafka Connect, Kafka UI, ELK가 포함된다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500`, `9200`, `5601` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
 
 ## 2. 포트 정책
 
-애플리케이션 서비스는 `18080-18087` 대역을 사용한다.
+애플리케이션 컨테이너 내부 포트는 `18080-18087` 대역을 사용한다.
 
-인프라 서비스는 기본 컨테이너 포트는 유지하되, 호스트 노출 포트는 비기본 포트로 매핑한다.
+인프라 서비스는 기본 컨테이너 포트는 유지하되, develop은 디버깅용 host port를 노출하고 deploy는 외부 노출을 최소화한다. 같은 서버에서 develop/deploy를 동시에 실행할 수 있도록 deploy의 host port는 develop과 분리한다.
 
 | 구성요소 | 컨테이너 포트 | develop 호스트 포트 | deploy 호스트 포트 |
 | --- | ---: | ---: | ---: |
-| gateway-service | `18080` | `18080` | `18080` |
+| Caddy HTTP/HTTPS | `80`, `443` | 미사용 | `80`, `443` |
+| gateway-service | `18080` | `18080` | 내부 전용 |
 | auth-service | `18081` | `18081` | 내부 전용 |
 | user-service | `18082` | `18082` | 내부 전용 |
 | product-service | `18083` | `18083` | 내부 전용 |
@@ -24,7 +25,7 @@ Docker 스택에는 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, K
 | notification-service | `18087` | `18087` | 내부 전용 |
 | MySQL | `3306` | `13306` | 내부 전용 |
 | Redis | `6379` | `16379` | 내부 전용 |
-| Consul UI/API | `8500` | `18500` | `18500` |
+| Consul UI/API | `8500` | `18500` | `28500` |
 | Kafka external listener | `19092` | `19092` | 내부 전용 |
 | Kafka UI | `8080` | `19090` | 미노출 |
 | Kafka Connect | `8083` | `18088` | 내부 전용 |
@@ -32,7 +33,9 @@ Docker 스택에는 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, K
 | Elasticsearch transport | `9300` | `19300` | 내부 전용 |
 | Logstash TCP | `5000` | `15000` | 내부 전용 |
 | Logstash monitoring | `9600` | `19600` | 내부 전용 |
-| Kibana | `5601` | `15601` | `15601` |
+| Kibana | `5601` | `15601` | `25601` |
+
+deploy 환경에서 MySQL, Redis, Kafka, Kafka Connect, Elasticsearch, Logstash, 개별 백엔드 서비스는 Docker 내부 네트워크 전용이다. 외부 접속은 Gateway를 기준으로 한다.
 
 ## 3. 시크릿 파일
 
@@ -143,11 +146,21 @@ deploy 환경에서 외부 노출되는 구성:
 
 | 구성요소 | URL |
 | --- | --- |
-| Gateway | `http://<server-host>:18080` |
-| Consul UI | `http://<server-host>:18500` |
-| Kibana | `http://<server-host>:15601` |
+| Caddy HTTPS | `https://pickbit.co.kr`, `https://api.pickbit.co.kr` |
+| Consul UI | `http://<server-host>:28500` |
+| Kibana | `http://<server-host>:25601` |
 
-나머지 서비스와 인프라는 `pickbit-deploy` Docker 내부 네트워크에서만 통신한다.
+Gateway를 포함한 나머지 서비스와 인프라는 `pickbit-deploy` Docker 내부 네트워크에서만 통신한다. 외부 HTTP/HTTPS 트래픽은 Caddy가 `80`, `443` 포트에서 받는다. `api.pickbit.co.kr`은 내부 Gateway로 전달하고, `pickbit.co.kr`은 같은 Docker 네트워크의 프론트 컨테이너 `frontend:3000`으로 전달한다.
+
+도메인 DNS는 아래 A 레코드를 서버 공인 IP로 연결한다.
+
+```text
+pickbit.co.kr      -> 서버 공인 IP
+www.pickbit.co.kr  -> 서버 공인 IP
+api.pickbit.co.kr  -> 서버 공인 IP
+```
+
+공유기 포트포워딩은 외부 `80`, `443`을 맥미니 내부 IP의 `80`, `443`으로 연결한다. Caddy는 Let's Encrypt 인증서를 자동으로 발급하고 갱신한다.
 
 ## 6. ELK 로그 연동
 

@@ -39,6 +39,22 @@ x-build-common: &build-common
   dockerfile: Dockerfile
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: pickbit-deploy-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - pickbit-deploy-caddy-data:/data
+      - pickbit-deploy-caddy-config:/config
+    depends_on:
+      - gateway-service
+    networks:
+      - pickbit-deploy
+
   mysql:
     image: mysql:8.4
     container_name: pickbit-deploy-mysql
@@ -90,7 +106,7 @@ services:
     container_name: pickbit-deploy-consul
     restart: unless-stopped
     ports:
-      - "18500:8500"
+      - "28500:8500"
     command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
     networks:
       - pickbit-deploy
@@ -129,6 +145,8 @@ services:
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic AuthAccount-topic --partitions 3 --replication-factor 1;
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Product-topic --partitions 3 --replication-factor 1;
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic User-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Auction-topic --partitions 3 --replication-factor 1;
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic Payment-topic --partitions 3 --replication-factor 1;
       "
     networks:
       - pickbit-deploy
@@ -203,7 +221,7 @@ services:
     container_name: pickbit-deploy-kibana
     restart: unless-stopped
     ports:
-      - "15601:5601"
+      - "25601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     depends_on:
@@ -218,8 +236,6 @@ services:
       <<: *build-common
       args:
         SERVICE_NAME: gateway-service
-    ports:
-      - "18080:18080"
 
   auth-service:
     <<: *app-common
@@ -282,6 +298,8 @@ networks:
     name: pickbit-deploy
 
 volumes:
+  pickbit-deploy-caddy-data:
+  pickbit-deploy-caddy-config:
   pickbit-deploy-mysql-data:
   pickbit-deploy-redis-data:
   pickbit-deploy-kafka-data:

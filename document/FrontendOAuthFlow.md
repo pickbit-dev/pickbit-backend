@@ -4,6 +4,13 @@
 
 ## Base URL
 
+배포 기준 URL:
+
+```text
+Frontend: https://pickbit.co.kr
+Backend API: https://api.pickbit.co.kr
+```
+
 로컬 개발 기준 Gateway URL:
 
 ```text
@@ -15,6 +22,13 @@ http://localhost:18080
 ```text
 /oauth/callback
 /oauth/signup
+```
+
+프론트 배포 환경 변수 예시:
+
+```text
+API_BASE_URL=https://api.pickbit.co.kr
+OAUTH_KAKAO_LOGIN_URL=https://api.pickbit.co.kr/api/auth/oauth2/authorization/kakao
 ```
 
 ## OAuth 시작
@@ -38,7 +52,37 @@ naver
 예시:
 
 ```text
-http://localhost:18080/api/auth/oauth2/authorization/kakao
+배포: https://api.pickbit.co.kr/api/auth/oauth2/authorization/kakao
+로컬: http://localhost:18080/api/auth/oauth2/authorization/kakao
+```
+
+## OAuth Provider Console 설정
+
+카카오 Redirect URI에는 백엔드 OAuth 콜백 URL을 등록합니다.
+
+```text
+https://api.pickbit.co.kr/api/auth/oauth2/code/kakao
+```
+
+개발용을 유지하려면 아래도 함께 둡니다.
+
+```text
+http://localhost:18080/api/auth/oauth2/code/kakao
+http://192.168.20.70:18080/api/auth/oauth2/code/kakao
+```
+
+카카오 사이트 도메인에는 프론트와 API 도메인을 등록합니다.
+
+```text
+https://pickbit.co.kr
+https://api.pickbit.co.kr
+```
+
+Google/Naver도 사용한다면 같은 패턴으로 배포용 Redirect URI를 등록합니다.
+
+```text
+https://api.pickbit.co.kr/api/auth/oauth2/code/google
+https://api.pickbit.co.kr/api/auth/oauth2/code/naver
 ```
 
 ## 서버 Redirect 분기
@@ -48,13 +92,13 @@ OAuth provider 인증이 끝나면 서버가 사용자가 기존 회원인지 �
 기존 OAuth 계정이 있으면:
 
 ```text
-/oauth/callback?code={exchangeCode}
+https://pickbit.co.kr/oauth/callback?code={exchangeCode}
 ```
 
 신규 OAuth 계정이면:
 
 ```text
-/oauth/signup?code={signupCode}
+https://pickbit.co.kr/oauth/signup?code={signupCode}
 ```
 
 ## 기존 회원 로그인
@@ -62,7 +106,7 @@ OAuth provider 인증이 끝나면 서버가 사용자가 기존 회원인지 �
 서버가 아래 페이지로 redirect합니다.
 
 ```text
-/oauth/callback?code={exchangeCode}
+https://pickbit.co.kr/oauth/callback?code={exchangeCode}
 ```
 
 프론트 처리:
@@ -104,7 +148,7 @@ Response:
 서버가 아래 페이지로 redirect합니다.
 
 ```text
-/oauth/signup?code={signupCode}
+https://pickbit.co.kr/oauth/signup?code={signupCode}
 ```
 
 프론트 처리:
