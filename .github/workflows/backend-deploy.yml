@@ -1,0 +1,35 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: backend-deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy backend to Mac mini
+    runs-on: [self-hosted, pickbit-macmini, backend, deploy]
+
+    env:
+      LOCAL_SECRETS_DIR: /Users/jonghun/Documents/git_file/pickbit-backend/secrets
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy local deploy secrets
+        run: |
+          test -d "$LOCAL_SECRETS_DIR"
+          rm -rf secrets
+          mkdir -p secrets
+          cp -R "$LOCAL_SECRETS_DIR"/. secrets/
+
+      - name: Validate deploy compose
+        run: docker compose -f docker-compose.deploy.yml config
+
+      - name: Deploy backend stack
+        run: docker compose -f docker-compose.deploy.yml up --build -d

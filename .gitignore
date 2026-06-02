@@ -47,6 +47,9 @@ secrets/
 *secret*.yaml
 **/*.yml
 **/*.yaml
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
 !docker-compose.develop.yml
 !docker-compose.deploy.yml
 !application-secret.example.yml
