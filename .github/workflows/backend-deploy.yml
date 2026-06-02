@@ -126,4 +126,13 @@ jobs:
 
       - name: Deploy resolved services
         if: steps.targets.outputs.all_stack != 'true' && steps.targets.outputs.services != ''
-        run: docker compose -f docker-compose.deploy.yml up --build -d ${{ steps.targets.outputs.services }}
+        run: |
+          set -euo pipefail
+
+          for service in ${{ steps.targets.outputs.services }}; do
+            if [ "$service" = "caddy" ]; then
+              docker compose -f docker-compose.deploy.yml up --build -d caddy
+            else
+              docker compose -f "docker/compose/services/${service}.deploy.yml" up --build -d
+            fi
+          done

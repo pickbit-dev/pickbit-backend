@@ -123,6 +123,15 @@ docker compose -f docker-compose.develop.yml up -d
 
 Spring Boot 서비스는 로컬에서 직접 실행한다. 예를 들어 Gateway는 IDE에서 실행하거나 `./gradlew :gateway-service:bootRun`으로 실행한 뒤 `http://localhost:18080`으로 접근한다.
 
+Docker로 특정 백엔드 서비스만 develop 네트워크에 붙여 실행해야 할 때는 모듈별 develop compose를 사용한다. 먼저 인프라를 실행한 뒤 필요한 서비스만 실행한다.
+
+```bash
+docker compose -f docker-compose.develop.yml up -d
+docker compose -f docker/compose/services/auth-service.develop.yml up --build -d
+```
+
+모듈별 develop compose는 `pickbit-develop` 외부 네트워크에 연결되고 해당 서비스 포트만 host에 노출한다. 기본 로컬 개발 방식은 IDE 또는 Gradle 직접 실행이며, 모듈별 develop compose는 선택적으로 사용한다.
+
 ## 5. Deploy 환경
 
 deploy 환경은 단일 서버 Docker 배포를 위한 구성이다.
@@ -160,6 +169,14 @@ api.pickbit.co.kr  -> 서버 공인 IP
 ```
 
 공유기 포트포워딩은 외부 `80`, `443`을 맥미니 내부 IP의 `80`, `443`으로 연결한다. Caddy는 Let's Encrypt 인증서를 자동으로 발급하고 갱신한다.
+
+개별 백엔드 서비스만 운영 네트워크에 재배포할 때는 모듈별 deploy compose를 사용한다. 모듈별 deploy compose는 host port를 노출하지 않고 `pickbit-deploy` 외부 네트워크에만 연결한다.
+
+```bash
+docker compose -f docker/compose/services/payment-service.deploy.yml up --build -d
+```
+
+GitHub Actions의 자동 서비스별 배포도 모듈별 deploy compose를 사용한다. 수동 `all` 배포는 루트 `docker-compose.deploy.yml`로 인프라를 포함한 전체 stack을 배포한다.
 
 ## 6. ELK 로그 연동
 

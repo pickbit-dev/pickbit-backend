@@ -50,6 +50,9 @@ secrets/
 !.github/
 !.github/workflows/
 !.github/workflows/*.yml
+!docker/compose/
+!docker/compose/services/
+!docker/compose/services/*.yml
 !docker-compose.develop.yml
 !docker-compose.deploy.yml
 !application-secret.example.yml

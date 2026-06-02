@@ -1,0 +1,40 @@
+services:
+  product-service:
+    container_name: pickbit-develop-product-service
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: product-service
+    restart: unless-stopped
+    ports:
+      - "18083:18083"
+    environment:
+      SPRING_PROFILES_ACTIVE: develop
+      ENV: develop
+      LOG_PATH: /logs
+      LOGSTASH_DESTINATION: logstash:5000
+      JAVA_OPTS: -Xms256m -Xmx512m
+      CONSUL_HOST: consul-server
+      CONSUL_PORT: 8500
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_CLOUD_CONSUL_HOST: consul-server
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - pickbit-develop-logs:/logs
+      - ../../../secrets:/app/secrets:ro
+    networks:
+      - pickbit-develop
+
+networks:
+  pickbit-develop:
+    external: true
+
+volumes:
+  pickbit-develop-logs:
+    name: pickbit-backend_pickbit-develop-logs
