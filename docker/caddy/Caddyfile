@@ -9,11 +9,3 @@ pickbit.co.kr {
 www.pickbit.co.kr {
     redir https://pickbit.co.kr{uri}
 }
-
-api.test.pickbit.co.kr {
-    reverse_proxy host.docker.internal:18080
-}
-
-app.test.pickbit.co.kr {
-    reverse_proxy test-frontend:3000
-}

@@ -154,41 +154,18 @@ deploy 환경에서 외부 노출되는 구성:
 
 | 구성요소 | URL |
 | --- | --- |
-| Caddy HTTPS | `https://pickbit.co.kr`, `https://api.pickbit.co.kr`, `https://app.test.pickbit.co.kr`, `https://api.test.pickbit.co.kr` |
+| Caddy HTTPS | `https://pickbit.co.kr`, `https://api.pickbit.co.kr` |
 | Consul UI | `http://<server-host>:28500` |
 | Kibana | `http://<server-host>:25601` |
 
 Gateway를 포함한 나머지 서비스와 인프라는 `pickbit-deploy` Docker 내부 네트워크에서만 통신한다. 외부 HTTP/HTTPS 트래픽은 Caddy가 `80`, `443` 포트에서 받는다. `api.pickbit.co.kr`은 내부 Gateway로 전달하고, `pickbit.co.kr`은 같은 Docker 네트워크의 프론트 컨테이너 `frontend:3000`으로 전달한다.
 
-테스트 도메인은 같은 Caddy에서 분기한다. `app.test.pickbit.co.kr`은 테스트 프론트 컨테이너 `test-frontend:3000`으로 전달하고, `api.test.pickbit.co.kr`은 Mac mini host의 develop Gateway `18080` 포트로 전달한다. develop Gateway는 IDE로 실행하거나 `docker/compose/services/gateway-service.develop.yml`로 실행할 수 있다.
-
 도메인 DNS는 아래 A 레코드를 서버 공인 IP로 연결한다.
 
 ```text
-pickbit.co.kr           -> 서버 공인 IP
-www.pickbit.co.kr       -> 서버 공인 IP
-api.pickbit.co.kr       -> 서버 공인 IP
-app.test.pickbit.co.kr  -> 서버 공인 IP
-api.test.pickbit.co.kr  -> 서버 공인 IP
-```
-
-테스트 OAuth/OIDC provider에는 아래 redirect URI를 추가한다.
-
-```text
-https://api.test.pickbit.co.kr/api/auth/oauth2/code/kakao
-https://api.test.pickbit.co.kr/api/auth/oauth2/code/google
-https://api.test.pickbit.co.kr/api/auth/oauth2/code/naver
-```
-
-테스트 백엔드 시크릿은 아래처럼 분리한다.
-
-```text
-OAUTH_REDIRECT_BASE_URL=https://api.test.pickbit.co.kr
-FRONTEND_OAUTH_CALLBACK_URL=https://app.test.pickbit.co.kr/oauth/callback
-FRONTEND_OAUTH_SIGNUP_URL=https://app.test.pickbit.co.kr/oauth/signup
-AUTH_COOKIE_DOMAIN=.test.pickbit.co.kr
-TOSS_SUCCESS_URL=https://app.test.pickbit.co.kr/payment/success
-TOSS_FAIL_URL=https://app.test.pickbit.co.kr/payment/fail
+pickbit.co.kr      -> 서버 공인 IP
+www.pickbit.co.kr  -> 서버 공인 IP
+api.pickbit.co.kr  -> 서버 공인 IP
 ```
 
 공유기 포트포워딩은 외부 `80`, `443`을 맥미니 내부 IP의 `80`, `443`으로 연결한다. Caddy는 Let's Encrypt 인증서를 자동으로 발급하고 갱신한다.
