@@ -60,6 +60,7 @@ jobs:
 
           selected="${{ github.event.inputs.service || 'auto' }}"
           services=""
+          all_stack="false"
 
           add_service() {
             case " $services " in
@@ -75,8 +76,7 @@ jobs:
           }
 
           if [ "$selected" = "all" ]; then
-            add_all_app_services
-            add_service caddy
+            all_stack="true"
           elif [ "$selected" != "auto" ]; then
             add_service "$selected"
           else
@@ -109,14 +109,21 @@ jobs:
           fi
 
           services="$(printf '%s' "$services" | xargs || true)"
+          echo "all_stack=$all_stack" >> "$GITHUB_OUTPUT"
           echo "services=$services" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$services" ]; then
+          if [ "$all_stack" = "true" ]; then
+            echo "Deploy target: full compose stack"
+          elif [ -z "$services" ]; then
             echo "No deployable backend service changes detected."
           else
             echo "Deploy targets: $services"
           fi
 
+      - name: Deploy full stack
+        if: steps.targets.outputs.all_stack == 'true'
+        run: docker compose -f docker-compose.deploy.yml up --build -d
+
       - name: Deploy resolved services
-        if: steps.targets.outputs.services != ''
+        if: steps.targets.outputs.all_stack != 'true' && steps.targets.outputs.services != ''
         run: docker compose -f docker-compose.deploy.yml up --build -d ${{ steps.targets.outputs.services }}
