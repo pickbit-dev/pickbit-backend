@@ -37,8 +37,6 @@ auction:
     cron: "0 * * * * *"
   cache:
     auction-ttl-seconds: 10
-  ws:
-    debounce-ms: 100
 
 resilience4j:
   circuitbreaker:

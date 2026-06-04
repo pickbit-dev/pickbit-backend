@@ -11,7 +11,7 @@
     </springProfile>
 
     <springProfile name="develop,qa,deploy">
-        <if condition='isDefined("LOGSTASH_DESTINATION")'>
+        <if condition='isDefined("LOGSTASH_DESTINATION_EFFECTIVE")'>
             <then>
                 <root level="info">
                     <appender-ref ref="CONSOLE"/>

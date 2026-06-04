@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.consul.discovery.ConsulDiscoveryClient;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
+import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
@@ -35,6 +36,7 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
     private static final String AUCTION_SERVICE = "auction-service";
     private static final String AUCTION_WS_EXACT_PATH = "/api/auctions/ws";
     private static final String AUCTION_WS_WILDCARD_PATH = "/api/auctions/ws/**";
+    private static final String CORS_DEDUPE_HEADERS = "Access-Control-Allow-Origin Access-Control-Allow-Credentials";
 
     private final ConsulDiscoveryClient consulDiscoveryClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -108,16 +110,16 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         List<String> paths = resolveGatewayPaths(serviceName);
         java.util.ArrayList<RouteDefinition> definitions = new java.util.ArrayList<>();
         if (AUCTION_SERVICE.equals(serviceName)) {
-            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_EXACT_PATH, "ws-exact", -10));
-            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_WILDCARD_PATH, "ws-wildcard", -10));
+            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_EXACT_PATH, "ws-exact", -10, true));
+            definitions.add(createRouteDefinition(serviceName, AUCTION_WS_WILDCARD_PATH, "ws-wildcard", -10, true));
         }
         for (int i = 0; i < paths.size(); i++) {
-            definitions.add(createRouteDefinition(serviceName, paths.get(i), String.valueOf(i), 0));
+            definitions.add(createRouteDefinition(serviceName, paths.get(i), String.valueOf(i), 0, false));
         }
         return definitions;
     }
 
-    private RouteDefinition createRouteDefinition(String serviceName, String path, String routeSuffix, int order) {
+    private RouteDefinition createRouteDefinition(String serviceName, String path, String routeSuffix, int order, boolean dedupeCorsHeaders) {
         RouteDefinition definition = new RouteDefinition();
         definition.setId(routeId(serviceName, routeSuffix));
         definition.setUri(URI.create("lb://" + serviceName));
@@ -127,8 +129,16 @@ public class ConsulRouteDefinitionLocator implements RouteDefinitionLocator {
         pathPredicate.setName("Path");
         pathPredicate.addArg("pattern", path);
         definition.setPredicates(List.of(pathPredicate));
-        definition.setFilters(List.of());
+        definition.setFilters(dedupeCorsHeaders ? List.of(createCorsDedupeFilter()) : List.of());
         return definition;
+    }
+
+    private FilterDefinition createCorsDedupeFilter() {
+        FilterDefinition filter = new FilterDefinition();
+        filter.setName("DedupeResponseHeader");
+        filter.addArg("name", CORS_DEDUPE_HEADERS);
+        filter.addArg("strategy", "RETAIN_FIRST");
+        return filter;
     }
 
     private List<String> resolveGatewayPaths(String serviceName) {

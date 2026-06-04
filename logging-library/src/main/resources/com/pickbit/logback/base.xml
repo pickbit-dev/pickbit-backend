@@ -7,6 +7,14 @@
     <property name="LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}.log"/>
     <property name="ERROR_LOG_FILE" value="${LOG_PATH}/${APP_NAME}-${ENV}-error.log"/>
 
+    <springProfile name="develop">
+        <property name="LOGSTASH_DESTINATION_EFFECTIVE" value="${LOGSTASH_DESTINATION:-localhost:15000}"/>
+    </springProfile>
+
+    <springProfile name="qa,deploy">
+        <property name="LOGSTASH_DESTINATION_EFFECTIVE" value="${LOGSTASH_DESTINATION:-logstash:5000}"/>
+    </springProfile>
+
     <!-- 1. 콘솔 출력 (컬러 패턴) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
@@ -46,10 +54,10 @@
     </appender>
 
     <!-- 4. Logstash TCP 연동 (선택 사항) -->
-    <if condition='isDefined("LOGSTASH_DESTINATION")'>
+    <if condition='isDefined("LOGSTASH_DESTINATION_EFFECTIVE")'>
         <then>
             <appender name="LOGSTASH_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-                <destination>${LOGSTASH_DESTINATION}</destination>
+                <destination>${LOGSTASH_DESTINATION_EFFECTIVE}</destination>
                 <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
                     <providers>
                         <timestamp/>

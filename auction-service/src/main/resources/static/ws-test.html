@@ -38,12 +38,25 @@
 
 <div class="panel">
     <div class="row">
-        <label>Nickname Header <input id="nickname" type="text" value="bidder1"></label>
         <label>Bid Amount <input id="bidAmount" type="number" min="1" value="12000"></label>
+        <label>Access Token Optional <input id="accessToken" type="text" placeholder="쿠키가 없을 때만 Bearer token 입력"></label>
     </div>
     <pre id="bidPreview"></pre>
+    <p>입찰자 정보는 Gateway 인증 컨텍스트에서 결정됩니다. 쿠키 인증은 자동으로 포함하고, 토큰을 입력하면 Authorization 헤더를 추가합니다.</p>
     <div class="row">
         <button id="placeBidBtn" type="button">Place Bid</button>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="row">
+        <label>Event Limit <input id="eventLimit" type="number" min="1" max="100" value="50"></label>
+        <label>Last Event ID <input id="lastEventId" type="text" readonly></label>
+    </div>
+    <pre id="eventPreview"></pre>
+    <div class="row">
+        <button id="loadEventsBtn" type="button">Load Events</button>
+        <button id="syncMissedBtn" type="button">Sync Missed Events</button>
     </div>
 </div>
 
@@ -59,15 +72,22 @@
     const disconnectBtn = document.getElementById('disconnectBtn');
     const clearBtn = document.getElementById('clearBtn');
     const placeBidBtn = document.getElementById('placeBidBtn');
-    const nicknameInput = document.getElementById('nickname');
     const bidAmountInput = document.getElementById('bidAmount');
+    const accessTokenInput = document.getElementById('accessToken');
     const bidPreview = document.getElementById('bidPreview');
+    const eventLimitInput = document.getElementById('eventLimit');
+    const lastEventIdInput = document.getElementById('lastEventId');
+    const eventPreview = document.getElementById('eventPreview');
+    const loadEventsBtn = document.getElementById('loadEventsBtn');
+    const syncMissedBtn = document.getElementById('syncMissedBtn');
     const statusText = document.getElementById('status');
     const logArea = document.getElementById('log');
 
     let stompClient = null;
     let subscription = null;
     let connecting = false;
+    let lastEventId = null;
+    const seenEventIds = new Set();
 
     function baseUrl() {
         return serverUrlInput.value.trim().replace(/\/$/, '').replace(/\/api\/auctions\/ws$/, '').replace(/\/api$/, '');
@@ -92,7 +112,43 @@
 
     function updatePreview() {
         preview.textContent = `SockJS endpoint: ${endpoint()}\nSubscribe topic: ${topic()}`;
-        bidPreview.textContent = `POST ${baseUrl()}/api/auctions/${auctionIdInput.value}/bids\nHeader nickname: ${nicknameInput.value}\nBody: {"bidAmount":${bidAmountInput.value}}`;
+        bidPreview.textContent = `POST ${baseUrl()}/api/auctions/${auctionIdInput.value}/bids\nCredentials: include\nAuthorization: ${accessTokenInput.value.trim() ? 'Bearer <token>' : '(cookie only)'}\nBody: {"bidAmount":${bidAmountInput.value}}`;
+        eventPreview.textContent = `GET ${eventsUrl()}\nMissed: ${missedEventsUrl()}`;
+    }
+
+    function normalizeLimit() {
+        const limit = Number(eventLimitInput.value);
+        if (!limit || limit < 1) return 50;
+        return Math.min(limit, 100);
+    }
+
+    function eventsUrl() {
+        return `${baseUrl()}/api/auctions/${auctionIdInput.value}/events?limit=${normalizeLimit()}`;
+    }
+
+    function missedEventsUrl() {
+        const after = lastEventId || '';
+        return `${baseUrl()}/api/auctions/${auctionIdInput.value}/events?afterEventId=${after}&limit=${normalizeLimit()}`;
+    }
+
+    function updateLastEventId(eventId) {
+        if (eventId == null) return;
+        lastEventId = eventId;
+        lastEventIdInput.value = String(eventId);
+        updatePreview();
+    }
+
+    function handleAuctionEvent(event, source) {
+        if (event.eventId != null && seenEventIds.has(event.eventId)) {
+            log(`${source} duplicate event ignored: eventId=${event.eventId}`);
+            return;
+        }
+        if (event.eventId != null) {
+            seenEventIds.add(event.eventId);
+            updateLastEventId(event.eventId);
+        }
+        log(`${source} event ${event.eventId ?? 'no-id'} ${event.eventType}`);
+        log(JSON.stringify(event, null, 2));
     }
 
     function connect() {
@@ -114,7 +170,7 @@
                 log('connected');
                 subscription = stompClient.subscribe(topic(), (frame) => {
                     log(`message from ${topic()}`);
-                    log(frame.body);
+                    handleAuctionEvent(JSON.parse(frame.body), 'ws');
                 });
                 log(`subscribed: ${topic()}`);
                 connectBtn.disabled = true;
@@ -160,15 +216,11 @@
 
     async function placeBid() {
         const auctionId = auctionIdInput.value;
-        const nickname = nicknameInput.value.trim();
         const bidAmount = Number(bidAmountInput.value);
+        const accessToken = accessTokenInput.value.trim();
 
         if (!auctionId) {
             log('bid failed: auctionId is required');
-            return;
-        }
-        if (!nickname) {
-            log('bid failed: nickname is required');
             return;
         }
         if (!bidAmount || bidAmount <= 0) {
@@ -181,12 +233,16 @@
 
         try {
             placeBidBtn.disabled = true;
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (accessToken) {
+                headers.Authorization = `Bearer ${accessToken}`;
+            }
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    nickname
-                },
+                credentials: 'include',
+                headers,
                 body: JSON.stringify({bidAmount})
             });
             const contentType = response.headers.get('content-type') || '';
@@ -203,14 +259,51 @@
         }
     }
 
+    async function fetchEvents(url, source) {
+        log(`REST GET ${url}`);
+        try {
+            const response = await fetch(url);
+            const body = await response.json();
+            log(`REST response: ${response.status} ${response.statusText}`);
+            if (!Array.isArray(body)) {
+                log(JSON.stringify(body, null, 2));
+                return;
+            }
+            log(`${source} events count: ${body.length}`);
+            for (const event of body) {
+                handleAuctionEvent(event, source);
+            }
+        } catch (error) {
+            log(`REST error: ${error.message}`);
+        }
+    }
+
+    function loadEvents() {
+        seenEventIds.clear();
+        lastEventId = null;
+        lastEventIdInput.value = '';
+        fetchEvents(eventsUrl(), 'history');
+    }
+
+    function syncMissedEvents() {
+        if (!lastEventId) {
+            log('sync skipped: lastEventId is empty');
+            return;
+        }
+        fetchEvents(missedEventsUrl(), 'missed');
+    }
+
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
     placeBidBtn.addEventListener('click', placeBid);
+    loadEventsBtn.addEventListener('click', loadEvents);
+    syncMissedBtn.addEventListener('click', syncMissedEvents);
     clearBtn.addEventListener('click', () => logArea.value = '');
     serverUrlInput.addEventListener('input', updatePreview);
     auctionIdInput.addEventListener('input', updatePreview);
-    nicknameInput.addEventListener('input', updatePreview);
     bidAmountInput.addEventListener('input', updatePreview);
+    accessTokenInput.addEventListener('input', updatePreview);
+    eventLimitInput.addEventListener('input', updatePreview);
     updatePreview();
 </script>
 </body>

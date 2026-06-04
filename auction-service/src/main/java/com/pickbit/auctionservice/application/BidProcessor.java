@@ -34,6 +34,7 @@ public class BidProcessor {
     private final ApplicationEventPublisher eventPublisher;
     private final OutboxRecorder outboxRecorder;
     private final AuctionCompleter auctionCompleter;
+    private final AuctionEventRecorder auctionEventRecorder;
 
     public BidResponse process(Long bidderUserId, String bidderNickname, Long auctionId, BidCreateRequest request) {
         Auction auction = auctionRepository.findById(auctionId)
@@ -86,12 +87,14 @@ public class BidProcessor {
 
             eventPublisher.publishEvent(new AuctionRealtimeEvent(
                     auctionId,
-                    AuctionBidEvent.ofEnded(auctionId, bidderNickname, request.bidAmount())
+                    auctionEventRecorder.record(auction,
+                            AuctionBidEvent.ofEnded(auctionId, bidderNickname, request.bidAmount()))
             ));
         } else {
             eventPublisher.publishEvent(new AuctionRealtimeEvent(
                     auctionId,
-                    AuctionBidEvent.ofNewBid(auctionId, bid.getId(), request.bidAmount(), bidderNickname, now)
+                    auctionEventRecorder.record(auction,
+                            AuctionBidEvent.ofNewBid(auctionId, bid.getId(), request.bidAmount(), bidderNickname, now))
             ));
         }
 

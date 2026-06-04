@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
  *   <li>{@code ENDED}: 경매 종료. {@code winnerNickname}, {@code finalPrice} 포함 (유찰 시 null)</li>
  * </ul>
  *
+ * @param eventId        저장된 이벤트 ID. 누락 이벤트 조회 기준으로 사용합니다.
  * @param eventType      이벤트 종류. {@code AUCTION_STARTED}, {@code BID_PLACED}, {@code AUCTION_ENDED}
  * @param auctionId      경매 ID
  * @param bidId          입찰 ID (입찰 이벤트가 아니면 null)
@@ -25,8 +26,10 @@ import java.time.LocalDateTime;
  * @param bidTime        입찰 시각 (종료 이벤트 시 null)
  * @param winnerNickname 낙찰자 닉네임 (진행 중 또는 유찰 시 null)
  * @param finalPrice     낙찰가 (진행 중 또는 유찰 시 null)
+ * @param createdAt      이벤트 저장 시각
  */
 public record AuctionBidEvent(
+        Long eventId,
         String eventType,
         Long auctionId,
         Long bidId,
@@ -35,11 +38,12 @@ public record AuctionBidEvent(
         String bidderNickname,
         LocalDateTime bidTime,
         String winnerNickname,
-        BigDecimal finalPrice
+        BigDecimal finalPrice,
+        LocalDateTime createdAt
 ) {
     public static AuctionBidEvent ofStarted(Long auctionId, BigDecimal currentPrice) {
-        return new AuctionBidEvent("AUCTION_STARTED", auctionId, null, AuctionStatus.ACTIVE,
-                currentPrice, null, null, null, null);
+        return new AuctionBidEvent(null, "AUCTION_STARTED", auctionId, null, AuctionStatus.ACTIVE,
+                currentPrice, null, null, null, null, null);
     }
 
     /**
@@ -60,8 +64,8 @@ public record AuctionBidEvent(
             BigDecimal currentPrice,
             String bidderNickname,
             LocalDateTime bidTime) {
-        return new AuctionBidEvent("BID_PLACED", auctionId, bidId, AuctionStatus.ACTIVE,
-                currentPrice, bidderNickname, bidTime, null, null);
+        return new AuctionBidEvent(null, "BID_PLACED", auctionId, bidId, AuctionStatus.ACTIVE,
+                currentPrice, bidderNickname, bidTime, null, null, null);
     }
 
     /**
@@ -76,8 +80,8 @@ public record AuctionBidEvent(
     }
 
     public static AuctionBidEvent ofEnded(Long auctionId, String winnerNickname, BigDecimal finalPrice) {
-        return new AuctionBidEvent("AUCTION_ENDED", auctionId, null, AuctionStatus.ENDED,
-                finalPrice, null, null, winnerNickname, finalPrice);
+        return new AuctionBidEvent(null, "AUCTION_ENDED", auctionId, null, AuctionStatus.ENDED,
+                finalPrice, null, null, winnerNickname, finalPrice, null);
     }
 
     /**
@@ -90,7 +94,12 @@ public record AuctionBidEvent(
     }
 
     public static AuctionBidEvent ofEndedNoBids(Long auctionId) {
-        return new AuctionBidEvent("AUCTION_ENDED", auctionId, null, AuctionStatus.ENDED,
-                null, null, null, null, null);
+        return new AuctionBidEvent(null, "AUCTION_ENDED", auctionId, null, AuctionStatus.ENDED,
+                null, null, null, null, null, null);
+    }
+
+    public AuctionBidEvent withEventMetadata(Long eventId, LocalDateTime createdAt) {
+        return new AuctionBidEvent(eventId, eventType, auctionId, bidId, auctionStatus, currentPrice,
+                bidderNickname, bidTime, winnerNickname, finalPrice, createdAt);
     }
 }

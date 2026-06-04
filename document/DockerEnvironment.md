@@ -194,6 +194,16 @@ ENV=develop 또는 deploy
 LOG_PATH=/logs
 ```
 
+Docker 컨테이너에서 실행되는 서비스는 `LOGSTASH_DESTINATION=logstash:5000`을 사용한다. IntelliJ 또는 Gradle로 develop 프로필을 로컬 실행할 때는 `LOGSTASH_DESTINATION`을 지정하지 않아도 기본값으로 `localhost:15000`을 사용한다.
+
+```text
+develop 로컬 실행: localhost:15000
+develop Docker 실행: logstash:5000
+deploy Docker 실행: logstash:5000
+```
+
+명시적으로 `LOGSTASH_DESTINATION`을 지정하면 해당 값이 우선된다.
+
 Logstash는 다음 index 패턴으로 Elasticsearch에 저장한다.
 
 ```text

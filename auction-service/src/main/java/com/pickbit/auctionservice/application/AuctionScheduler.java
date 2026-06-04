@@ -37,6 +37,7 @@ public class AuctionScheduler {
     private final RedissonClient redissonClient;
     private final OutboxRecorder outboxRecorder;
     private final AuctionCompleter auctionCompleter;
+    private final AuctionEventRecorder auctionEventRecorder;
 
     @Scheduled(cron = "${auction.scheduler.cron}")
     @SchedulerLock(name = "processAuctions", lockAtMostFor = "PT30S", lockAtLeastFor = "PT5S")
@@ -53,7 +54,7 @@ public class AuctionScheduler {
         toActivate.forEach(auction -> {
             auction.activate();
             recordProductStatusUpdate(auction.getProductId(), "IN_AUCTION", "AUCTION_STARTED", auction.getId());
-            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofStarted(auction.getId(), auction.getCurrentPrice()));
+            publishAuctionEvent(auction, AuctionBidEvent.ofStarted(auction.getId(), auction.getCurrentPrice()));
             eventPublisher.publishEvent(new AuctionCacheEvictEvent(auction.getId()));
         });
         log.info("경매 활성화: {}건", toActivate.size());
@@ -109,11 +110,11 @@ public class AuctionScheduler {
             bidRepository.updateAllActiveBidsByAuctionId(auction.getId(), BidStatus.OUTBID);
             auctionCompleter.completeWithWinner(auction, winner, "AUCTION_ENDED_SOLD");
 
-            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEnded(auction.getId(), winner.getBidderNickname(), winner.getAmount()));
+            publishAuctionEvent(auction, AuctionBidEvent.ofEnded(auction.getId(), winner.getBidderNickname(), winner.getAmount()));
         } else {
             auction.endWithNoBids();
 
-            publishAuctionEvent(auction.getId(), AuctionBidEvent.ofEndedNoBids(auction.getId()));
+            publishAuctionEvent(auction, AuctionBidEvent.ofEndedNoBids(auction.getId()));
             recordProductStatusUpdate(auction.getProductId(), "ACTIVE", "AUCTION_ENDED_NO_BIDS", auction.getId());
         }
 
@@ -125,7 +126,8 @@ public class AuctionScheduler {
         outboxRecorder.productStatusUpdateEvent(productId, status, reason, auctionId);
     }
 
-    private void publishAuctionEvent(Long auctionId, AuctionBidEvent event) {
-        eventPublisher.publishEvent(new AuctionRealtimeEvent(auctionId, event));
+    private void publishAuctionEvent(Auction auction, AuctionBidEvent event) {
+        eventPublisher.publishEvent(new AuctionRealtimeEvent(
+                auction.getId(), auctionEventRecorder.record(auction, event)));
     }
 }
