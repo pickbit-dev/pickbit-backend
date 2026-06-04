@@ -1,0 +1,10 @@
+plugins {
+    id 'io.gatling.gradle' version '3.15.1'
+}
+
+description = 'load-test'
+version = '0.0.1-SNAPSHOT'
+
+dependencies {
+    gatlingImplementation 'io.gatling:gatling-http-java'
+}
