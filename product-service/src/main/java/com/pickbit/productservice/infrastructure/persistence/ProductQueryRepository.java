@@ -85,6 +85,53 @@ public class ProductQueryRepository extends QueryBaseRepository<Product, QProduc
         return new PageImpl<>(content, pageable, total);
     }
 
+    public Page<ProductSummaryResponse> searchSellingProducts(Long sellerUserId, ProductStatus status, Pageable pageable) {
+        QProduct prod = getQEntity();
+        QCategory cat = QCategory.category;
+        QProductImage img = QProductImage.productImage;
+
+        BooleanBuilder builder = new BooleanBuilder();
+        builder.and(prod.productStatus.ne(ProductStatus.DELETED));
+        builder.and(prod.sellerUserId.eq(sellerUserId));
+
+        if (status != null) {
+            builder.and(prod.productStatus.eq(status));
+        }
+
+        JPAQuery<ProductSummaryResponse> query = queryFactory
+                .select(Projections.constructor(ProductSummaryResponse.class,
+                        prod.id,
+                        prod.name,
+                        prod.startingPrice,
+                        prod.productStatus,
+                        prod.productCondition,
+                        prod.sellerUserId,
+                        prod.sellerNickname,
+                        cat.name,
+                        JPAExpressions
+                                .select(img.imageUrl)
+                                .from(img)
+                                .where(img.product.eq(prod)
+                                        .and(img.imageType.eq(ImageType.THUMBNAIL)))
+                                .orderBy(img.sortOrder.asc())
+                                .limit(1),
+                        prod.createdDate
+                ))
+                .from(prod)
+                .leftJoin(prod.category, cat)
+                .where(builder);
+
+        applySorting(query, prod, pageable);
+
+        List<ProductSummaryResponse> content = query
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        long total = count(builder);
+        return new PageImpl<>(content, pageable, total);
+    }
+
     private BooleanBuilder buildSearchCondition(ProductSearchCondition condition) {
         QProduct product = getQEntity();
         BooleanBuilder builder = new BooleanBuilder();

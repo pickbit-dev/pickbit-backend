@@ -30,6 +30,11 @@ public class ProductQueryService {
         return PageResponse.from(page);
     }
 
+    public PageResponse<ProductSummaryResponse> getSellingProducts(Long sellerUserId, ProductStatus status, Pageable pageable) {
+        Page<ProductSummaryResponse> page = productQueryRepository.searchSellingProducts(sellerUserId, status, pageable);
+        return PageResponse.from(page);
+    }
+
     @Transactional
     public ProductDetailResponse getProduct(Long id) {
         Product product = findActiveProduct(id);

@@ -4,6 +4,14 @@ import com.pickbit.authservice.domain.AuthAccount;
 import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.domain.enums.Role;
 
+/**
+ * 인증 계정 조회 응답입니다.
+ *
+ * @param accountId 인증 계정 ID
+ * @param email 계정 이메일
+ * @param provider OAuth provider
+ * @param role 계정 역할
+ */
 public record AuthAccountResponse(
         Long accountId,
         String email,

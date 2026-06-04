@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface AuctionRepository extends JpaRepository<Auction, Long> {
 
@@ -18,6 +19,8 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     Page<Auction> findAll(Pageable pageable);
 
     boolean existsByProductIdAndAuctionStatusIn(Long productId, List<AuctionStatus> statuses);
+
+    Optional<Auction> findFirstByProductIdOrderByCreatedDateDescIdDesc(Long productId);
 
     @Query("SELECT a FROM Auction a WHERE a.auctionStatus = 'ACTIVE' AND a.endTime <= :now")
     List<Auction> findExpiredActiveAuctions(@Param("now") LocalDateTime now);

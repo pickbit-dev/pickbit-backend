@@ -10,6 +10,7 @@ import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.ProductCommandService;
 import com.pickbit.productservice.application.ProductQueryService;
+import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,22 @@ public class ProductController {
     ) {
         return ResponseEntity.ok(productQueryService.searchProducts(
                 condition, pageableRequest.toPageable(20)));
+    }
+
+    /**
+     * 인증 사용자가 판매 중인 상품 목록을 페이징 조회합니다.
+     *
+     * @param status          상품 상태 필터 (선택). null이면 삭제 상품을 제외한 전체 조회
+     * @param pageableRequest 페이징 및 정렬 조건
+     * @return 내 판매 상품 요약 목록 (페이징)
+     */
+    @GetMapping("/me/selling")
+    public ResponseEntity<PageResponse<ProductSummaryResponse>> getMySellingProducts(
+            @RequestParam(required = false) ProductStatus status,
+            @ModelAttribute PageableRequest pageableRequest
+    ) {
+        return ResponseEntity.ok(productQueryService.getSellingProducts(
+                AuthContextHolder.getUserId(), status, pageableRequest.toPageable(20)));
     }
 
     /**

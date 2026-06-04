@@ -83,6 +83,17 @@ public class AuctionController {
     }
 
     /**
+     * 상품 ID로 가장 최근 경매 상세 정보를 조회합니다.
+     *
+     * @param productId 상품 ID
+     * @return 상품에 연결된 가장 최근 경매 상세 정보
+     */
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<AuctionDetailResponse> getLatestAuctionByProductId(@PathVariable Long productId) {
+        return ResponseEntity.ok(auctionQueryService.getLatestAuctionByProductId(productId));
+    }
+
+    /**
      * 경매를 취소합니다.
      *
      * <p>{@code SCHEDULED} 상태의 경매만 취소할 수 있으며,

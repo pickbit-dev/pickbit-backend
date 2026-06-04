@@ -35,6 +35,12 @@ public class AuctionQueryService {
         return auctionMapper.toDetailResponse(findAuction(auctionId));
     }
 
+    public AuctionDetailResponse getLatestAuctionByProductId(Long productId) {
+        Auction auction = auctionRepository.findFirstByProductIdOrderByCreatedDateDescIdDesc(productId)
+                .orElseThrow(() -> AuctionNotFoundException.byProductId(productId));
+        return auctionMapper.toDetailResponse(auction);
+    }
+
     private Auction findAuction(Long auctionId) {
         return auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));

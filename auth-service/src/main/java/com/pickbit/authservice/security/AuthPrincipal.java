@@ -9,6 +9,15 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Spring Security 인증 주체입니다.
+ *
+ * @param accountId 인증 계정 ID
+ * @param email 계정 이메일
+ * @param nickname 사용자 닉네임
+ * @param role 계정 역할
+ * @param provider OAuth provider
+ */
 public record AuthPrincipal(
         Long accountId,
         String email,
