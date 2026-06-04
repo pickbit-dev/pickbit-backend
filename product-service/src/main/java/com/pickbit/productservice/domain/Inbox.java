@@ -17,8 +17,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Inbox extends BaseEntity {
 
-    @Column(nullable = false, unique = true, length = 120)
+    @Column(nullable = false, length = 120)
     private String eventId;
+
+    @Column(unique = true, length = 120)
+    private String successEventId;
 
     @Column(nullable = false, length = 100)
     private String topic;

@@ -204,9 +204,42 @@ ProductStatus: SOLD
 
 ## 결제 취소 및 미결제
 
+### 현재 결제 상태 정책
+
+현재 구현 기준 결제 상태는 다음 의미로 사용한다.
+
+```text
+REQUESTED
+= 낙찰 후 결제 row가 생성된 상태
+= 서버가 PG confirm을 아직 시작하지 않은 상태
+= 결제 전 포기 가능
+
+PG_PENDING
+= 프론트가 paymentKey/orderId/amount로 confirm API를 호출한 뒤 서버가 PG confirm 처리에 진입한 상태
+= PG 결과가 내부적으로 최종 확정되지 않은 진행 중/확정 대기 상태
+= 결제 전 포기 불가
+= 미결제 만료 스케줄러 처리 대상 아님
+
+ESCROWED
+= PG confirm 성공
+= 결제 완료/에스크로 상태
+
+FAILED
+= 결제 기한 만료 또는 PG 실패 webhook 처리 상태
+
+CANCELLED
+= 결제 전 포기 상태
+```
+
+`PG_PENDING`은 단순히 결제창을 열어둔 대기 상태가 아니라, 서버가 PG confirm 처리를 시작했거나 그 결과 확정을 기다리는 상태로 본다. 따라서 내부에서 임의로 결제포기나 미결제 만료 처리하면 PG 실제 결제 상태와 어긋날 수 있다.
+
+---
+
 ### 결제 전 취소
 
 낙찰자가 결제 전에 취소하면 경매 자체는 취소하지 않는다.
+
+결제 전 포기는 `REQUESTED` 상태에서만 허용한다. `PG_PENDING`은 PG confirm 진행 중일 수 있으므로 결제 전 포기 대상에서 제외한다.
 
 ```text
 AuctionStatus: ENDED
@@ -225,6 +258,8 @@ ProductStatus: ACTIVE
 
 낙찰자가 정해진 시간 안에 결제하지 않으면 결제 만료 처리한다.
 
+현재 미결제 만료 스케줄러는 `REQUESTED` 상태만 처리한다. `PG_PENDING` 상태는 PG confirm 결과가 늦게 확정될 수 있으므로 스케줄러가 직접 실패 처리하지 않는다.
+
 ```text
 PaymentStatus: EXPIRED
 TradeStatus: PAYMENT_EXPIRED
@@ -239,6 +274,63 @@ ProductStatus: ACTIVE
 상품은 다시 ACTIVE
 낙찰자에게 패널티 기록
 ```
+
+`PG_PENDING` 장기 방치는 추후 Toss 결제 조회 API 기반 배치로 정리한다.
+
+```text
+PG_PENDING이 일정 시간 이상 지속
+-> Toss 결제 상태 조회
+-> DONE이면 ESCROWED
+-> CANCELED/EXPIRED/ABORTED면 FAILED
+-> 상태가 불명확하면 유지 또는 운영자 확인
+```
+
+---
+
+## Kafka 실패 추적 정책
+
+현재는 DLQ/DLT 토픽을 사용하지 않고 각 서비스의 `Inbox` 테이블로 Kafka 처리 이력을 추적한다.
+
+```text
+처리 성공
+-> inbox.success = true
+-> inbox.success_event_id = eventId
+-> 같은 eventId 성공 이벤트 중복 처리 방지
+
+처리 실패
+-> inbox.success = false
+-> inbox.success_event_id = null
+-> 같은 eventId 실패 기록 여러 번 허용
+-> Kafka retry 대상 예외는 재시도
+```
+
+운영/개발 중 실패 이벤트 확인은 각 서비스 DB의 `inbox` 테이블에서 조회한다.
+
+```sql
+select *
+from inbox
+where success = false
+order by processed_at desc;
+```
+
+특정 이벤트의 처리 이력을 확인할 때는 다음처럼 조회한다.
+
+```sql
+select *
+from inbox
+where event_id = 'EVENT_ID'
+order by processed_at desc;
+```
+
+Kafka retry 정책은 다음과 같다.
+
+```text
+KafkaDuplicateEventException: 재시도 제외
+KafkaInvalidMessageException: 재시도 제외
+그 외 동기화 실패/일시 장애: 3초 간격 3회 재시도
+```
+
+운영 단계에서 Kafka 원본 메시지 기반 재처리가 필요해지면 서비스별 DLT 토픽을 추가한다.
 
 ---
 

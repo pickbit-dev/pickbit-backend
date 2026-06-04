@@ -125,11 +125,23 @@ public class Payment extends BaseEntity {
         this.status = PaymentStatus.DISPUTED;
     }
 
-    public void markFailed() {
+    public void markFailedNoPayment() {
+        ensureStatus(PaymentStatus.REQUESTED);
+        this.status = PaymentStatus.FAILED;
+    }
+
+    public void markPgFailed() {
+        ensureStatus(PaymentStatus.REQUESTED, PaymentStatus.PG_PENDING);
         this.status = PaymentStatus.FAILED;
     }
 
     public void markCancelled() {
+        ensureStatus(PaymentStatus.REQUESTED);
+        this.status = PaymentStatus.CANCELLED;
+    }
+
+    public void markCancelledBeforePayment() {
+        ensureStatus(PaymentStatus.REQUESTED);
         this.status = PaymentStatus.CANCELLED;
     }
 

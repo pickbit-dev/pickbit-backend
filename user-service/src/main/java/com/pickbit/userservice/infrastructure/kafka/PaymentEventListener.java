@@ -1,6 +1,6 @@
 package com.pickbit.userservice.infrastructure.kafka;
 
-import com.pickbit.userservice.application.event.UserSignupEventHandler;
+import com.pickbit.userservice.application.event.PaymentPenaltyEventHandler;
 import com.pickbit.userservice.exception.kafka.KafkaDuplicateEventException;
 import com.pickbit.userservice.exception.kafka.KafkaInvalidMessageException;
 import com.pickbit.userservice.exception.kafka.KafkaSyncException;
@@ -15,35 +15,37 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class UserSignupEventListener {
+public class PaymentEventListener {
 
-    private final UserSignupEventHandler eventHandler;
+    private final PaymentPenaltyEventHandler eventHandler;
 
     @KafkaListener(
-            topics = UserSignupEventHandler.TOPIC,
+            topics = PaymentPenaltyEventHandler.TOPIC,
             containerFactory = "jsonKafkaListenerContainerFactory"
     )
-    public void handleSignupMessage(
+    public void handlePaymentMessage(
             @Header("action") String action,
             @Header("event_id") String eventId,
             @Header(KafkaHeaders.RECEIVED_KEY) String aggregateId,
             @Payload String messageBody
     ) {
         try {
-            if ("SIGNUP".equals(action)) {
-                eventHandler.handleSignup(eventId, aggregateId, messageBody);
-            } else {
-                log.warn("지원하지 않는 회원 action: {}", action);
+            switch (action) {
+                case PaymentPenaltyEventHandler.FAILED_NO_PAYMENT_ACTION ->
+                        eventHandler.handleFailedNoPayment(eventId, aggregateId, messageBody);
+                case PaymentPenaltyEventHandler.CANCELLED_BEFORE_PAYMENT_ACTION ->
+                        eventHandler.handleCancelledBeforePayment(eventId, aggregateId, messageBody);
+                default -> log.warn("지원하지 않는 결제 패널티 action: {}", action);
             }
         } catch (KafkaDuplicateEventException e) {
-            log.warn("중복 이벤트 스킵: {}", e.getMessage());
+            log.warn("중복 패널티 이벤트 스킵: {}", e.getMessage());
         } catch (KafkaInvalidMessageException e) {
-            log.error("메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
+            log.error("패널티 메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
         } catch (KafkaSyncException e) {
-            log.error("회원 동기화 실패: {}", e.getMessage());
+            log.error("결제 패널티 이벤트 처리 실패: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("예상치 못한 오류: action={}, eventId={}", action, eventId, e);
+            log.error("결제 패널티 이벤트 예상치 못한 오류: action={}, eventId={}", action, eventId, e);
             throw e;
         }
     }

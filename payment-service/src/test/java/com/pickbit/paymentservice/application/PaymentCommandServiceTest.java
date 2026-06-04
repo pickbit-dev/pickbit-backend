@@ -19,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentCommandServiceTest {
@@ -37,6 +39,7 @@ class PaymentCommandServiceTest {
     @Mock PaymentRepository paymentRepository;
     @Mock TossPaymentsClient tossPaymentsClient;
     @Mock OutboxRecorder outboxRecorder;
+    @Mock TransactionTemplate transactionTemplate;
 
     @InjectMocks PaymentCommandService paymentCommandService;
 
@@ -48,6 +51,8 @@ class PaymentCommandServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(transactionTemplate.execute(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0, org.springframework.transaction.support.TransactionCallback.class).doInTransaction(null));
         ReflectionTestUtils.setField(paymentCommandService, "confirmTimeoutDays", 10);
         payment = Payment.builder()
                 .auctionId(1L)
@@ -58,13 +63,15 @@ class PaymentCommandServiceTest {
                 .status(PaymentStatus.REQUESTED)
                 .paymentDeadlineAt(LocalDateTime.now().plusHours(1))
                 .build();
+        ReflectionTestUtils.setField(payment, "id", 1L);
         payment.assignPgOrderId(ORDER_ID);
     }
 
     @Test
     @DisplayName("정상 confirm: REQUESTED → ESCROWED 로 전이되고 outbox 1건 발행")
     void confirm_success() {
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
         given(tossPaymentsClient.confirm(PAYMENT_KEY, ORDER_ID, AMOUNT))
                 .willReturn(new TossPaymentResponse(PAYMENT_KEY, ORDER_ID, "DONE", AMOUNT, AMOUNT, "CARD", null));
 
@@ -79,7 +86,7 @@ class PaymentCommandServiceTest {
     @Test
     @DisplayName("orderId 로 결제를 찾을 수 없으면 PaymentNotFoundException")
     void confirm_notFound() {
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.empty());
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))
@@ -90,7 +97,7 @@ class PaymentCommandServiceTest {
     @Test
     @DisplayName("다른 사용자가 confirm 시도하면 PaymentAccessDeniedException")
     void confirm_accessDenied() {
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> paymentCommandService.confirm(999L,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))
@@ -101,7 +108,7 @@ class PaymentCommandServiceTest {
     @Test
     @DisplayName("amount 가 다르면 PaymentAmountMismatchException — 토스 호출 안 함")
     void confirm_amountMismatch() {
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, BigDecimal.valueOf(40_000))))
@@ -114,7 +121,7 @@ class PaymentCommandServiceTest {
     void confirm_invalidStatus() {
         payment.markPgPending(PAYMENT_KEY);
         payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 10);
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))
@@ -125,7 +132,7 @@ class PaymentCommandServiceTest {
     @DisplayName("결제 마감 시간이 지나면 InvalidPaymentStatusException")
     void confirm_deadlinePassed() {
         ReflectionTestUtils.setField(payment, "paymentDeadlineAt", LocalDateTime.now().minusMinutes(1));
-        given(paymentRepository.findByPgOrderId(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))

@@ -73,7 +73,7 @@ public class TossWebhookHandler {
             log.warn("webhook payload 필수 필드 누락. orderId={}, status={}", orderId, status);
             return;
         }
-        Payment payment = paymentRepository.findByPgOrderId(orderId).orElse(null);
+        Payment payment = paymentRepository.findByPgOrderIdForUpdate(orderId).orElse(null);
         if (payment == null) {
             log.warn("webhook 대상 결제 없음. orderId={}", orderId);
             return;
@@ -119,7 +119,7 @@ public class TossWebhookHandler {
             log.warn("webhook EXPIRED 무시. paymentId={}, status={}", payment.getId(), payment.getStatus());
             return;
         }
-        payment.markFailed();
+        payment.markPgFailed();
         outboxRecorder.paymentFailedNoPaymentEvent(payment);
     }
 

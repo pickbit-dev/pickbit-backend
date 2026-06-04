@@ -101,4 +101,17 @@ public class PaymentController {
         return ResponseEntity.ok(paymentCommandService.refund(
                 AuthContextHolder.getUserId(), paymentId, request.reason()));
     }
+
+    /**
+     * 결제 전 낙찰자의 결제 의무를 포기 처리합니다.
+     *
+     * <p>{@code REQUESTED} 상태의 결제만 포기할 수 있습니다.
+     *
+     * @param paymentId 포기할 결제 ID
+     * @return 포기 처리된 결제 상세 정보
+     */
+    @PostMapping("/{paymentId}/cancel-before-pay")
+    public ResponseEntity<PaymentDetailResponse> cancelBeforePayment(@PathVariable Long paymentId) {
+        return ResponseEntity.ok(paymentCommandService.cancelBeforePayment(AuthContextHolder.getUserId(), paymentId));
+    }
 }

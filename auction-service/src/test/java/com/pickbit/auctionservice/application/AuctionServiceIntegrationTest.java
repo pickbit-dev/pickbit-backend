@@ -5,7 +5,9 @@ import com.pickbit.auctionservice.api.dto.response.AuctionDetailResponse;
 import com.pickbit.auctionservice.api.dto.response.AuctionSummaryResponse;
 import com.pickbit.auctionservice.config.TestContainerConfig;
 import com.pickbit.auctionservice.domain.Auction;
+import com.pickbit.auctionservice.domain.Bid;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
+import com.pickbit.auctionservice.domain.enums.BidStatus;
 import com.pickbit.auctionservice.exception.AuctionNotFoundException;
 import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidProductForAuctionException;
@@ -13,6 +15,7 @@ import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
 import com.pickbit.auctionservice.infrastructure.client.dto.ProductResponse;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
+import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.library.dto.PageResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +53,9 @@ class AuctionServiceIntegrationTest {
 
     @Autowired
     private AuctionRepository auctionRepository;
+
+    @Autowired
+    private BidRepository bidRepository;
 
     @Autowired
     private OutBoxEventRepository outBoxEventRepository;
@@ -252,11 +258,33 @@ class AuctionServiceIntegrationTest {
         }
 
         @Test
-        @DisplayName("SCHEDULED가 아닌 경매는 취소할 수 없다")
-        void cancelAuction_notScheduled() {
+        @DisplayName("입찰 없는 ACTIVE 경매는 취소할 수 있다")
+        void cancelAuction_activeWithoutBids() {
             given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
             AuctionDetailResponse created = auctionCommandService.createAuction(1L, "seller1", defaultRequest);
             auctionRepository.findById(created.id()).orElseThrow().activate();
+
+            auctionCommandService.cancelAuction(1L, created.id());
+
+            Auction reloaded = auctionRepository.findById(created.id()).orElseThrow();
+            assertThat(reloaded.getAuctionStatus()).isEqualTo(AuctionStatus.CANCELLED);
+        }
+
+        @Test
+        @DisplayName("입찰 있는 ACTIVE 경매는 취소할 수 없다")
+        void cancelAuction_activeWithBids() {
+            given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
+            AuctionDetailResponse created = auctionCommandService.createAuction(1L, "seller1", defaultRequest);
+            Auction auction = auctionRepository.findById(created.id()).orElseThrow();
+            auction.activate();
+            bidRepository.save(Bid.builder()
+                    .auction(auction)
+                    .bidderUserId(101L)
+                    .bidderNickname("bidder1")
+                    .amount(BigDecimal.valueOf(15_000))
+                    .bidTime(LocalDateTime.now())
+                    .bidStatus(BidStatus.ACTIVE)
+                    .build());
 
             assertThatThrownBy(() -> auctionCommandService.cancelAuction(1L, created.id()))
                     .isInstanceOf(InvalidAuctionStatusException.class);

@@ -12,6 +12,7 @@ import com.pickbit.userservice.domain.User;
  * @param profileImageUrl 프로필 이미지 URL
  * @param provider OAuth provider
  * @param role 사용자 역할
+ * @param trustScore 사용자 신뢰 점수
  */
 public record UserResponse(
         Long id,
@@ -20,7 +21,8 @@ public record UserResponse(
         String email,
         String profileImageUrl,
         String provider,
-        String role
+        String role,
+        Integer trustScore
 ) {
 
     public static UserResponse from(User user) {
@@ -31,7 +33,8 @@ public record UserResponse(
                 user.getEmail(),
                 user.getProfileImageUrl(),
                 user.getProvider(),
-                user.getRole()
+                user.getRole(),
+                user.getTrustScore()
         );
     }
 }

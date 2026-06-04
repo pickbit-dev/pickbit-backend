@@ -7,6 +7,7 @@ import com.pickbit.auctionservice.config.TestContainerConfig;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.enums.AuctionStatus;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
+import com.pickbit.auctionservice.infrastructure.persistence.AuctionEventRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +63,9 @@ class AuctionCacheTest {
     private BidRepository bidRepository;
 
     @Autowired
+    private AuctionEventRepository auctionEventRepository;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     @Autowired
@@ -101,6 +105,7 @@ class AuctionCacheTest {
     @AfterEach
     void cleanup() {
         transactionTemplate.execute(status -> {
+            auctionEventRepository.deleteByAuctionId(auctionId);
             bidRepository.findByAuctionId(auctionId).forEach(bidRepository::delete);
             auctionRepository.findById(auctionId).ifPresent(auctionRepository::delete);
             return null;
@@ -192,6 +197,7 @@ class AuctionCacheTest {
             assertThat(refreshed.auctionStatus()).isEqualTo(AuctionStatus.CANCELLED);
         } finally {
             transactionTemplate.execute(status -> {
+                auctionEventRepository.deleteByAuctionId(scheduledId);
                 auctionRepository.findById(scheduledId).ifPresent(auctionRepository::delete);
                 return null;
             });

@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -51,13 +52,11 @@ class WebSocketRedisSubscriberTest {
 
     @BeforeEach
     void resetState() throws InterruptedException {
-        // 이전 테스트에서 남았을 수 있는 debounce flush 흡수 후 mock 초기화
-        Thread.sleep(100);
         reset(simpMessagingTemplate);
     }
 
     @Test
-    @DisplayName("Redis 채널 발행 → 디바운스 후 로컬 SimpMessagingTemplate으로 전달")
+    @DisplayName("Redis 채널 발행 시 로컬 SimpMessagingTemplate으로 즉시 전달")
     void publish_to_redis_is_bridged_to_local_broker() throws Exception {
         Long auctionId = 1L;
         AuctionBidEvent event = AuctionBidEvent.ofNewBid(
@@ -78,8 +77,8 @@ class WebSocketRedisSubscriberTest {
     }
 
     @Test
-    @DisplayName("연속 ACTIVE 이벤트는 디바운스로 묶여 마지막 값만 송출")
-    void rapid_active_events_are_debounced_to_last() throws Exception {
+    @DisplayName("연속 ACTIVE 이벤트는 모두 즉시 송출")
+    void rapid_active_events_are_all_sent() throws Exception {
         Long auctionId = 2L;
         for (int i = 1; i <= 3; i++) {
             AuctionBidEvent event = AuctionBidEvent.ofNewBid(
@@ -89,15 +88,19 @@ class WebSocketRedisSubscriberTest {
         }
 
         ArgumentCaptor<AuctionBidEvent> captor = ArgumentCaptor.forClass(AuctionBidEvent.class);
-        verify(simpMessagingTemplate, timeout(2000).times(1))
+        verify(simpMessagingTemplate, timeout(2000).times(3))
                 .convertAndSend(eq(TOPIC_PREFIX + auctionId), captor.capture());
-        Assertions.assertThat(captor.getValue().currentPrice())
-                .isEqualByComparingTo(BigDecimal.valueOf(300));
+        Assertions.assertThat(captor.getAllValues())
+                .extracting(AuctionBidEvent::currentPrice)
+                .containsExactlyInAnyOrderElementsOf(List.of(
+                        BigDecimal.valueOf(100),
+                        BigDecimal.valueOf(200),
+                        BigDecimal.valueOf(300)));
     }
 
     @Test
-    @DisplayName("ENDED 이벤트는 디바운스를 우회하여 즉시 전송")
-    void ended_event_bypasses_debounce() throws Exception {
+    @DisplayName("ENDED 이벤트도 Redis 수신 시 즉시 전송")
+    void ended_event_is_sent_immediately() throws Exception {
         Long auctionId = 3L;
 
         AuctionBidEvent ended = AuctionBidEvent.ofEnded("winner", BigDecimal.valueOf(500));

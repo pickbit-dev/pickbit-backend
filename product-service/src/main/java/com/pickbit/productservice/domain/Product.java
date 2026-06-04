@@ -2,6 +2,7 @@ package com.pickbit.productservice.domain;
 
 import com.pickbit.library.persistence.entity.BaseEntity;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
+import com.pickbit.productservice.domain.product.entity.enums.ProductPaymentRestoreResult;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -103,6 +104,17 @@ public class Product extends BaseEntity {
             throw new IllegalStateException("AUCTION_SCHEDULED, IN_AUCTION 또는 AUCTION_COMPLETED 상태의 상품만 경매에서 해제할 수 있습니다. 현재 상태: " + this.productStatus);
         }
         this.productStatus = ProductStatus.ACTIVE;
+    }
+
+    public ProductPaymentRestoreResult releaseAfterPaymentFailure() {
+        if (this.productStatus == ProductStatus.ACTIVE) {
+            return ProductPaymentRestoreResult.ALREADY_ACTIVE;
+        }
+        if (this.productStatus != ProductStatus.AUCTION_COMPLETED) {
+            return ProductPaymentRestoreResult.STALE_IGNORED;
+        }
+        this.productStatus = ProductStatus.ACTIVE;
+        return ProductPaymentRestoreResult.RESTORED;
     }
 
     public void completeAuction() {

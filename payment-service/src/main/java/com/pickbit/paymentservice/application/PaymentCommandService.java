@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,29 +29,18 @@ public class PaymentCommandService {
     private final PaymentRepository paymentRepository;
     private final TossPaymentsClient tossPaymentsClient;
     private final OutboxRecorder outboxRecorder;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${payment.confirm-timeout-days:10}")
     private int confirmTimeoutDays;
 
-    @Transactional
     public PaymentDetailResponse confirm(Long buyerUserId, PaymentConfirmRequest req) {
-        Payment payment = paymentRepository.findByPgOrderId(req.orderId())
-                .orElseThrow(() -> new PaymentNotFoundException(req.orderId()));
-        ensureBuyer(payment, buyerUserId);
-        ensureAmount(payment, req.amount());
-        ensureConfirmable(payment);
-
-        if (payment.getStatus() == PaymentStatus.REQUESTED) {
-            payment.markPgPending(req.paymentKey());
-        }
+        Long paymentId = transactionTemplate.execute(status -> prepareConfirm(buyerUserId, req));
 
         TossPaymentResponse response = tossPaymentsClient.confirm(
                 req.paymentKey(), req.orderId(), req.amount());
 
-        payment.markEscrowed(response.paymentKey(), LocalDateTime.now(), confirmTimeoutDays);
-        outboxRecorder.paymentEscrowedEvent(payment);
-
-        return PaymentDetailResponse.from(payment);
+        return transactionTemplate.execute(status -> completeConfirm(paymentId, response));
     }
 
     @Transactional
@@ -65,6 +55,46 @@ public class PaymentCommandService {
         payment.markRefunded(LocalDateTime.now());
         outboxRecorder.paymentRefundedEvent(payment, reason);
 
+        return PaymentDetailResponse.from(payment);
+    }
+
+    @Transactional
+    public PaymentDetailResponse cancelBeforePayment(Long buyerUserId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        ensureBuyer(payment, buyerUserId);
+
+        try {
+            payment.markCancelledBeforePayment();
+        } catch (IllegalStateException e) {
+            throw new InvalidPaymentStatusException("결제 요청 상태에서만 결제 전 포기가 가능합니다. status=" + payment.getStatus());
+        }
+        outboxRecorder.paymentCancelledBeforePaymentEvent(payment);
+
+        return PaymentDetailResponse.from(payment);
+    }
+
+    private Long prepareConfirm(Long buyerUserId, PaymentConfirmRequest req) {
+        Payment payment = paymentRepository.findByPgOrderIdForUpdate(req.orderId())
+                .orElseThrow(() -> new PaymentNotFoundException(req.orderId()));
+        ensureBuyer(payment, buyerUserId);
+        ensureAmount(payment, req.amount());
+        ensureConfirmable(payment);
+
+        if (payment.getStatus() == PaymentStatus.REQUESTED) {
+            payment.markPgPending(req.paymentKey());
+        }
+        return payment.getId();
+    }
+
+    private PaymentDetailResponse completeConfirm(Long paymentId, TossPaymentResponse response) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        if (payment.getStatus() == PaymentStatus.ESCROWED) {
+            return PaymentDetailResponse.from(payment);
+        }
+        payment.markEscrowed(response.paymentKey(), LocalDateTime.now(), confirmTimeoutDays);
+        outboxRecorder.paymentEscrowedEvent(payment);
         return PaymentDetailResponse.from(payment);
     }
 

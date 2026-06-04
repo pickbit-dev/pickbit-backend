@@ -10,4 +10,6 @@ public interface AuctionEventRepository extends JpaRepository<AuctionEvent, Long
     Page<AuctionEvent> findByAuctionIdOrderByIdDesc(Long auctionId, Pageable pageable);
 
     Page<AuctionEvent> findByAuctionIdAndIdGreaterThanOrderByIdAsc(Long auctionId, Long eventId, Pageable pageable);
+
+    void deleteByAuctionId(Long auctionId);
 }

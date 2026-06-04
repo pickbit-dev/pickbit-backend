@@ -23,6 +23,7 @@ public class PaymentEventHandler {
     public static final String ESCROWED_ACTION = "ESCROWED";
     public static final String REFUNDED_ACTION = "REFUNDED";
     public static final String FAILED_NO_PAYMENT_ACTION = "FAILED_NO_PAYMENT";
+    public static final String CANCELLED_BEFORE_PAYMENT_ACTION = "CANCELLED_BEFORE_PAYMENT";
 
     private final NotificationCommandService notificationCommandService;
     private final InboxService inboxService;
@@ -128,6 +129,40 @@ public class PaymentEventHandler {
         } catch (Exception e) {
             inboxService.recordFailure(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage());
             throw new KafkaSyncException(eventId, FAILED_NO_PAYMENT_ACTION, e);
+        }
+    }
+
+    @Transactional
+    public void handleCancelledBeforePayment(String eventId, String aggregateId, String messageBody) {
+        if (inboxService.isAlreadyProcessed(eventId)) {
+            throw new KafkaDuplicateEventException(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION);
+        }
+
+        PaymentCancelledBeforePaymentEvent event = eventHandlerSupport.deserialize(messageBody, PaymentCancelledBeforePaymentEvent.class);
+        validatePaymentAggregateId(aggregateId, event.paymentId());
+
+        try {
+            notificationCommandService.create(
+                    event.buyerUserId(),
+                    NotificationType.PAYMENT_CANCELLED_BEFORE_PAYMENT,
+                    "결제 포기가 처리되었습니다",
+                    "낙찰 결제 포기가 처리되어 신뢰점수가 차감됩니다.",
+                    NotificationTargetType.PAYMENT,
+                    event.paymentId()
+            );
+            notificationCommandService.create(
+                    event.sellerUserId(),
+                    NotificationType.PAYMENT_CANCELLED_BEFORE_PAYMENT,
+                    "낙찰자가 결제를 포기했습니다",
+                    "낙찰자가 결제를 포기하여 상품이 다시 판매 가능 상태로 변경됩니다.",
+                    NotificationTargetType.PRODUCT,
+                    event.productId()
+            );
+            inboxService.recordSuccess(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody);
+            log.info("결제 전 포기 알림 생성 완료. eventId={}, paymentId={}", eventId, event.paymentId());
+        } catch (Exception e) {
+            inboxService.recordFailure(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage());
+            throw new KafkaSyncException(eventId, CANCELLED_BEFORE_PAYMENT_ACTION, e);
         }
     }
 

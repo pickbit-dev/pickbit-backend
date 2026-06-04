@@ -34,6 +34,7 @@ public class PaymentEventListener {
                 case PaymentEventHandler.ESCROWED_ACTION -> paymentEventHandler.handleEscrowed(eventId, aggregateId, messageBody);
                 case PaymentEventHandler.REFUNDED_ACTION -> paymentEventHandler.handleRefunded(eventId, aggregateId, messageBody);
                 case PaymentEventHandler.FAILED_NO_PAYMENT_ACTION -> paymentEventHandler.handleFailedNoPayment(eventId, aggregateId, messageBody);
+                case PaymentEventHandler.CANCELLED_BEFORE_PAYMENT_ACTION -> paymentEventHandler.handleCancelledBeforePayment(eventId, aggregateId, messageBody);
                 default -> log.warn("지원하지 않는 결제 알림 action: {}", action);
             }
         } catch (KafkaDuplicateEventException e) {
@@ -42,8 +43,10 @@ public class PaymentEventListener {
             log.error("알림 메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
         } catch (KafkaSyncException e) {
             log.error("결제 알림 이벤트 처리 실패: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("결제 알림 이벤트 예상치 못한 오류: action={}, eventId={}", action, eventId, e);
+            throw e;
         }
     }
 }

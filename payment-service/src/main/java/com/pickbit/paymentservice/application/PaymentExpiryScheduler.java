@@ -27,7 +27,6 @@ public class PaymentExpiryScheduler {
     public void expirePayments() {
         LocalDateTime now = LocalDateTime.now();
         expireByStatus(PaymentStatus.REQUESTED, now);
-        expireByStatus(PaymentStatus.PG_PENDING, now);
     }
 
     private void expireByStatus(PaymentStatus status, LocalDateTime now) {
@@ -35,8 +34,13 @@ public class PaymentExpiryScheduler {
         if (expired.isEmpty()) return;
 
         for (Payment payment : expired) {
-            payment.markFailed();
-            outboxRecorder.paymentFailedNoPaymentEvent(payment);
+            paymentRepository.findByIdForUpdate(payment.getId())
+                    .filter(locked -> locked.getStatus() == status)
+                    .filter(locked -> locked.getPaymentDeadlineAt().isBefore(now))
+                    .ifPresent(locked -> {
+                        locked.markFailedNoPayment();
+                        outboxRecorder.paymentFailedNoPaymentEvent(locked);
+                    });
         }
         log.info("결제 만료 처리: status={}, count={}", status, expired.size());
     }

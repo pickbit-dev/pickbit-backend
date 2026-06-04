@@ -20,9 +20,20 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
 
     Optional<Bid> findTopByAuctionIdOrderByAmountDesc(Long auctionId);
 
+    Optional<Bid> findTopByAuctionIdAndBidStatusOrderByAmountDesc(Long auctionId, BidStatus bidStatus);
+
+    boolean existsByAuctionId(Long auctionId);
+
     List<Bid> findByAuctionId(Long auctionId);
 
     @Modifying
     @Query("UPDATE Bid b SET b.bidStatus = :status WHERE b.auction.id = :auctionId AND b.bidStatus = 'ACTIVE'")
     void updateAllActiveBidsByAuctionId(@Param("auctionId") Long auctionId, @Param("status") BidStatus status);
+
+    @Modifying
+    @Query("UPDATE Bid b SET b.bidStatus = :status WHERE b.auction.id = :auctionId AND b.id <> :winnerBidId AND b.bidStatus = 'ACTIVE'")
+    void updateActiveBidsExceptWinnerByAuctionId(
+            @Param("auctionId") Long auctionId,
+            @Param("winnerBidId") Long winnerBidId,
+            @Param("status") BidStatus status);
 }

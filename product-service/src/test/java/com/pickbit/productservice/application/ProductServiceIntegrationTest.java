@@ -368,7 +368,7 @@ class ProductServiceIntegrationTest {
             productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.AUCTION_SCHEDULED);
-            assertThat(inboxRepository.existsByEventId(eventId)).isTrue();
+            assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
             assertThatThrownBy(() -> productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload))
                     .isInstanceOf(KafkaDuplicateEventException.class);
         }

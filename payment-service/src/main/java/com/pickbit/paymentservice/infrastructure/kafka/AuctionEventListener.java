@@ -41,8 +41,10 @@ public class AuctionEventListener {
             log.error("메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
         } catch (KafkaSyncException e) {
             log.error("낙찰 이벤트 동기화 실패: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("예상치 못한 오류: action={}, eventId={}", action, eventId, e);
+            throw e;
         }
     }
 }

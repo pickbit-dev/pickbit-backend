@@ -4,8 +4,8 @@ import lombok.Getter;
 
 @Getter
 public enum PaymentStatus {
-    REQUESTED("결제 요청됨 (낙찰 직후)"),
-    PG_PENDING("PG 결제창 진행 중"),
+    REQUESTED("결제 대기, PG confirm 전"),
+    PG_PENDING("PG confirm 처리 중 또는 결과 확정 대기"),
     ESCROWED("결제 완료, 에스크로 보관 중"),
     RELEASED("판매자에게 정산 완료"),
     REFUNDED("환불 완료"),

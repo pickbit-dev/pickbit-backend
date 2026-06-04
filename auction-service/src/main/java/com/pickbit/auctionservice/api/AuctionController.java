@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 경매 관리 API 컨트롤러.
  *
- * <p>경매 생성, 목록 조회, 상세 조회, 취소 기능을 제공합니다.
+ * <p>경매 생성, 목록 조회, 상세 조회, 취소, 조기 낙찰 기능을 제공합니다.
  * 판매자 식별은 게이트웨이에서 전달한 인증 컨텍스트를 통해 이루어집니다.
  */
 @Tag(name = "Auction", description = "경매 관리 API")
@@ -96,8 +96,10 @@ public class AuctionController {
     /**
      * 경매를 취소합니다.
      *
-     * <p>{@code SCHEDULED} 상태의 경매만 취소할 수 있으며,
-     * 요청자가 해당 경매의 판매자여야 합니다.
+     * <p>요청자가 해당 경매의 판매자여야 합니다.
+     * 판매자는 {@code SCHEDULED} 상태의 경매를 취소할 수 있습니다.
+     * {@code ACTIVE} 상태의 경매는 입찰이 없는 경우에만 취소할 수 있습니다.
+     * 입찰이 있는 {@code ACTIVE} 경매와 종료된 경매는 취소할 수 없습니다.
      *
      * @param auctionId 취소할 경매 ID
      * @return 응답 본문 없음 (HTTP 204)
@@ -108,5 +110,22 @@ public class AuctionController {
     ) {
         auctionCommandService.cancelAuction(AuthContextHolder.getUserId(), auctionId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 현재 최고 입찰자를 조기 낙찰자로 확정합니다.
+     *
+     * <p>{@code ACTIVE} 상태의 경매만 조기 낙찰할 수 있으며,
+     * 요청자가 해당 경매의 판매자여야 합니다.
+     * 입찰이 없는 경매는 조기 낙찰할 수 없습니다.
+     *
+     * @param auctionId 조기 낙찰할 경매 ID
+     * @return 조기 낙찰 처리된 경매 상세 정보
+     */
+    @PostMapping("/{auctionId}/award-current")
+    public ResponseEntity<AuctionDetailResponse> awardCurrent(
+            @PathVariable Long auctionId
+    ) {
+        return ResponseEntity.ok(auctionCommandService.awardCurrent(AuthContextHolder.getUserId(), auctionId));
     }
 }

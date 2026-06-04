@@ -11,6 +11,7 @@ import com.pickbit.auctionservice.exception.InvalidAuctionStatusException;
 import com.pickbit.auctionservice.exception.InvalidBidAmountException;
 import com.pickbit.auctionservice.exception.UnauthorizedAuctionAccessException;
 import com.pickbit.auctionservice.infrastructure.client.ProductServiceClient;
+import com.pickbit.auctionservice.infrastructure.persistence.AuctionEventRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.BidRepository;
 import com.pickbit.auctionservice.infrastructure.persistence.OutBoxEventRepository;
@@ -63,6 +64,9 @@ class BidServiceIntegrationTest {
 
     @Autowired
     private BidRepository bidRepository;
+
+    @Autowired
+    private AuctionEventRepository auctionEventRepository;
 
     @Autowired
     private OutBoxEventRepository outBoxEventRepository;
@@ -413,6 +417,7 @@ class BidServiceIntegrationTest {
 
         private void cleanupCommittedAuction(Long auctionId) {
             transactionTemplate.execute(status -> {
+                auctionEventRepository.deleteByAuctionId(auctionId);
                 bidRepository.findByAuctionId(auctionId).forEach(bidRepository::delete);
                 auctionRepository.findById(auctionId).ifPresent(auctionRepository::delete);
                 return null;

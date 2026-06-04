@@ -1,6 +1,7 @@
 package com.pickbit.paymentservice.application;
 
 import com.pickbit.library.event.EventBoxIdCreateService;
+import com.pickbit.paymentservice.api.dto.kafka.payment.KafkaPaymentCancelledBeforePaymentDto;
 import com.pickbit.paymentservice.api.dto.kafka.payment.KafkaPaymentEscrowedDto;
 import com.pickbit.paymentservice.api.dto.kafka.payment.KafkaPaymentFailedNoPaymentDto;
 import com.pickbit.paymentservice.api.dto.kafka.payment.KafkaPaymentRefundedDto;
@@ -23,6 +24,7 @@ public class OutboxRecorder {
     private static final String SETTLED_EVENT_TYPE = "SETTLED";
     private static final String REFUNDED_EVENT_TYPE = "REFUNDED";
     private static final String FAILED_NO_PAYMENT_EVENT_TYPE = "FAILED_NO_PAYMENT";
+    private static final String CANCELLED_BEFORE_PAYMENT_EVENT_TYPE = "CANCELLED_BEFORE_PAYMENT";
 
     private final OutBoxEventRepository outBoxEventRepository;
     private final EventBoxIdCreateService eventBoxIdCreateService;
@@ -103,6 +105,23 @@ public class OutboxRecorder {
                 .build();
 
         saveOutbox(eventId, FAILED_NO_PAYMENT_EVENT_TYPE, payment.getId(), jsonUtils.toJson(dto));
+    }
+
+    @Transactional
+    public void paymentCancelledBeforePaymentEvent(Payment payment) {
+        String eventId = eventBoxIdCreateService.createEventId(serviceName);
+
+        KafkaPaymentCancelledBeforePaymentDto dto = KafkaPaymentCancelledBeforePaymentDto.builder()
+                .eventId(eventId)
+                .paymentId(payment.getId())
+                .auctionId(payment.getAuctionId())
+                .productId(payment.getProductId())
+                .buyerUserId(payment.getBuyerUserId())
+                .sellerUserId(payment.getSellerUserId())
+                .cancelledAt(payment.getUpdatedDate())
+                .build();
+
+        saveOutbox(eventId, CANCELLED_BEFORE_PAYMENT_EVENT_TYPE, payment.getId(), jsonUtils.toJson(dto));
     }
 
     private void saveOutbox(String eventId, String eventType, Long paymentId, String payload) {

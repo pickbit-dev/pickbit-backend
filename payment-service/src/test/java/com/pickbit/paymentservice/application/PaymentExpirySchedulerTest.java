@@ -21,6 +21,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentExpirySchedulerTest {
@@ -31,20 +33,19 @@ class PaymentExpirySchedulerTest {
     @InjectMocks PaymentExpiryScheduler scheduler;
 
     @Test
-    @DisplayName("REQUESTED 와 PG_PENDING 상태의 만료된 결제를 모두 FAILED 로 전이하고 outbox 발행한다")
+    @DisplayName("REQUESTED 상태의 만료된 결제만 FAILED 로 전이하고 outbox 발행한다")
     void expirePayments() {
         Payment requested = newPayment(PaymentStatus.REQUESTED);
-        Payment pgPending = newPayment(PaymentStatus.PG_PENDING);
+        ReflectionTestUtils.setField(requested, "id", 1L);
         given(paymentRepository.findByStatusAndPaymentDeadlineAtBefore(eq(PaymentStatus.REQUESTED), any()))
                 .willReturn(List.of(requested));
-        given(paymentRepository.findByStatusAndPaymentDeadlineAtBefore(eq(PaymentStatus.PG_PENDING), any()))
-                .willReturn(List.of(pgPending));
+        given(paymentRepository.findByIdForUpdate(requested.getId())).willReturn(java.util.Optional.of(requested));
 
         scheduler.expirePayments();
 
         assertThat(requested.getStatus()).isEqualTo(PaymentStatus.FAILED);
-        assertThat(pgPending.getStatus()).isEqualTo(PaymentStatus.FAILED);
-        verify(outboxRecorder, times(2)).paymentFailedNoPaymentEvent(any());
+        verify(outboxRecorder, times(1)).paymentFailedNoPaymentEvent(requested);
+        verify(paymentRepository, never()).findByStatusAndPaymentDeadlineAtBefore(eq(PaymentStatus.PG_PENDING), any());
     }
 
     @Test

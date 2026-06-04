@@ -174,6 +174,25 @@ GET /api/payments/{paymentId}/request-info
 PaymentStatus: ESCROWED
 ```
 
+서버 상태 의미:
+
+```text
+REQUESTED
+= 결제 대기 상태
+= 결제 전 포기 가능
+
+PG_PENDING
+= 서버가 PG confirm 처리에 진입한 상태
+= 결제 결과 확정 대기/진행 중
+= 결제 전 포기 불가
+= 프론트에서는 결제 처리 중으로 표시
+
+ESCROWED
+= 결제 완료
+```
+
+`PG_PENDING`은 단순히 결제창을 열어둔 상태가 아니라 서버 confirm 요청 이후 상태입니다. 이 상태에서는 결제 취소 버튼을 숨기거나 비활성화하고, 결제 처리 중 안내를 보여주는 것이 좋습니다.
+
 프론트 화면:
 
 ```text

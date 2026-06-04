@@ -32,6 +32,8 @@ public class PaymentEventListener {
         try {
             if (PaymentEventHandler.FAILED_NO_PAYMENT_ACTION.equals(action)) {
                 eventHandler.handleFailedNoPayment(eventId, aggregateId, messageBody);
+            } else if (PaymentEventHandler.CANCELLED_BEFORE_PAYMENT_ACTION.equals(action)) {
+                eventHandler.handleCancelledBeforePayment(eventId, aggregateId, messageBody);
             } else {
                 log.warn("지원하지 않는 결제 action: {}", action);
             }
@@ -41,8 +43,10 @@ public class PaymentEventListener {
             log.error("메시지 파싱 실패 - 재처리 불가: action={}, eventId={}, error={}", action, eventId, e.getMessage());
         } catch (KafkaSyncException e) {
             log.error("결제 이벤트 상품 동기화 실패: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("예상치 못한 오류: action={}, eventId={}", action, eventId, e);
+            throw e;
         }
     }
 }

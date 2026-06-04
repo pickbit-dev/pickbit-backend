@@ -19,13 +19,14 @@ public class InboxService {
 
     @Transactional(readOnly = true)
     public boolean isAlreadyProcessed(String eventId) {
-        return inboxRepository.existsByEventId(eventId);
+        return inboxRepository.existsBySuccessEventId(eventId);
     }
 
     @Transactional
     public void recordSuccess(String eventId, String topic, String action, String aggregateId, String messageBody) {
         Inbox inbox = Inbox.builder()
                 .eventId(eventId)
+                .successEventId(eventId)
                 .topic(topic)
                 .action(action)
                 .aggregateId(aggregateId)
@@ -41,6 +42,7 @@ public class InboxService {
     public void recordFailure(String eventId, String topic, String action, String aggregateId, String messageBody, String errorMessage) {
         Inbox inbox = Inbox.builder()
                 .eventId(eventId)
+                .successEventId(null)
                 .topic(topic)
                 .action(action)
                 .aggregateId(aggregateId)

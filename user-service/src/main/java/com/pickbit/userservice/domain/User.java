@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -34,6 +35,10 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String role;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer trustScore = 100;
+
     public static User create(Long accountId, String email, String nickname, String provider, String role) {
         return User.builder()
                 .accountId(accountId)
@@ -47,5 +52,10 @@ public class User extends BaseEntity {
     public void changeProfile(String nickname, String profileImageUrl) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public int applyTrustScoreDelta(int delta) {
+        this.trustScore = Math.clamp(this.trustScore + delta, 0, 100);
+        return this.trustScore;
     }
 }

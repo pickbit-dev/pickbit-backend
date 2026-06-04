@@ -7,6 +7,7 @@ import com.pickbit.productservice.application.mapper.ProductMapper;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.ProductImage;
+import com.pickbit.productservice.domain.product.entity.enums.ProductPaymentRestoreResult;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.InvalidProductStatusException;
@@ -97,6 +98,16 @@ public class ProductCommandService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         updateStatus(product, status);
+    }
+
+    public ProductPaymentRestoreResult restoreAfterPaymentFailure(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        try {
+            return product.releaseAfterPaymentFailure();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
     }
 
     private Category resolveCategory(Long categoryId) {

@@ -306,7 +306,7 @@ class AuthServiceIntegrationTest {
             userNicknameEventHandler.handleNicknameUpdated(eventId, aggregateId, messageBody);
 
             assertThat(account.getNickname()).isEqualTo("changed");
-            assertThat(inboxRepository.existsByEventId(eventId)).isTrue();
+            assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
         }
     }
 

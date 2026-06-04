@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * 경매 실시간 이벤트 DTO.
  *
  * <p>WebSocket {@code /topic/auctions/{auctionId}} 채널로 브로드캐스트되는 메시지입니다.
- * {@code auctionStatus} 값으로 이벤트 종류를 구분합니다.
+ * {@code eventType} 값으로 이벤트 종류를 구분하고, {@code auctionStatus}는 이벤트 발생 시점의 경매 상태를 나타냅니다.
  *
  * <ul>
  *   <li>{@code ACTIVE}: 새로운 입찰 발생. {@code currentPrice}, {@code bidderNickname}, {@code bidTime} 포함</li>
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * </ul>
  *
  * @param eventId        저장된 이벤트 ID. 누락 이벤트 조회 기준으로 사용합니다.
- * @param eventType      이벤트 종류. {@code AUCTION_STARTED}, {@code BID_PLACED}, {@code AUCTION_ENDED}
+ * @param eventType      이벤트 종류. {@code AUCTION_STARTED}, {@code BID_PLACED}, {@code AUCTION_ENDED}, {@code AUCTION_CANCELLED}
  * @param auctionId      경매 ID
  * @param bidId          입찰 ID (입찰 이벤트가 아니면 null)
  * @param auctionStatus  현재 경매 상태
@@ -95,6 +95,11 @@ public record AuctionBidEvent(
 
     public static AuctionBidEvent ofEndedNoBids(Long auctionId) {
         return new AuctionBidEvent(null, "AUCTION_ENDED", auctionId, null, AuctionStatus.ENDED,
+                null, null, null, null, null, null);
+    }
+
+    public static AuctionBidEvent ofCancelled(Long auctionId) {
+        return new AuctionBidEvent(null, "AUCTION_CANCELLED", auctionId, null, AuctionStatus.CANCELLED,
                 null, null, null, null, null, null);
     }
 
