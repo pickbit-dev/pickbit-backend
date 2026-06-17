@@ -3,7 +3,9 @@ package com.pickbit.paymentservice.application;
 import com.pickbit.paymentservice.api.dto.request.PaymentConfirmRequest;
 import com.pickbit.paymentservice.api.dto.response.PaymentDetailResponse;
 import com.pickbit.paymentservice.domain.Payment;
+import com.pickbit.paymentservice.domain.Settlement;
 import com.pickbit.paymentservice.domain.enums.PaymentStatus;
+import com.pickbit.paymentservice.domain.enums.SettlementStatus;
 import com.pickbit.paymentservice.exception.InvalidPaymentStatusException;
 import com.pickbit.paymentservice.exception.PaymentAccessDeniedException;
 import com.pickbit.paymentservice.exception.PaymentAmountMismatchException;
@@ -11,6 +13,7 @@ import com.pickbit.paymentservice.exception.PaymentNotFoundException;
 import com.pickbit.paymentservice.infrastructure.client.TossPaymentsClient;
 import com.pickbit.paymentservice.infrastructure.client.dto.TossPaymentResponse;
 import com.pickbit.paymentservice.infrastructure.persistence.PaymentRepository;
+import com.pickbit.paymentservice.infrastructure.persistence.SettlementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,15 +33,21 @@ public class PaymentCommandService {
     private final TossPaymentsClient tossPaymentsClient;
     private final OutboxRecorder outboxRecorder;
     private final TransactionTemplate transactionTemplate;
+    private final SettlementRepository settlementRepository;
 
-    @Value("${payment.confirm-timeout-days:10}")
+    @Value("${payment.confirm-timeout-days:7}")
     private int confirmTimeoutDays;
 
     public PaymentDetailResponse confirm(Long buyerUserId, PaymentConfirmRequest req) {
         Long paymentId = transactionTemplate.execute(status -> prepareConfirm(buyerUserId, req));
 
-        TossPaymentResponse response = tossPaymentsClient.confirm(
-                req.paymentKey(), req.orderId(), req.amount());
+        TossPaymentResponse response;
+        try {
+            response = tossPaymentsClient.confirm(req.paymentKey(), req.orderId(), req.amount());
+        } catch (RuntimeException e) {
+            transactionTemplate.executeWithoutResult(status -> markPgFailedIfPending(paymentId));
+            throw e;
+        }
 
         return transactionTemplate.execute(status -> completeConfirm(paymentId, response));
     }
@@ -74,6 +83,37 @@ public class PaymentCommandService {
         return PaymentDetailResponse.from(payment);
     }
 
+    @Transactional
+    public PaymentDetailResponse confirmPurchase(Long buyerUserId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        ensureBuyer(payment, buyerUserId);
+
+        if (payment.getStatus() == PaymentStatus.RELEASED) {
+            return PaymentDetailResponse.from(payment);
+        }
+        if (payment.getStatus() != PaymentStatus.ESCROWED) {
+            throw new InvalidPaymentStatusException("결제 완료 상태에서만 구매확정할 수 있습니다. status=" + payment.getStatus());
+        }
+
+        releasePayment(payment, LocalDateTime.now());
+        return PaymentDetailResponse.from(payment);
+    }
+
+    @Transactional
+    public boolean autoConfirmPurchase(Long paymentId, LocalDateTime now) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        if (payment.getStatus() != PaymentStatus.ESCROWED) {
+            return false;
+        }
+        if (payment.getConfirmDeadlineAt() == null || payment.getConfirmDeadlineAt().isAfter(now)) {
+            return false;
+        }
+        releasePayment(payment, now);
+        return true;
+    }
+
     private Long prepareConfirm(Long buyerUserId, PaymentConfirmRequest req) {
         Payment payment = paymentRepository.findByPgOrderIdForUpdate(req.orderId())
                 .orElseThrow(() -> new PaymentNotFoundException(req.orderId()));
@@ -96,6 +136,34 @@ public class PaymentCommandService {
         payment.markEscrowed(response.paymentKey(), LocalDateTime.now(), confirmTimeoutDays);
         outboxRecorder.paymentEscrowedEvent(payment);
         return PaymentDetailResponse.from(payment);
+    }
+
+    private void markPgFailedIfPending(Long paymentId) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        if (payment.getStatus() == PaymentStatus.PG_PENDING) {
+            payment.markPgFailed();
+        }
+    }
+
+    private void releasePayment(Payment payment, LocalDateTime now) {
+        payment.markReleased(now);
+        Settlement settlement = settlementRepository.findByPaymentId(payment.getId())
+                .orElseGet(() -> createSettlement(payment));
+        settlement.markCompleted(now);
+        outboxRecorder.paymentSettledEvent(payment, settlement);
+    }
+
+    private Settlement createSettlement(Payment payment) {
+        Settlement settlement = Settlement.builder()
+                .paymentId(payment.getId())
+                .grossAmount(payment.getAmount())
+                .platformFeeAmount(BigDecimal.ZERO)
+                .pgFeeAmount(BigDecimal.ZERO)
+                .netSellerAmount(payment.getAmount())
+                .status(SettlementStatus.PENDING)
+                .build();
+        return settlementRepository.save(settlement);
     }
 
     private void ensureBuyer(Payment payment, Long userId) {

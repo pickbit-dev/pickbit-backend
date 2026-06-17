@@ -22,7 +22,9 @@ import java.time.LocalDateTime;
  * @param pgPaymentKey PG 결제 키
  * @param paymentDeadlineAt 결제 기한
  * @param paidAt 결제 완료 시각
+ * @param confirmDeadlineAt 구매확정 기한
  * @param refundedAt 환불 완료 시각
+ * @param releasedAt 정산 완료 시각
  */
 public record PaymentDetailResponse(
         Long paymentId,
@@ -38,7 +40,9 @@ public record PaymentDetailResponse(
         String pgPaymentKey,
         LocalDateTime paymentDeadlineAt,
         LocalDateTime paidAt,
-        LocalDateTime refundedAt
+        LocalDateTime confirmDeadlineAt,
+        LocalDateTime refundedAt,
+        LocalDateTime releasedAt
 ) {
     public static PaymentDetailResponse from(Payment payment) {
         return new PaymentDetailResponse(
@@ -55,7 +59,9 @@ public record PaymentDetailResponse(
                 payment.getPgPaymentKey(),
                 payment.getPaymentDeadlineAt(),
                 payment.getPaidAt(),
-                payment.getRefundedAt()
+                payment.getConfirmDeadlineAt(),
+                payment.getRefundedAt(),
+                payment.getReleasedAt()
         );
     }
 }

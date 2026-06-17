@@ -32,7 +32,7 @@ public class TossWebhookHandler {
     private final PaymentRepository paymentRepository;
     private final OutboxRecorder outboxRecorder;
 
-    @Value("${payment.confirm-timeout-days:10}")
+    @Value("${payment.confirm-timeout-days:7}")
     private int confirmTimeoutDays;
 
     @Transactional

@@ -34,8 +34,10 @@ server:
 
 payment:
   deadline-hours: 24
-  confirm-timeout-days: 10
+  confirm-timeout-days: 7
   expiry-scheduler:
+    cron: "0 * * * * *"
+  confirm-scheduler:
     cron: "0 * * * * *"
 
 client:

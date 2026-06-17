@@ -7,6 +7,7 @@ import com.pickbit.productservice.api.dto.request.ProductSearchCondition;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
+import com.pickbit.productservice.application.event.PaymentEventHandler;
 import com.pickbit.productservice.application.event.ProductStatusEventHandler;
 import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.domain.Category;
@@ -60,6 +61,9 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private ProductStatusEventHandler productStatusEventHandler;
+
+    @Autowired
+    private PaymentEventHandler paymentEventHandler;
 
     @Autowired
     private InboxRepository inboxRepository;
@@ -385,6 +389,63 @@ class ProductServiceIntegrationTest {
             productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.IN_AUCTION);
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 이벤트 상품 상태 변경")
+    class PaymentProductStatus {
+
+        @Test
+        @DisplayName("ESCROWED 이벤트 수신 시 AUCTION_COMPLETED 상품을 TRADE_IN_PROGRESS로 변경한다")
+        void paymentEscrowed_marksTradeInProgress() {
+            ProductDetailResponse created = createAuctionCompletedProduct();
+            String eventId = "payment-escrowed-event-1";
+            String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"amount\":10000,\"paidAt\":\"2026-06-17T10:00:00\",\"confirmDeadlineAt\":\"2026-06-24T10:00:00\"}"
+                    .formatted(eventId, created.id());
+
+            paymentEventHandler.handleEscrowed(eventId, "Payment:1", payload);
+
+            assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.TRADE_IN_PROGRESS);
+            assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
+        }
+
+        @Test
+        @DisplayName("SETTLED 이벤트 수신 시 TRADE_IN_PROGRESS 상품을 SOLD로 변경한다")
+        void paymentSettled_marksSold() {
+            ProductDetailResponse created = createAuctionCompletedProduct();
+            productCommandService.markTradeInProgress(created.id());
+            String eventId = "payment-settled-event-1";
+            String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"grossAmount\":10000,\"netSellerAmount\":10000,\"releasedAt\":\"2026-06-17T10:00:00\"}"
+                    .formatted(eventId, created.id());
+
+            paymentEventHandler.handleSettled(eventId, "Payment:1", payload);
+
+            assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.SOLD);
+            assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
+        }
+
+        @Test
+        @DisplayName("REFUNDED 이벤트 수신 시 TRADE_IN_PROGRESS 상품을 INACTIVE로 변경한다")
+        void paymentRefunded_marksInactive() {
+            ProductDetailResponse created = createAuctionCompletedProduct();
+            productCommandService.markTradeInProgress(created.id());
+            String eventId = "payment-refunded-event-1";
+            String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"amount\":10000,\"reason\":\"환불\",\"refundedAt\":\"2026-06-17T10:00:00\"}"
+                    .formatted(eventId, created.id());
+
+            paymentEventHandler.handleRefunded(eventId, "Payment:1", payload);
+
+            assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.INACTIVE);
+            assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
+        }
+
+        private ProductDetailResponse createAuctionCompletedProduct() {
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
+            productCommandService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
+            productCommandService.updateProductStatus(created.id(), ProductStatus.IN_AUCTION);
+            productCommandService.updateProductStatus(created.id(), ProductStatus.AUCTION_COMPLETED);
+            return created;
         }
     }
 

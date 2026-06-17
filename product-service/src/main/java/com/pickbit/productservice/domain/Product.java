@@ -117,6 +117,36 @@ public class Product extends BaseEntity {
         return ProductPaymentRestoreResult.RESTORED;
     }
 
+    public void markTradeInProgress() {
+        if (this.productStatus == ProductStatus.TRADE_IN_PROGRESS) {
+            return;
+        }
+        if (this.productStatus != ProductStatus.AUCTION_COMPLETED) {
+            throw new IllegalStateException("AUCTION_COMPLETED 상태의 상품만 거래 진행 처리할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.TRADE_IN_PROGRESS;
+    }
+
+    public void markSold() {
+        if (this.productStatus == ProductStatus.SOLD) {
+            return;
+        }
+        if (this.productStatus != ProductStatus.TRADE_IN_PROGRESS) {
+            throw new IllegalStateException("TRADE_IN_PROGRESS 상태의 상품만 판매 완료 처리할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.SOLD;
+    }
+
+    public void deactivateAfterRefund() {
+        if (this.productStatus == ProductStatus.INACTIVE) {
+            return;
+        }
+        if (this.productStatus != ProductStatus.TRADE_IN_PROGRESS) {
+            throw new IllegalStateException("TRADE_IN_PROGRESS 상태의 상품만 환불 후 비활성화할 수 있습니다. 현재 상태: " + this.productStatus);
+        }
+        this.productStatus = ProductStatus.INACTIVE;
+    }
+
     public void completeAuction() {
         if (this.productStatus == ProductStatus.AUCTION_COMPLETED) {
             return;

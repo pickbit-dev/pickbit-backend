@@ -7,6 +7,8 @@ public enum ProductStatus {
     ACTIVE("활성화"),
     AUCTION_SCHEDULED("경매 예정"),
     IN_AUCTION("경매 중"),
+    TRADE_IN_PROGRESS("거래 진행 중"),
+    SOLD("판매 완료"),
     INACTIVE("비활성화"),
     AUCTION_COMPLETED("경매 종료"),
     DELETED("삭제됨");

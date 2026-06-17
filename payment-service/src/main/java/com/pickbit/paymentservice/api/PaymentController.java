@@ -114,4 +114,14 @@ public class PaymentController {
     public ResponseEntity<PaymentDetailResponse> cancelBeforePayment(@PathVariable Long paymentId) {
         return ResponseEntity.ok(paymentCommandService.cancelBeforePayment(AuthContextHolder.getUserId(), paymentId));
     }
+
+    /**
+     * 구매자가 물건 확인 후 구매확정을 처리합니다.
+     *
+     * <p>{@code ESCROWED} 상태의 결제를 {@code RELEASED}로 전환하고 정산 완료 이벤트를 발행합니다.
+     */
+    @PostMapping("/{paymentId}/confirm-purchase")
+    public ResponseEntity<PaymentDetailResponse> confirmPurchase(@PathVariable Long paymentId) {
+        return ResponseEntity.ok(paymentCommandService.confirmPurchase(AuthContextHolder.getUserId(), paymentId));
+    }
 }

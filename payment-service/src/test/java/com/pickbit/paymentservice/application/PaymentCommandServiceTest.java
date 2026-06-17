@@ -2,15 +2,19 @@ package com.pickbit.paymentservice.application;
 
 import com.pickbit.paymentservice.api.dto.request.PaymentConfirmRequest;
 import com.pickbit.paymentservice.domain.Payment;
+import com.pickbit.paymentservice.domain.Settlement;
 import com.pickbit.paymentservice.domain.enums.PaymentStatus;
 import com.pickbit.paymentservice.domain.enums.PgProvider;
+import com.pickbit.paymentservice.domain.enums.SettlementStatus;
 import com.pickbit.paymentservice.exception.InvalidPaymentStatusException;
 import com.pickbit.paymentservice.exception.PaymentAccessDeniedException;
 import com.pickbit.paymentservice.exception.PaymentAmountMismatchException;
 import com.pickbit.paymentservice.exception.PaymentNotFoundException;
+import com.pickbit.paymentservice.exception.PgUnavailableException;
 import com.pickbit.paymentservice.infrastructure.client.TossPaymentsClient;
 import com.pickbit.paymentservice.infrastructure.client.dto.TossPaymentResponse;
 import com.pickbit.paymentservice.infrastructure.persistence.PaymentRepository;
+import com.pickbit.paymentservice.infrastructure.persistence.SettlementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,9 +33,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentCommandServiceTest {
@@ -40,6 +42,7 @@ class PaymentCommandServiceTest {
     @Mock TossPaymentsClient tossPaymentsClient;
     @Mock OutboxRecorder outboxRecorder;
     @Mock TransactionTemplate transactionTemplate;
+    @Mock SettlementRepository settlementRepository;
 
     @InjectMocks PaymentCommandService paymentCommandService;
 
@@ -53,7 +56,11 @@ class PaymentCommandServiceTest {
     void setUp() {
         lenient().when(transactionTemplate.execute(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0, org.springframework.transaction.support.TransactionCallback.class).doInTransaction(null));
-        ReflectionTestUtils.setField(paymentCommandService, "confirmTimeoutDays", 10);
+        lenient().doAnswer(invocation -> {
+            invocation.getArgument(0, java.util.function.Consumer.class).accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+        ReflectionTestUtils.setField(paymentCommandService, "confirmTimeoutDays", 7);
         payment = Payment.builder()
                 .auctionId(1L)
                 .buyerUserId(BUYER_ID)
@@ -140,6 +147,23 @@ class PaymentCommandServiceTest {
     }
 
     @Test
+    @DisplayName("토스 confirm 실패 시 PG_PENDING 결제를 FAILED 로 전환한다")
+    void confirm_tossFailureMarksPgFailed() {
+        PgUnavailableException failure = new PgUnavailableException("PG 장애");
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
+        given(tossPaymentsClient.confirm(PAYMENT_KEY, ORDER_ID, AMOUNT)).willThrow(failure);
+
+        assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
+                new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))
+                .isSameAs(failure);
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(payment.getPgPaymentKey()).isEqualTo(PAYMENT_KEY);
+        verifyNoInteractions(outboxRecorder);
+    }
+
+    @Test
     @DisplayName("정상 refund: ESCROWED → REFUNDED + outbox 발행")
     void refund_success() {
         payment.markPgPending(PAYMENT_KEY);
@@ -163,5 +187,70 @@ class PaymentCommandServiceTest {
         assertThatThrownBy(() -> paymentCommandService.refund(BUYER_ID, payment.getId(), "변심"))
                 .isInstanceOf(InvalidPaymentStatusException.class);
         verifyNoInteractions(tossPaymentsClient, outboxRecorder);
+    }
+
+    @Test
+    @DisplayName("구매확정 성공: ESCROWED → RELEASED, 정산 생성, SETTLED outbox 발행")
+    void confirmPurchase_success() {
+        payment.markPgPending(PAYMENT_KEY);
+        payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 7);
+        Settlement settlement = newSettlement();
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
+        given(settlementRepository.findByPaymentId(payment.getId())).willReturn(Optional.empty());
+        given(settlementRepository.save(any(Settlement.class))).willReturn(settlement);
+
+        paymentCommandService.confirmPurchase(BUYER_ID, payment.getId());
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.RELEASED);
+        assertThat(payment.getReleasedAt()).isNotNull();
+        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.COMPLETED);
+        assertThat(settlement.getSettledAt()).isNotNull();
+        verify(outboxRecorder).paymentSettledEvent(payment, settlement);
+    }
+
+    @Test
+    @DisplayName("이미 RELEASED 인 결제 구매확정은 성공 응답하고 outbox 를 재발행하지 않는다")
+    void confirmPurchase_alreadyReleased() {
+        payment.markPgPending(PAYMENT_KEY);
+        payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 7);
+        payment.markReleased(LocalDateTime.now());
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
+
+        paymentCommandService.confirmPurchase(BUYER_ID, payment.getId());
+
+        verifyNoInteractions(settlementRepository, outboxRecorder);
+    }
+
+    @Test
+    @DisplayName("구매자가 아닌 사용자가 구매확정하면 PaymentAccessDeniedException")
+    void confirmPurchase_accessDenied() {
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentCommandService.confirmPurchase(999L, payment.getId()))
+                .isInstanceOf(PaymentAccessDeniedException.class);
+        verifyNoInteractions(settlementRepository, outboxRecorder);
+    }
+
+    @Test
+    @DisplayName("ESCROWED 가 아닌 결제를 구매확정하면 InvalidPaymentStatusException")
+    void confirmPurchase_invalidStatus() {
+        given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentCommandService.confirmPurchase(BUYER_ID, payment.getId()))
+                .isInstanceOf(InvalidPaymentStatusException.class);
+        verifyNoInteractions(settlementRepository, outboxRecorder);
+    }
+
+    private Settlement newSettlement() {
+        Settlement settlement = Settlement.builder()
+                .paymentId(payment.getId())
+                .grossAmount(AMOUNT)
+                .platformFeeAmount(BigDecimal.ZERO)
+                .pgFeeAmount(BigDecimal.ZERO)
+                .netSellerAmount(AMOUNT)
+                .status(SettlementStatus.PENDING)
+                .build();
+        ReflectionTestUtils.setField(settlement, "id", 1L);
+        return settlement;
     }
 }
