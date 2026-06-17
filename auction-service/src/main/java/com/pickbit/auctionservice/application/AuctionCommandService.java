@@ -63,6 +63,8 @@ public class AuctionCommandService {
             throw new InvalidAuctionStatusException("경매 종료 시각은 시작 시각보다 늦어야 합니다.");
         }
 
+        productServiceClient.reserveForAuction(request.productId(), sellerUserId);
+
         Auction auction = Auction.builder()
                 .productId(request.productId())
                 .productName(product.name())
@@ -78,9 +80,13 @@ public class AuctionCommandService {
                 .endTime(request.endTime())
                 .build();
 
-        Auction saved = auctionRepository.save(auction);
-        recordProductStatusUpdate(saved.getProductId(), "AUCTION_SCHEDULED", "AUCTION_CREATED", saved.getId());
-        return auctionMapper.toDetailResponse(saved);
+        try {
+            Auction saved = auctionRepository.saveAndFlush(auction);
+            return auctionMapper.toDetailResponse(saved);
+        } catch (RuntimeException e) {
+            productServiceClient.releaseAuctionReservation(request.productId());
+            throw e;
+        }
     }
 
     public void cancelAuction(Long sellerUserId, Long auctionId) {

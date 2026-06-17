@@ -100,11 +100,62 @@ public class ProductCommandService {
         updateStatus(product, status);
     }
 
+    public void reserveForAuction(Long id, Long sellerUserId) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        validateOwner(product, sellerUserId);
+        try {
+            product.scheduleAuction();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
+    }
+
+    public void releaseAuctionReservation(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        try {
+            product.releaseFromAuction();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
+    }
+
     public ProductPaymentRestoreResult restoreAfterPaymentFailure(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         try {
             return product.releaseAfterPaymentFailure();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
+    }
+
+    public void markTradeInProgress(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        try {
+            product.markTradeInProgress();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
+    }
+
+    public void markSold(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        try {
+            product.markSold();
+        } catch (IllegalStateException e) {
+            throw new InvalidProductStatusException(e.getMessage());
+        }
+    }
+
+    public void deactivateAfterRefund(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        try {
+            product.deactivateAfterRefund();
         } catch (IllegalStateException e) {
             throw new InvalidProductStatusException(e.getMessage());
         }
@@ -136,7 +187,9 @@ public class ProductCommandService {
     private void validateEditable(Product product) {
         if (product.getProductStatus() == ProductStatus.IN_AUCTION
                 || product.getProductStatus() == ProductStatus.AUCTION_SCHEDULED
-                || product.getProductStatus() == ProductStatus.AUCTION_COMPLETED) {
+                || product.getProductStatus() == ProductStatus.AUCTION_COMPLETED
+                || product.getProductStatus() == ProductStatus.TRADE_IN_PROGRESS
+                || product.getProductStatus() == ProductStatus.SOLD) {
             throw new InvalidProductStatusException("현재 상태에서는 상품을 수정할 수 없습니다. 상태=" + product.getProductStatus());
         }
     }
@@ -148,6 +201,8 @@ public class ProductCommandService {
                 case AUCTION_SCHEDULED -> product.scheduleAuction();
                 case IN_AUCTION -> product.startAuction();
                 case AUCTION_COMPLETED -> product.completeAuction();
+                case TRADE_IN_PROGRESS -> product.markTradeInProgress();
+                case SOLD -> product.markSold();
                 case INACTIVE -> product.deactivate();
                 case DELETED -> product.delete();
             }

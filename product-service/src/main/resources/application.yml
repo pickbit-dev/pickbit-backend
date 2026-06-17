@@ -16,7 +16,7 @@ spring:
         health-check-path: /actuator/health
         health-check-interval: 10s
         metadata:
-          gateway-path: /api/products/**,/api/categories/**,/api/internal/products/**
+          gateway-path: /api/products/**,/api/categories/**
 
 management:
   endpoints:

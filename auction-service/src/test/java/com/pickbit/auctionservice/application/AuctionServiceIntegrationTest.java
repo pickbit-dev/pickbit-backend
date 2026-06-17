@@ -37,6 +37,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Transactional
@@ -110,12 +111,10 @@ class AuctionServiceIntegrationTest {
             assertThat(response.currentPrice()).isEqualByComparingTo(BigDecimal.valueOf(10_000));
             assertThat(response.auctionStatus()).isEqualTo(AuctionStatus.SCHEDULED);
             assertThat(auctionRepository.existsById(response.id())).isTrue();
+            verify(productServiceClient).reserveForAuction(1L, 1L);
             assertThat(outBoxEventRepository.findAll())
                     .filteredOn(e -> "Product".equals(e.getEntity()))
-                    .filteredOn(e -> "Product:1".equals(e.getAggregateId()))
-                    .filteredOn(e -> "UPDATE".equals(e.getEventType()))
-                    .filteredOn(e -> e.getPayload().contains("AUCTION_SCHEDULED"))
-                    .singleElement();
+                    .isEmpty();
         }
 
         @Test

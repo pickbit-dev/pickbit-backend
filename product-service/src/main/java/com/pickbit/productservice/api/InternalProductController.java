@@ -1,5 +1,6 @@
 package com.pickbit.productservice.api;
 
+import com.pickbit.productservice.api.dto.request.ProductAuctionReservationRequest;
 import com.pickbit.productservice.api.dto.request.ProductStatusUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.application.ProductCommandService;
@@ -57,6 +58,29 @@ public class InternalProductController {
             @Valid @RequestBody ProductStatusUpdateRequest request
     ) {
         productCommandService.updateProductStatus(id, request.status());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 경매 생성을 위해 상품을 예약 상태로 변경합니다.
+     *
+     * <p>상품 소유자와 {@code ACTIVE} 상태를 검증한 뒤 {@code AUCTION_SCHEDULED}로 변경합니다.
+     */
+    @PatchMapping("/{id}/auction-reservation")
+    public ResponseEntity<Void> reserveForAuction(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductAuctionReservationRequest request
+    ) {
+        productCommandService.reserveForAuction(id, request.sellerUserId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 경매 생성 실패 보상을 위해 상품 예약을 해제합니다.
+     */
+    @PatchMapping("/{id}/auction-reservation/release")
+    public ResponseEntity<Void> releaseAuctionReservation(@PathVariable Long id) {
+        productCommandService.releaseAuctionReservation(id);
         return ResponseEntity.noContent().build();
     }
 }
