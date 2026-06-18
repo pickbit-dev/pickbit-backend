@@ -38,6 +38,15 @@ public class AuctionExceptionHandler extends GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, e.getMessage(), request);
     }
 
+    @ExceptionHandler(ExternalServiceUnavailableException.class)
+    protected ResponseEntity<ProblemDetail> handleExternalServiceUnavailable(
+            ExternalServiceUnavailableException e,
+            HttpServletRequest request
+    ) {
+        logException(HttpStatus.SERVICE_UNAVAILABLE, e);
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), request);
+    }
+
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     protected ResponseEntity<ProblemDetail> handleOptimisticLock(
             ObjectOptimisticLockingFailureException e, HttpServletRequest request) {

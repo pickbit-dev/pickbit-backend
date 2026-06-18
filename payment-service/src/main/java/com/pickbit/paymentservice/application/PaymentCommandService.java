@@ -39,17 +39,20 @@ public class PaymentCommandService {
     private int confirmTimeoutDays;
 
     public PaymentDetailResponse confirm(Long buyerUserId, PaymentConfirmRequest req) {
-        Long paymentId = transactionTemplate.execute(status -> prepareConfirm(buyerUserId, req));
+        ConfirmPreparation preparation = transactionTemplate.execute(status -> prepareConfirm(buyerUserId, req));
+        if (!preparation.requiresPgConfirm()) {
+            return preparation.response();
+        }
 
         TossPaymentResponse response;
         try {
             response = tossPaymentsClient.confirm(req.paymentKey(), req.orderId(), req.amount());
         } catch (RuntimeException e) {
-            transactionTemplate.executeWithoutResult(status -> markPgFailedIfPending(paymentId));
+            transactionTemplate.executeWithoutResult(status -> markPgFailedIfPending(preparation.paymentId()));
             throw e;
         }
 
-        return transactionTemplate.execute(status -> completeConfirm(paymentId, response));
+        return transactionTemplate.execute(status -> completeConfirm(preparation.paymentId(), response));
     }
 
     @Transactional
@@ -114,17 +117,22 @@ public class PaymentCommandService {
         return true;
     }
 
-    private Long prepareConfirm(Long buyerUserId, PaymentConfirmRequest req) {
+    private ConfirmPreparation prepareConfirm(Long buyerUserId, PaymentConfirmRequest req) {
         Payment payment = paymentRepository.findByPgOrderIdForUpdate(req.orderId())
                 .orElseThrow(() -> new PaymentNotFoundException(req.orderId()));
         ensureBuyer(payment, buyerUserId);
         ensureAmount(payment, req.amount());
+
+        if (payment.getStatus() == PaymentStatus.ESCROWED) {
+            return ConfirmPreparation.alreadyConfirmed(PaymentDetailResponse.from(payment));
+        }
+        if (payment.getStatus() == PaymentStatus.PG_PENDING) {
+            throw new InvalidPaymentStatusException("결제 승인 처리 중입니다. 잠시 후 결제 상태를 다시 확인해주세요. status=" + payment.getStatus());
+        }
         ensureConfirmable(payment);
 
-        if (payment.getStatus() == PaymentStatus.REQUESTED) {
-            payment.markPgPending(req.paymentKey());
-        }
-        return payment.getId();
+        payment.markPgPending(req.paymentKey());
+        return ConfirmPreparation.requiresPgConfirm(payment.getId());
     }
 
     private PaymentDetailResponse completeConfirm(Long paymentId, TossPaymentResponse response) {
@@ -192,6 +200,20 @@ public class PaymentCommandService {
         if (payment.getStatus() != PaymentStatus.ESCROWED) {
             throw new InvalidPaymentStatusException(
                     "환불 가능한 상태가 아닙니다. status=" + payment.getStatus());
+        }
+    }
+
+    private record ConfirmPreparation(
+            Long paymentId,
+            boolean requiresPgConfirm,
+            PaymentDetailResponse response
+    ) {
+        static ConfirmPreparation requiresPgConfirm(Long paymentId) {
+            return new ConfirmPreparation(paymentId, true, null);
+        }
+
+        static ConfirmPreparation alreadyConfirmed(PaymentDetailResponse response) {
+            return new ConfirmPreparation(response.paymentId(), false, response);
         }
     }
 }

@@ -124,15 +124,29 @@ class PaymentCommandServiceTest {
     }
 
     @Test
-    @DisplayName("이미 ESCROWED 인 결제를 confirm 하면 InvalidPaymentStatusException")
-    void confirm_invalidStatus() {
+    @DisplayName("이미 ESCROWED 인 결제를 confirm 하면 현재 결제 정보를 반환하고 토스를 호출하지 않는다")
+    void confirm_alreadyEscrowedReturnsCurrentPayment() {
         payment.markPgPending(PAYMENT_KEY);
-        payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 10);
+        payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 7);
+        given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
+
+        var response = paymentCommandService.confirm(BUYER_ID, new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT));
+
+        assertThat(response.status()).isEqualTo(PaymentStatus.ESCROWED);
+        verifyNoInteractions(tossPaymentsClient, outboxRecorder);
+    }
+
+    @Test
+    @DisplayName("PG_PENDING 결제를 confirm 하면 승인 처리 중 예외를 반환하고 토스를 호출하지 않는다")
+    void confirm_pgPendingThrowsInProgress() {
+        payment.markPgPending(PAYMENT_KEY);
         given(paymentRepository.findByPgOrderIdForUpdate(ORDER_ID)).willReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> paymentCommandService.confirm(BUYER_ID,
                 new PaymentConfirmRequest(PAYMENT_KEY, ORDER_ID, AMOUNT)))
-                .isInstanceOf(InvalidPaymentStatusException.class);
+                .isInstanceOf(InvalidPaymentStatusException.class)
+                .hasMessageContaining("결제 승인 처리 중");
+        verifyNoInteractions(tossPaymentsClient, outboxRecorder);
     }
 
     @Test

@@ -27,6 +27,10 @@ spring:
 server:
   port: 18083
 
+client:
+  auction-service:
+    base-url: http://auction-service:18085
+
 springdoc:
   api-docs:
     enabled: false

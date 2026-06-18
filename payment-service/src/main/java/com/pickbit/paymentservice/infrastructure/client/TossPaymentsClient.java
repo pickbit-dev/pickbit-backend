@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -39,8 +40,8 @@ public class TossPaymentsClient {
                         "amount", amount
                 ))
                 .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-                    throw parseToApiException(response.getBody().readAllBytes());
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    throw parseToApiException(response.getStatusCode(), response.getBody().readAllBytes());
                 })
                 .body(TossPaymentResponse.class);
     }
@@ -52,8 +53,8 @@ public class TossPaymentsClient {
                 .uri("/v1/payments/{paymentKey}/cancel", paymentKey)
                 .body(buildCancelBody(reason, cancelAmount))
                 .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-                    throw parseToApiException(response.getBody().readAllBytes());
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    throw parseToApiException(response.getStatusCode(), response.getBody().readAllBytes());
                 })
                 .body(TossPaymentResponse.class);
     }
@@ -67,13 +68,19 @@ public class TossPaymentsClient {
         return body;
     }
 
-    private TossPaymentApiException parseToApiException(byte[] body) {
+    private TossPaymentApiException parseToApiException(HttpStatusCode statusCode, byte[] body) {
+        int status = statusCode.value();
+        String raw = new String(body, StandardCharsets.UTF_8);
+        if (!StringUtils.hasText(raw)) {
+            return new TossPaymentApiException("EMPTY_RESPONSE", "토스 결제 API 오류 응답이 비어 있습니다.", status, raw);
+        }
         try {
             TossErrorResponse err = jsonMapper.readValue(body, TossErrorResponse.class);
-            return new TossPaymentApiException(err.code(), err.message());
+            String code = StringUtils.hasText(err.code()) ? err.code() : "UNKNOWN";
+            String message = StringUtils.hasText(err.message()) ? err.message() : raw;
+            return new TossPaymentApiException(code, message, status, raw);
         } catch (Exception e) {
-            String raw = new String(body, StandardCharsets.UTF_8);
-            return new TossPaymentApiException("UNKNOWN", raw);
+            return new TossPaymentApiException("PARSE_FAILED", raw, status, raw);
         }
     }
 

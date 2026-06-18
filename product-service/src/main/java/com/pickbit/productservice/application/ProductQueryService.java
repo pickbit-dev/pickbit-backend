@@ -8,6 +8,7 @@ import com.pickbit.productservice.application.mapper.ProductMapper;
 import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.ProductNotFoundException;
+import com.pickbit.productservice.infrastructure.client.AuctionServiceClient;
 import com.pickbit.productservice.infrastructure.persistence.ProductQueryRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class ProductQueryService {
     private final ProductRepository productRepository;
     private final ProductQueryRepository productQueryRepository;
     private final ProductMapper productMapper;
+    private final AuctionServiceClient auctionServiceClient;
 
     public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
         Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, pageable);
@@ -39,11 +41,18 @@ public class ProductQueryService {
     public ProductDetailResponse getProduct(Long id) {
         Product product = findActiveProduct(id);
         product.increaseViewCount();
-        return productMapper.toDetailResponse(product);
+        return productMapper.toDetailResponse(product, getAuctionStartTime(product));
     }
 
     public ProductDetailResponse getInternalProduct(Long id) {
         return productMapper.toDetailResponse(findActiveProduct(id));
+    }
+
+    private java.time.LocalDateTime getAuctionStartTime(Product product) {
+        if (product.getProductStatus() != ProductStatus.AUCTION_SCHEDULED) {
+            return null;
+        }
+        return auctionServiceClient.getScheduledAuctionStartTime(product.getId());
     }
 
     private Product findActiveProduct(Long id) {

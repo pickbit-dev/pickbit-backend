@@ -3,6 +3,7 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.api.dto.request.AuctionCreateRequest;
 import com.pickbit.auctionservice.api.dto.response.AuctionDetailResponse;
 import com.pickbit.auctionservice.api.dto.response.AuctionSummaryResponse;
+import com.pickbit.auctionservice.api.dto.response.ScheduledAuctionResponse;
 import com.pickbit.auctionservice.config.TestContainerConfig;
 import com.pickbit.auctionservice.domain.Auction;
 import com.pickbit.auctionservice.domain.Bid;
@@ -188,6 +189,31 @@ class AuctionServiceIntegrationTest {
         @DisplayName("존재하지 않는 경매 ID로 조회하면 예외가 발생한다")
         void getAuction_notFound() {
             assertThatThrownBy(() -> auctionQueryService.getAuction(999_999L))
+                    .isInstanceOf(AuctionNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("예정 경매 조회")
+    class GetScheduledAuction {
+
+        @Test
+        @DisplayName("상품 ID로 예정 경매 시작 시각을 조회한다")
+        void getScheduledAuctionByProductId_success() {
+            given(productServiceClient.getProduct(1L)).willReturn(defaultProduct);
+            AuctionDetailResponse created = auctionCommandService.createAuction(1L, "seller1", defaultRequest);
+
+            ScheduledAuctionResponse response = auctionQueryService.getScheduledAuctionByProductId(1L);
+
+            assertThat(response.auctionId()).isEqualTo(created.id());
+            assertThat(response.productId()).isEqualTo(1L);
+            assertThat(response.startTime()).isEqualTo(created.startTime());
+        }
+
+        @Test
+        @DisplayName("예정 경매가 없으면 AuctionNotFoundException이 발생한다")
+        void getScheduledAuctionByProductId_notFound() {
+            assertThatThrownBy(() -> auctionQueryService.getScheduledAuctionByProductId(999_999L))
                     .isInstanceOf(AuctionNotFoundException.class);
         }
     }

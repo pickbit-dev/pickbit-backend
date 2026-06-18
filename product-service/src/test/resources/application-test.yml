@@ -36,3 +36,7 @@ openapi:
 springdoc:
   api-docs:
     enabled: false
+
+client:
+  auction-service:
+    base-url: http://localhost:18085

@@ -18,6 +18,7 @@ import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.exception.kafka.KafkaDuplicateEventException;
+import com.pickbit.productservice.infrastructure.client.AuctionServiceClient;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
 import com.pickbit.productservice.infrastructure.persistence.InboxRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
@@ -31,14 +32,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Transactional
@@ -67,6 +73,9 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private InboxRepository inboxRepository;
+
+    @MockitoBean
+    private AuctionServiceClient auctionServiceClient;
 
     private ProductCreateRequest defaultCreateRequest;
 
@@ -182,6 +191,23 @@ class ProductServiceIntegrationTest {
 
             assertThat(response.id()).isEqualTo(created.id());
             assertThat(response.name()).isEqualTo("테스트 상품");
+            assertThat(response.auctionStartTime()).isNull();
+            verify(auctionServiceClient, never()).getScheduledAuctionStartTime(created.id());
+        }
+
+        @Test
+        @DisplayName("AUCTION_SCHEDULED 상품이면 예정 경매 시작 시각을 포함한다")
+        void getProduct_scheduledAuctionIncludesStartTime() {
+            ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
+            productCommandService.updateProductStatus(created.id(), ProductStatus.AUCTION_SCHEDULED);
+            LocalDateTime auctionStartTime = LocalDateTime.now().plusDays(1).withNano(0);
+            given(auctionServiceClient.getScheduledAuctionStartTime(created.id())).willReturn(auctionStartTime);
+
+            ProductDetailResponse response = productQueryService.getProduct(created.id());
+
+            assertThat(response.productStatus()).isEqualTo(ProductStatus.AUCTION_SCHEDULED);
+            assertThat(response.auctionStartTime()).isEqualTo(auctionStartTime);
+            verify(auctionServiceClient).getScheduledAuctionStartTime(created.id());
         }
 
         @Test

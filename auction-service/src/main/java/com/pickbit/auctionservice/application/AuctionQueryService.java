@@ -2,6 +2,7 @@ package com.pickbit.auctionservice.application;
 
 import com.pickbit.auctionservice.api.dto.response.AuctionDetailResponse;
 import com.pickbit.auctionservice.api.dto.response.AuctionSummaryResponse;
+import com.pickbit.auctionservice.api.dto.response.ScheduledAuctionResponse;
 import com.pickbit.auctionservice.application.mapper.AuctionMapper;
 import com.pickbit.auctionservice.config.CacheConfig;
 import com.pickbit.auctionservice.domain.Auction;
@@ -39,6 +40,13 @@ public class AuctionQueryService {
         Auction auction = auctionRepository.findFirstByProductIdOrderByCreatedDateDescIdDesc(productId)
                 .orElseThrow(() -> AuctionNotFoundException.byProductId(productId));
         return auctionMapper.toDetailResponse(auction);
+    }
+
+    public ScheduledAuctionResponse getScheduledAuctionByProductId(Long productId) {
+        Auction auction = auctionRepository
+                .findFirstByProductIdAndAuctionStatusOrderByStartTimeAscIdAsc(productId, AuctionStatus.SCHEDULED)
+                .orElseThrow(() -> AuctionNotFoundException.byProductId(productId));
+        return new ScheduledAuctionResponse(auction.getId(), auction.getProductId(), auction.getStartTime());
     }
 
     private Auction findAuction(Long auctionId) {

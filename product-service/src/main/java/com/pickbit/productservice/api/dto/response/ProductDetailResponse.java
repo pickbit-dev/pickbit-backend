@@ -24,6 +24,7 @@ import java.util.List;
  * @param categoryName 카테고리명
  * @param viewCount 조회수
  * @param images 상품 이미지 목록
+ * @param auctionStartTime 예정 경매 시작 시각
  * @param createdAt 상품 생성 일시
  * @param updatedAt 상품 수정 일시
  */
@@ -40,6 +41,7 @@ public record ProductDetailResponse(
         String categoryName,
         Long viewCount,
         List<ProductImageResponse> images,
+        LocalDateTime auctionStartTime,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -44,6 +44,9 @@ public class PaymentExceptionHandler extends GlobalExceptionHandler {
         logException(HttpStatus.BAD_GATEWAY, e);
         ProblemDetail pd = createProblemDetail(HttpStatus.BAD_GATEWAY, e.getMessage(), request);
         pd.setProperty("pgErrorCode", e.getErrorCode());
+        pd.setProperty("pgErrorMessage", e.getErrorMessage());
+        pd.setProperty("pgHttpStatus", e.getHttpStatus());
+        pd.setProperty("pgRawBody", e.getRawBody());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(pd);
     }
 
@@ -58,6 +61,6 @@ public class PaymentExceptionHandler extends GlobalExceptionHandler {
             ObjectOptimisticLockingFailureException e, HttpServletRequest request) {
         logException(HttpStatus.CONFLICT, e);
         return buildResponse(HttpStatus.CONFLICT,
-                "동시 처리 충돌이 발생했습니다. 잠시 후 다시 시도해주세요.", request);
+                "동시 결제 처리 요청이 감지되었습니다. 결제 상태를 다시 조회해주세요.", request);
     }
 }

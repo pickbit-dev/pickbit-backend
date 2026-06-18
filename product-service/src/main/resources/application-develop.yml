@@ -36,6 +36,10 @@ spring:
 server:
   port: 18083
 
+client:
+  auction-service:
+    base-url: http://localhost:18085
+
 ncp:
   storage:
     access-key: ${NCP_STORAGE_ACCESS_KEY}

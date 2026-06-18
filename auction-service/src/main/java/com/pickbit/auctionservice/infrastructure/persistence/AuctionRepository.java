@@ -22,6 +22,11 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
 
     Optional<Auction> findFirstByProductIdOrderByCreatedDateDescIdDesc(Long productId);
 
+    Optional<Auction> findFirstByProductIdAndAuctionStatusOrderByStartTimeAscIdAsc(
+            Long productId,
+            AuctionStatus auctionStatus
+    );
+
     @Query("SELECT a FROM Auction a WHERE a.auctionStatus = 'ACTIVE' AND a.endTime <= :now")
     List<Auction> findExpiredActiveAuctions(@Param("now") LocalDateTime now);
 

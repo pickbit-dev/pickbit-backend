@@ -16,7 +16,14 @@ public interface ProductMapper {
     @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "createdAt", source = "createdDate")
     @Mapping(target = "updatedAt", source = "updatedDate")
+    @Mapping(target = "auctionStartTime", ignore = true)
     ProductDetailResponse toDetailResponse(Product product);
+
+    @Mapping(target = "categoryId", source = "product.category.id")
+    @Mapping(target = "categoryName", source = "product.category.name")
+    @Mapping(target = "createdAt", source = "product.createdDate")
+    @Mapping(target = "updatedAt", source = "product.updatedDate")
+    ProductDetailResponse toDetailResponse(Product product, java.time.LocalDateTime auctionStartTime);
 
     @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "createdAt", source = "createdDate")
