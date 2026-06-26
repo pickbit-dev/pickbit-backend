@@ -13,6 +13,7 @@ import com.pickbit.productservice.infrastructure.persistence.ProductQueryReposit
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,7 @@ public class ProductQueryService {
     private final AuctionServiceClient auctionServiceClient;
 
     public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
-        Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, pageable);
+        Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, applyProductSort(condition, pageable));
         return PageResponse.from(page);
     }
 
@@ -53,6 +54,10 @@ public class ProductQueryService {
             return null;
         }
         return auctionServiceClient.getScheduledAuctionStartTime(product.getId());
+    }
+
+    private Pageable applyProductSort(ProductSearchCondition condition, Pageable pageable) {
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), condition.sortOrDefault().toSort());
     }
 
     private Product findActiveProduct(Long id) {

@@ -3,6 +3,7 @@ package com.pickbit.authservice.application;
 import com.pickbit.authservice.api.dto.kafka.UserSignupEventDto;
 import com.pickbit.authservice.domain.AuthAccount;
 import com.pickbit.authservice.domain.OutBoxEvent;
+import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.library.event.EventBoxIdCreateService;
 import lombok.RequiredArgsConstructor;
@@ -27,14 +28,14 @@ public class OutboxRecorder {
     private String serviceName;
 
     @Transactional
-    public void signupEvent(AuthAccount account, String nickname) {
+    public void signupEvent(AuthAccount account, String nickname, OAuthProvider provider) {
         String eventId = eventBoxIdCreateService.createEventId(serviceName);
         UserSignupEventDto dto = new UserSignupEventDto(
                 eventId,
                 account.getId(),
                 account.getEmail(),
                 nickname,
-                account.getOauthProvider().name(),
+                provider.name(),
                 account.getRole().name(),
                 LocalDateTime.now()
         );

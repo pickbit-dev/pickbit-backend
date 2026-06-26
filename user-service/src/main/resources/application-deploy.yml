@@ -10,25 +10,37 @@ spring:
     password: ${USER_MYSQL_PASSWORD}
     url: ${USER_MYSQL_URL}
 
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        use_sql_comments: false
+        default_batch_fetch_size: 100
+    database: mysql
+    hibernate:
+      ddl-auto: update
+
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: localhost:19092
 
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
-
-  jpa:
-    database: mysql
-    hibernate:
-      ddl-auto: validate
+      host: localhost
+      port: 18500
 
 server:
   port: 18082
 
+openapi:
+  docs-export:
+    enabled: true
+
 springdoc:
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
     enabled: false

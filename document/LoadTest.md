@@ -28,7 +28,7 @@ load-test
 | `BASE_URL` | `http://localhost:18080` | Gateway base URL |
 | `PRODUCT_ID` | `1` | 상세 조회에 사용할 상품 ID |
 | `AUCTION_ID` | `1` | 상세 조회/입찰에 사용할 경매 ID |
-| `ACCESS_TOKEN` | 없음 | 인증 API 호출에 사용할 Bearer token |
+| `ACCESS_TOKEN` | 없음 | 마이페이지 등 단일 사용자 인증 API 호출에 사용할 Bearer token |
 | `RAMP_USERS` | 시뮬레이션별 기본값 | ramp-up 동안 투입할 사용자 수 |
 | `RPS` | 조회 시뮬레이션 기본값 | 초당 요청 사용자 주입률 |
 | `TPS` | 입찰 시뮬레이션 기본값 | 초당 입찰 사용자 주입률 |
@@ -167,9 +167,18 @@ POST /api/auctions/{AUCTION_ID}/bids
 
 실행:
 
+`AuctionBidSimulation`은 `load-test/src/gatling/resources/bidders.csv`의 토큰을 순환하면서 같은 경매에 입찰한다.
+
+```csv
+accessToken
+eyJ...
+eyJ...
+```
+
+실행:
+
 ```bash
 BASE_URL=http://localhost:18080 \
-ACCESS_TOKEN=eyJ... \
 AUCTION_ID=1 \
 BID_BASE_AMOUNT=10000 \
 BID_INCREMENT=1000 \
@@ -182,9 +191,10 @@ TPS=5 \
 주의:
 
 - `AUCTION_ID`는 `ACTIVE` 상태여야 한다.
-- `ACCESS_TOKEN` 사용자는 해당 경매의 판매자가 아니어야 한다.
+- `bidders.csv`의 모든 사용자는 해당 경매의 판매자가 아니어야 한다.
+- `bidders.csv`에는 서로 다른 사용자 access token을 넣어야 사용자 단위 Gateway rate limit을 실제 경쟁 상황에 가깝게 검증할 수 있다.
 - 테스트 중 입찰 금액은 `BID_BASE_AMOUNT`부터 `BID_INCREMENT`만큼 계속 증가한다.
-- 단일 경매에 동시 입찰을 거는 테스트라 일부 요청은 입찰가 검증 실패로 `400` 또는 경합 상황에서 `409`가 발생할 수 있다.
+- 단일 경매에 동시 입찰을 거는 테스트라 일부 요청은 입찰가 검증 실패로 `400`, 경합 상황에서 `409`, 사용자별 rate limit 초과 시 `429`가 발생할 수 있다.
 - 테스트 후 DB에서 최종 `currentPrice`, `WINNING`/`ACTIVE` 입찰 상태, payment 생성 여부를 별도로 확인해야 한다.
 
 기본 assertion:

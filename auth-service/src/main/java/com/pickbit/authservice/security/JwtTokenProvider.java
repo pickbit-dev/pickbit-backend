@@ -31,7 +31,7 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.access-token-validity-ms:1800000}") long accessTokenValidityMs,
+            @Value("${jwt.access-token-validity-ms:3600000}") long accessTokenValidityMs,
             @Value("${jwt.refresh-token-validity-ms:1209600000}") long refreshTokenValidityMs
     ) {
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
@@ -42,7 +42,7 @@ public class JwtTokenProvider {
         this.refreshTokenValidityMs = refreshTokenValidityMs;
     }
 
-    public String createAccessToken(AuthAccount account) {
+    public String createAccessToken(AuthAccount account, OAuthProvider loginProvider) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusMillis(accessTokenValidityMs);
         return Jwts.builder()
@@ -50,19 +50,20 @@ public class JwtTokenProvider {
                 .claim("email", account.getEmail())
                 .claim("nickname", resolveNickname(account))
                 .claim("role", account.getRole().name())
-                .claim("provider", account.getOauthProvider().name())
+                .claim("provider", loginProvider.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
                 .signWith(secretKey)
                 .compact();
     }
 
-    public String createRefreshToken(AuthAccount account) {
+    public String createRefreshToken(AuthAccount account, OAuthProvider loginProvider) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusMillis(refreshTokenValidityMs);
         return Jwts.builder()
                 .subject(String.valueOf(account.getId()))
                 .claim("type", "refresh")
+                .claim("provider", loginProvider.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
                 .signWith(secretKey)
@@ -94,6 +95,16 @@ public class JwtTokenProvider {
             throw new InvalidTokenException("refresh token이 아닙니다.");
         }
         return Long.valueOf(claims.getSubject());
+    }
+
+    public OAuthProvider parseRefreshTokenProvider(String token) {
+        Claims claims = parseClaims(token);
+        String type = claims.get("type", String.class);
+        String provider = claims.get("provider", String.class);
+        if (!"refresh".equals(type) || provider == null) {
+            throw new InvalidTokenException("refresh token claim이 올바르지 않습니다.");
+        }
+        return OAuthProvider.valueOf(provider);
     }
 
     public Instant getExpiresAt(String token) {

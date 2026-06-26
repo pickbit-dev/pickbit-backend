@@ -3,6 +3,7 @@ package com.pickbit.authservice.application;
 import com.pickbit.authservice.api.dto.request.LoginRequest;
 import com.pickbit.authservice.api.dto.request.LogoutRequest;
 import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
+import com.pickbit.authservice.api.dto.request.OAuthLinkRequest;
 import com.pickbit.authservice.api.dto.request.OAuthSignupCompleteRequest;
 import com.pickbit.authservice.api.dto.request.RefreshRequest;
 import com.pickbit.authservice.api.dto.request.SignupRequest;
@@ -15,6 +16,7 @@ import com.pickbit.authservice.application.event.UserNicknameEventHandler;
 import com.pickbit.authservice.application.query.AuthQueryService;
 import com.pickbit.authservice.config.TestContainerConfig;
 import com.pickbit.authservice.domain.AuthAccount;
+import com.pickbit.authservice.domain.AuthProviderLink;
 import com.pickbit.authservice.domain.OutBoxEvent;
 import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.domain.enums.Role;
@@ -23,9 +25,11 @@ import com.pickbit.authservice.exception.DuplicateNicknameException;
 import com.pickbit.authservice.exception.InvalidCredentialException;
 import com.pickbit.authservice.exception.InvalidTokenException;
 import com.pickbit.authservice.infrastructure.persistence.AuthAccountRepository;
+import com.pickbit.authservice.infrastructure.persistence.AuthProviderLinkRepository;
 import com.pickbit.authservice.infrastructure.persistence.InboxRepository;
 import com.pickbit.authservice.infrastructure.persistence.OutBoxEventRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthLinkCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthSignupCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.RefreshTokenRedisRepository;
 import com.pickbit.authservice.security.oauth.OAuthLoginResult;
@@ -68,6 +72,9 @@ class AuthServiceIntegrationTest {
     private AuthAccountRepository authAccountRepository;
 
     @Autowired
+    private AuthProviderLinkRepository authProviderLinkRepository;
+
+    @Autowired
     private InboxRepository inboxRepository;
 
     @Autowired
@@ -83,6 +90,9 @@ class AuthServiceIntegrationTest {
     private OAuthSignupCodeRepository signupCodeRepository;
 
     @Autowired
+    private OAuthLinkCodeRepository linkCodeRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private SignupRequest signupRequest() {
@@ -91,7 +101,7 @@ class AuthServiceIntegrationTest {
 
     private AuthAccount signup() {
         authCommandService.signup(signupRequest());
-        return authAccountRepository.findByEmailAndOauthProvider(EMAIL, OAuthProvider.LOCAL).orElseThrow();
+        return authAccountRepository.findByEmail(EMAIL).orElseThrow();
     }
 
     @Nested
@@ -120,11 +130,10 @@ class AuthServiceIntegrationTest {
         }
 
         @Test
-        @DisplayName("기본 계정 상태는 LOCAL, USER, enabled=true다")
+        @DisplayName("기본 계정 상태는 USER, enabled=true다")
         void signup_defaultAccountState() {
             AuthAccount account = signup();
 
-            assertThat(account.getOauthProvider()).isEqualTo(OAuthProvider.LOCAL);
             assertThat(account.getRole()).isEqualTo(Role.USER);
             assertThat(account.getEnabled()).isTrue();
         }
@@ -315,18 +324,43 @@ class AuthServiceIntegrationTest {
     class OAuthLogin {
 
         @Test
-        @DisplayName("신규 OAuth 사용자면 추가 가입 정보 입력이 필요하다")
+        @DisplayName("이메일 없는 신규 OAuth 사용자면 가입 또는 기존 계정 연결 선택이 필요하다")
         void oauthLogin_newUserRequiresSignup() {
             OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-1", null, null);
 
             OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
 
             assertThat(result.requiresSignup()).isTrue();
+            assertThat(result.requiresLink()).isTrue();
             assertThat(result.signupContext().provider()).isEqualTo(OAuthProvider.KAKAO);
             assertThat(result.signupContext().providerId()).isEqualTo("kakao-1");
             assertThat(result.signupContext().email()).isNull();
             assertThat(result.signupContext().nickname()).isNull();
-            assertThat(authAccountRepository.findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")).isEmpty();
+            assertThat(result.linkContext().accountId()).isNull();
+            assertThat(result.linkContext().provider()).isEqualTo(OAuthProvider.KAKAO);
+            assertThat(result.linkContext().providerId()).isEqualTo("kakao-1");
+            assertThat(authProviderLinkRepository.findByProviderAndProviderId(OAuthProvider.KAKAO, "kakao-1")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이메일 없는 OAuth 연결 code는 사용자가 입력한 이메일의 로컬 계정에 연결한다")
+        void linkOAuthAccount_manualEmail_success() {
+            AuthAccount account = signup();
+            linkCodeRepository.save(
+                    "link-code-manual-email",
+                    new com.pickbit.authservice.security.oauth.OAuthLinkContext(
+                            null, OAuthProvider.KAKAO, "kakao-manual-email", null, null),
+                    Duration.ofMinutes(10)
+            );
+
+            TokenResponse response = authCommandService.linkOAuthAccount(
+                    new OAuthLinkRequest("link-code-manual-email", EMAIL, PASSWORD)
+            );
+
+            AuthProviderLink link = authProviderLinkRepository.findByProviderAndProviderId(OAuthProvider.KAKAO, "kakao-manual-email")
+                    .orElseThrow();
+            assertThat(response.accessToken()).isNotBlank();
+            assertThat(link.getAccount().getId()).isEqualTo(account.getId());
         }
 
         @Test
@@ -342,14 +376,15 @@ class AuthServiceIntegrationTest {
                     new OAuthSignupCompleteRequest("signup-code-create", "kakao@example.com", "카카오유저")
             );
 
-            AuthAccount account = authAccountRepository.findByOauthProviderAndOauthProviderId(OAuthProvider.KAKAO, "kakao-1")
+            AuthProviderLink link = authProviderLinkRepository.findByProviderAndProviderId(OAuthProvider.KAKAO, "kakao-1")
                     .orElseThrow();
+            AuthAccount account = link.getAccount();
             assertThat(response.accessToken()).isNotBlank();
             assertThat(response.refreshToken()).isNotBlank();
             assertThat(account.getEmail()).isEqualTo("kakao@example.com");
             assertThat(account.getPassword()).isNull();
-            assertThat(account.getOauthProvider()).isEqualTo(OAuthProvider.KAKAO);
-            assertThat(account.getOauthProviderId()).isEqualTo("kakao-1");
+            assertThat(link.getProvider()).isEqualTo(OAuthProvider.KAKAO);
+            assertThat(link.getProviderId()).isEqualTo("kakao-1");
             assertThat(account.getRole()).isEqualTo(Role.USER);
         }
 
@@ -407,6 +442,84 @@ class AuthServiceIntegrationTest {
             assertThatThrownBy(() -> authCommandService.completeOAuthSignup(
                     new OAuthSignupCompleteRequest("signup-code-duplicate-email", EMAIL, "새닉네임")
             )).isInstanceOf(DuplicateEmailException.class);
+        }
+
+        @Test
+        @DisplayName("OAuth 이메일이 기존 로컬 계정과 같으면 계정 연결이 필요하다")
+        void oauthLogin_existingEmailRequiresLink() {
+            AuthAccount account = signup();
+            OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-link", EMAIL, "카카오닉네임");
+
+            OAuthLoginResult result = authCommandService.oauthLogin(userInfo);
+
+            assertThat(result.requiresLink()).isTrue();
+            assertThat(result.requiresSignup()).isFalse();
+            assertThat(result.linkContext().accountId()).isEqualTo(account.getId());
+            assertThat(result.linkContext().provider()).isEqualTo(OAuthProvider.KAKAO);
+            assertThat(result.linkContext().providerId()).isEqualTo("kakao-link");
+            assertThat(authProviderLinkRepository.findByProviderAndProviderId(OAuthProvider.KAKAO, "kakao-link")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("기존 로컬 계정 비밀번호 인증 후 OAuth provider를 연결하고 토큰을 발급한다")
+        void linkOAuthAccount_success() {
+            AuthAccount account = signup();
+            linkCodeRepository.save(
+                    "link-code-success",
+                    new com.pickbit.authservice.security.oauth.OAuthLinkContext(
+                            account.getId(), OAuthProvider.KAKAO, "kakao-link-success", EMAIL, "카카오닉네임"),
+                    Duration.ofMinutes(10)
+            );
+
+            TokenResponse response = authCommandService.linkOAuthAccount(
+                    new OAuthLinkRequest("link-code-success", EMAIL, PASSWORD)
+            );
+
+            AuthProviderLink link = authProviderLinkRepository.findByProviderAndProviderId(OAuthProvider.KAKAO, "kakao-link-success")
+                    .orElseThrow();
+            assertThat(response.accessToken()).isNotBlank();
+            assertThat(link.getAccount().getId()).isEqualTo(account.getId());
+            assertThatThrownBy(() -> authCommandService.linkOAuthAccount(
+                    new OAuthLinkRequest("link-code-success", EMAIL, PASSWORD)))
+                    .isInstanceOf(InvalidTokenException.class);
+        }
+
+        @Test
+        @DisplayName("OAuth 연결 후 같은 provider ID로 로그인하면 기존 계정으로 토큰을 발급한다")
+        void oauthLogin_afterLinkUsesExistingAccount() {
+            AuthAccount account = signup();
+            linkCodeRepository.save(
+                    "link-code-login",
+                    new com.pickbit.authservice.security.oauth.OAuthLinkContext(
+                            account.getId(), OAuthProvider.KAKAO, "kakao-linked-login", EMAIL, "카카오닉네임"),
+                    Duration.ofMinutes(10)
+            );
+            authCommandService.linkOAuthAccount(new OAuthLinkRequest("link-code-login", EMAIL, PASSWORD));
+
+            OAuthLoginResult result = authCommandService.oauthLogin(
+                    new OAuthUserInfo(OAuthProvider.KAKAO, "kakao-linked-login", EMAIL, "카카오닉네임")
+            );
+
+            assertThat(result.requiresSignup()).isFalse();
+            assertThat(result.requiresLink()).isFalse();
+            assertThat(result.tokenResponse().accessToken()).isNotBlank();
+            assertThat(authAccountRepository.findAll()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("OAuth 연결 시 기존 계정 비밀번호가 틀리면 실패한다")
+        void linkOAuthAccount_wrongPassword() {
+            AuthAccount account = signup();
+            linkCodeRepository.save(
+                    "link-code-wrong-password",
+                    new com.pickbit.authservice.security.oauth.OAuthLinkContext(
+                            account.getId(), OAuthProvider.KAKAO, "kakao-wrong-password", EMAIL, "카카오닉네임"),
+                    Duration.ofMinutes(10)
+            );
+
+            assertThatThrownBy(() -> authCommandService.linkOAuthAccount(
+                    new OAuthLinkRequest("link-code-wrong-password", EMAIL, "wrong-password")))
+                    .isInstanceOf(InvalidCredentialException.class);
         }
 
         @Test

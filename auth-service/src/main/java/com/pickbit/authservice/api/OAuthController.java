@@ -1,7 +1,9 @@
 package com.pickbit.authservice.api;
 
 import com.pickbit.authservice.api.dto.request.OAuthExchangeRequest;
+import com.pickbit.authservice.api.dto.request.OAuthLinkRequest;
 import com.pickbit.authservice.api.dto.request.OAuthSignupCompleteRequest;
+import com.pickbit.authservice.api.dto.response.OAuthLinkContextResponse;
 import com.pickbit.authservice.api.dto.response.OAuthSignupContextResponse;
 import com.pickbit.authservice.api.dto.response.TokenResponse;
 import com.pickbit.authservice.application.AuthCookieService;
@@ -38,6 +40,11 @@ public class OAuthController {
         return authCommandService.getOAuthSignupContext(code);
     }
 
+    @GetMapping("/link-context")
+    public OAuthLinkContextResponse linkContext(@RequestParam String code) {
+        return authCommandService.getOAuthLinkContext(code);
+    }
+
     /**
      * OAuth 신규 사용자의 추가 정보를 받아 가입을 완료하고 토큰을 발급합니다.
      *
@@ -47,6 +54,13 @@ public class OAuthController {
     @PostMapping("/signup")
     public TokenResponse signup(@Valid @RequestBody OAuthSignupCompleteRequest request, HttpServletResponse response) {
         TokenResponse tokenResponse = authCommandService.completeOAuthSignup(request);
+        authCookieService.addTokenCookies(response, tokenResponse);
+        return tokenResponse;
+    }
+
+    @PostMapping("/link")
+    public TokenResponse link(@Valid @RequestBody OAuthLinkRequest request, HttpServletResponse response) {
+        TokenResponse tokenResponse = authCommandService.linkOAuthAccount(request);
         authCookieService.addTokenCookies(response, tokenResponse);
         return tokenResponse;
     }

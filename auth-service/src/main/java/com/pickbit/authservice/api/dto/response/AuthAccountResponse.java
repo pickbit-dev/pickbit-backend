@@ -20,6 +20,10 @@ public record AuthAccountResponse(
 ) {
 
     public static AuthAccountResponse from(AuthAccount account) {
-        return new AuthAccountResponse(account.getId(), account.getEmail(), account.getOauthProvider(), account.getRole());
+        return from(account, OAuthProvider.LOCAL);
+    }
+
+    public static AuthAccountResponse from(AuthAccount account, OAuthProvider provider) {
+        return new AuthAccountResponse(account.getId(), account.getEmail(), provider, account.getRole());
     }
 }

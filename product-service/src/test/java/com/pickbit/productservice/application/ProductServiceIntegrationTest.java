@@ -13,6 +13,7 @@ import com.pickbit.productservice.config.TestContainerConfig;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.product.entity.enums.ImageType;
 import com.pickbit.productservice.domain.product.entity.enums.ProductCondition;
+import com.pickbit.productservice.domain.product.entity.enums.ProductSort;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.CategoryNotFoundException;
 import com.pickbit.productservice.exception.ProductNotFoundException;
@@ -30,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -504,6 +504,29 @@ class ProductServiceIntegrationTest {
         }
 
         @Test
+        @DisplayName("상품 상태 목록으로 필터링할 수 있다")
+        void searchProducts_byProductStatuses() {
+            ProductDetailResponse scheduled = productCommandService.createProduct(
+                    1L, "seller1", createRequest("예약 상품", BigDecimal.valueOf(40000), categoryId));
+            ProductDetailResponse inAuction = productCommandService.createProduct(
+                    1L, "seller1", createRequest("진행 상품", BigDecimal.valueOf(45000), categoryId));
+            productCommandService.updateProductStatus(scheduled.id(), ProductStatus.AUCTION_SCHEDULED);
+            productCommandService.updateProductStatus(inAuction.id(), ProductStatus.AUCTION_SCHEDULED);
+            productCommandService.updateProductStatus(inAuction.id(), ProductStatus.IN_AUCTION);
+            ProductSearchCondition condition = new ProductSearchCondition(
+                    null, null, null, null, null, ProductSort.LATEST,
+                    List.of(ProductStatus.ACTIVE, ProductStatus.AUCTION_SCHEDULED));
+
+            PageResponse<ProductSummaryResponse> result = productQueryService.searchProducts(condition, PageRequest.of(0, 20));
+
+            assertThat(result.content()).extracting(ProductSummaryResponse::productStatus)
+                    .containsOnly(ProductStatus.ACTIVE, ProductStatus.AUCTION_SCHEDULED);
+            assertThat(result.content()).extracting(ProductSummaryResponse::name)
+                    .contains("예약 상품")
+                    .doesNotContain("진행 상품");
+        }
+
+        @Test
         @DisplayName("키워드로 상품명을 검색할 수 있다")
         void searchProducts_byKeyword() {
             ProductSearchCondition condition = new ProductSearchCondition("아이폰", null, null, null, null, null);
@@ -609,13 +632,24 @@ class ProductServiceIntegrationTest {
         @Test
         @DisplayName("가격 오름차순으로 정렬할 수 있다")
         void searchProducts_sortByPriceAsc() {
-            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, null);
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, ProductSort.PRICE_ASC);
 
             PageResponse<ProductSummaryResponse> result = productQueryService.searchProducts(
-                    condition, PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "startingPrice")));
+                    condition, PageRequest.of(0, 20));
 
             List<BigDecimal> prices = result.content().stream().map(ProductSummaryResponse::startingPrice).toList();
             assertThat(prices).isSortedAccordingTo(Comparator.naturalOrder());
+        }
+
+        @Test
+        @DisplayName("최신순으로 정렬할 수 있다")
+        void searchProducts_sortByLatest() {
+            ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null, null, ProductSort.LATEST);
+
+            PageResponse<ProductSummaryResponse> result = productQueryService.searchProducts(condition, PageRequest.of(0, 20));
+
+            List<Long> ids = result.content().stream().map(ProductSummaryResponse::id).toList();
+            assertThat(ids).isSortedAccordingTo(Comparator.reverseOrder());
         }
 
         @Test

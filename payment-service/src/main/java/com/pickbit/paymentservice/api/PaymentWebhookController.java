@@ -29,7 +29,6 @@ public class PaymentWebhookController {
 
     private final TossWebhookSignatureVerifier signatureVerifier;
     private final TossWebhookHandler tossWebhookHandler;
-
     /**
      * 토스페이먼츠 webhook을 수신합니다.
      *

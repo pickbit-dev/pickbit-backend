@@ -1,6 +1,5 @@
 package com.pickbit.authservice.domain;
 
-import com.pickbit.authservice.domain.enums.OAuthProvider;
 import com.pickbit.authservice.domain.enums.Role;
 import com.pickbit.library.persistence.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -25,10 +24,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
         name = "auth_account",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_auth_account_email_provider", columnNames = {"email", "oauthProvider"}),
-                @UniqueConstraint(name = "uk_auth_account_provider_id", columnNames = {"oauthProvider", "oauthProviderId"})
-        },
+        uniqueConstraints = @UniqueConstraint(name = "uk_auth_account_email", columnNames = "email"),
         indexes = @Index(name = "idx_auth_account_email", columnList = "email")
 )
 public class AuthAccount extends BaseEntity {
@@ -41,13 +37,6 @@ public class AuthAccount extends BaseEntity {
 
     @Column(length = 255)
     private String password;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private OAuthProvider oauthProvider;
-
-    @Column(length = 255)
-    private String oauthProviderId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -65,18 +54,15 @@ public class AuthAccount extends BaseEntity {
                 .email(email)
                 .nickname(normalizeNickname(nickname, email))
                 .password(encodedPassword)
-                .oauthProvider(OAuthProvider.LOCAL)
                 .role(Role.USER)
                 .enabled(true)
                 .build();
     }
 
-    public static AuthAccount oauth(String email, OAuthProvider provider, String providerId, String nickname) {
+    public static AuthAccount oauth(String email, String nickname) {
         return AuthAccount.builder()
                 .email(email)
                 .nickname(normalizeNickname(nickname, email))
-                .oauthProvider(provider)
-                .oauthProviderId(providerId)
                 .role(Role.USER)
                 .enabled(true)
                 .build();

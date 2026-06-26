@@ -11,23 +11,31 @@ spring:
     url: ${PAYMENT_MYSQL_URL}
 
   jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        use_sql_comments: false
+        default_batch_fetch_size: 100
     database: mysql
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
 
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: localhost:19092
 
   data:
     redis:
-      host: redis
-      port: 6379
+      host: localhost
+      port: 16379
 
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
+      host: localhost
+      port: 18500
 
 server:
   port: 18086
@@ -66,8 +74,12 @@ resilience4j:
         maxConcurrentCalls: 32
         maxWaitDuration: 100ms
 
+openapi:
+  docs-export:
+    enabled: true
+
 springdoc:
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
     enabled: false

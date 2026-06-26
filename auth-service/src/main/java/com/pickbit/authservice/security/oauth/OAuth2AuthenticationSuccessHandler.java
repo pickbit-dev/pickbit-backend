@@ -2,6 +2,7 @@ package com.pickbit.authservice.security.oauth;
 
 import com.pickbit.authservice.application.command.AuthCommandService;
 import com.pickbit.authservice.infrastructure.redis.OAuthExchangeCodeRepository;
+import com.pickbit.authservice.infrastructure.redis.OAuthLinkCodeRepository;
 import com.pickbit.authservice.infrastructure.redis.OAuthSignupCodeRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     private final AuthCommandService authCommandService;
     private final OAuthExchangeCodeRepository exchangeCodeRepository;
     private final OAuthSignupCodeRepository signupCodeRepository;
+    private final OAuthLinkCodeRepository linkCodeRepository;
     private final OAuthUserInfoExtractor userInfoExtractor;
 
     @Value("${frontend.oauth-callback-url}")
@@ -39,6 +41,9 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
     @Value("${frontend.oauth-signup-url}")
     private String frontendSignupUrl;
+
+    @Value("${frontend.oauth-link-url}")
+    private String frontendLinkUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
@@ -53,10 +58,31 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         log.info("OAuth login result | provider={} | requiresSignup={}", registrationId, result.requiresSignup());
 
         String code = UUID.randomUUID().toString();
+        if (result.requiresSignup() && result.requiresLink()) {
+            String signupCode = UUID.randomUUID().toString();
+            String linkCode = UUID.randomUUID().toString();
+            signupCodeRepository.save(signupCode, result.signupContext(), SIGNUP_CODE_TTL);
+            linkCodeRepository.save(linkCode, result.linkContext(), SIGNUP_CODE_TTL);
+            String redirectUrl = frontendLinkUrl
+                    + "?linkCode=" + URLEncoder.encode(linkCode, StandardCharsets.UTF_8)
+                    + "&signupCode=" + URLEncoder.encode(signupCode, StandardCharsets.UTF_8);
+            log.info("OAuth redirecting to manual resolution | provider={} | redirectUrl={}", registrationId, redirectUrl);
+            response.sendRedirect(redirectUrl);
+            return;
+        }
+
         if (result.requiresSignup()) {
             signupCodeRepository.save(code, result.signupContext(), SIGNUP_CODE_TTL);
             String redirectUrl = frontendSignupUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
             log.info("OAuth redirecting to signup | provider={} | redirectUrl={}", registrationId, redirectUrl);
+            response.sendRedirect(redirectUrl);
+            return;
+        }
+
+        if (result.requiresLink()) {
+            linkCodeRepository.save(code, result.linkContext(), SIGNUP_CODE_TTL);
+            String redirectUrl = frontendLinkUrl + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+            log.info("OAuth redirecting to link | provider={} | redirectUrl={}", registrationId, redirectUrl);
             response.sendRedirect(redirectUrl);
             return;
         }

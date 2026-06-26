@@ -10,29 +10,50 @@ spring:
     password: ${PRODUCT_MYSQL_PASSWORD}
     url: ${PRODUCT_MYSQL_URL}
 
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        use_sql_comments: false
+        default_batch_fetch_size: 100
+    database: mysql
+    hibernate:
+      ddl-auto: update
+
+  kafka:
+    bootstrap-servers: localhost:19092
+
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
+      host: localhost
+      port: 18500
 
-  jpa:
-    database: mysql
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        default_batch_fetch_size: 100
 
 server:
   port: 18083
 
 client:
   auction-service:
-    base-url: http://auction-service:18085
+    base-url: http://localhost:18085
+
+ncp:
+  storage:
+    access-key: ${NCP_STORAGE_ACCESS_KEY}
+    secret-key: ${NCP_STORAGE_SECRET_KEY}
+    endpoint: ${NCP_STORAGE_ENDPOINT}
+    region: ${NCP_STORAGE_REGION}
+    bucket-name: ${NCP_STORAGE_BUCKET_NAME}
+
+openapi:
+  docs-export:
+    enabled: true
 
 springdoc:
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
     enabled: false

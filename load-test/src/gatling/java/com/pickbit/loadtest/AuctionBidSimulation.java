@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static io.gatling.javaapi.core.CoreDsl.StringBody;
 import static io.gatling.javaapi.core.CoreDsl.constantUsersPerSec;
+import static io.gatling.javaapi.core.CoreDsl.csv;
 import static io.gatling.javaapi.core.CoreDsl.global;
 import static io.gatling.javaapi.core.CoreDsl.rampUsers;
 import static io.gatling.javaapi.core.CoreDsl.scenario;
@@ -27,24 +28,21 @@ public class AuctionBidSimulation extends Simulation {
 
     private final AtomicLong nextBidAmount = new AtomicLong(LoadTestConfig.BID_BASE_AMOUNT);
 
-    static {
-        LoadTestConfig.requireAccessToken();
-    }
-
     private final HttpProtocolBuilder httpProtocol = http
             .baseUrl(LoadTestConfig.BASE_URL)
             .acceptHeader("application/json")
             .contentTypeHeader("application/json");
 
     private final ScenarioBuilder scenario = scenario("auction-bid")
+            .feed(csv("bidders.csv").circular())
             .exec(http("POST /api/auctions/{auctionId}/bids")
                     .post("/api/auctions/" + LoadTestConfig.AUCTION_ID + "/bids")
-                    .headers(LoadTestConfig.authHeaders())
+                    .header("Authorization", "Bearer #{accessToken}")
                     .body(StringBody(session -> {
                         long amount = nextBidAmount.getAndAdd(LoadTestConfig.BID_INCREMENT);
                         return "{\"bidAmount\":" + amount + "}";
                     }))
-                    .check(status().in(201, 400, 409)));
+                    .check(status().in(201, 400, 409, 429)));
 
     {
         setUp(

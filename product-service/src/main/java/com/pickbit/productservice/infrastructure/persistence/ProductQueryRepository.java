@@ -138,6 +138,10 @@ public class ProductQueryRepository extends QueryBaseRepository<Product, QProduc
 
         builder.and(product.productStatus.ne(ProductStatus.DELETED));
 
+        if (condition.productStatus() != null && !condition.productStatus().isEmpty()) {
+            builder.and(product.productStatus.in(condition.productStatus()));
+        }
+
         if (condition.keyword() != null && !condition.keyword().isBlank()) {
             builder.and(
                     product.name.containsIgnoreCase(condition.keyword())

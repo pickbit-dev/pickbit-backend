@@ -30,7 +30,15 @@ public class OAuthUserInfoExtractor {
     @SuppressWarnings("unchecked")
     private OAuthUserInfo kakao(Map<String, Object> attributes) {
         String providerId = stringValue(attributes.get("id"));
-        return validate(new OAuthUserInfo(OAuthProvider.KAKAO, providerId, null, null));
+        Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.getOrDefault("kakao_account", Map.of());
+        Map<String, Object> profile = (Map<String, Object>) kakaoAccount.getOrDefault("profile", Map.of());
+        Map<String, Object> properties = (Map<String, Object>) attributes.getOrDefault("properties", Map.of());
+        String email = stringValue(kakaoAccount.get("email"));
+        String nickname = stringValue(profile.get("nickname"));
+        if (nickname == null || nickname.isBlank()) {
+            nickname = stringValue(properties.get("nickname"));
+        }
+        return validate(new OAuthUserInfo(OAuthProvider.KAKAO, providerId, email, nickname));
     }
 
     @SuppressWarnings("unchecked")

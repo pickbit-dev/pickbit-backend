@@ -13,8 +13,11 @@ spring:
   cloud:
     consul:
       enabled: true
-      host: consul-server
-      port: 8500
+      host: localhost
+      port: 18500
+
+  kafka:
+    bootstrap-servers: localhost:19092
 
   jpa:
     defer-datasource-initialization: false
@@ -26,12 +29,12 @@ spring:
         use_sql_comments: false
         default_batch_fetch_size: 100
     database: mysql
+    hibernate:
+      ddl-auto: update
 
 server:
   port: 18087
 
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
+openapi:
+  docs-export:
+    enabled: true

@@ -25,6 +25,7 @@ jwt:
 frontend:
   oauth-callback-url: ${FRONTEND_OAUTH_CALLBACK_URL}
   oauth-signup-url: ${FRONTEND_OAUTH_SIGNUP_URL}
+  oauth-link-url: ${FRONTEND_OAUTH_LINK_URL:https://pickbit.co.kr/oauth/link}
 
 auth:
   cookie:

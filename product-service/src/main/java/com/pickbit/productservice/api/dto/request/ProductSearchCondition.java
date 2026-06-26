@@ -1,8 +1,10 @@
 package com.pickbit.productservice.api.dto.request;
 
 import com.pickbit.productservice.domain.product.entity.enums.ProductSort;
+import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 상품 목록 검색 조건.
@@ -15,6 +17,7 @@ import java.math.BigDecimal;
  * @param minPrice       최소 시작가 (선택)
  * @param maxPrice       최대 시작가 (선택)
  * @param sort           정렬 옵션 (기본 {@code LATEST})
+ * @param productStatus  상품 상태 목록 (선택)
  */
 public record ProductSearchCondition(
         String keyword,
@@ -22,8 +25,20 @@ public record ProductSearchCondition(
         String sellerNickname,
         BigDecimal minPrice,
         BigDecimal maxPrice,
-        ProductSort sort
+        ProductSort sort,
+        List<ProductStatus> productStatus
 ) {
+    public ProductSearchCondition(
+            String keyword,
+            Long categoryId,
+            String sellerNickname,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            ProductSort sort
+    ) {
+        this(keyword, categoryId, sellerNickname, minPrice, maxPrice, sort, null);
+    }
+
     public ProductSort sortOrDefault() {
         return sort == null ? ProductSort.LATEST : sort;
     }

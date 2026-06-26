@@ -10,18 +10,31 @@ import com.pickbit.authservice.api.dto.response.TokenResponse;
  */
 public record OAuthLoginResult(
         TokenResponse tokenResponse,
-        OAuthSignupContext signupContext
+        OAuthSignupContext signupContext,
+        OAuthLinkContext linkContext
 ) {
 
     public static OAuthLoginResult authenticated(TokenResponse tokenResponse) {
-        return new OAuthLoginResult(tokenResponse, null);
+        return new OAuthLoginResult(tokenResponse, null, null);
     }
 
     public static OAuthLoginResult signupRequired(OAuthSignupContext signupContext) {
-        return new OAuthLoginResult(null, signupContext);
+        return new OAuthLoginResult(null, signupContext, null);
+    }
+
+    public static OAuthLoginResult linkRequired(OAuthLinkContext linkContext) {
+        return new OAuthLoginResult(null, null, linkContext);
+    }
+
+    public static OAuthLoginResult manualResolutionRequired(OAuthSignupContext signupContext, OAuthLinkContext linkContext) {
+        return new OAuthLoginResult(null, signupContext, linkContext);
     }
 
     public boolean requiresSignup() {
         return signupContext != null;
+    }
+
+    public boolean requiresLink() {
+        return linkContext != null;
     }
 }
