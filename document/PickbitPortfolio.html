@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pickbit Backend Portfolio</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --bg-soft: #0d1a2b;
+      --card: #101f33;
+      --card-2: #132842;
+      --line: rgba(148, 163, 184, 0.22);
+      --text: #e5edf8;
+      --muted: #9fb0c7;
+      --accent: #38bdf8;
+      --accent-2: #818cf8;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #fb7185;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34rem),
+        radial-gradient(circle at top right, rgba(129, 140, 248, 0.16), transparent 30rem),
+        linear-gradient(180deg, #07101d 0%, var(--bg) 46%, #050b14 100%);
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(8, 17, 31, 0.76);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+    }
+
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 32px rgba(56, 189, 248, 0.28);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .hero {
+      min-height: 650px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 42px;
+      align-items: center;
+      padding: 84px 0 72px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.08);
+      color: #bcecff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green);
+    }
+
+    h1 {
+      margin: 24px 0 18px;
+      font-size: clamp(54px, 8vw, 108px);
+      line-height: 0.92;
+      letter-spacing: -0.075em;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(22px, 3vw, 36px);
+      line-height: 1.22;
+      letter-spacing: -0.045em;
+      color: #dce9fb;
+      font-weight: 800;
+      margin: 0 0 20px;
+    }
+
+    .hero-desc {
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 680px;
+      margin: 0 0 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #03111f;
+      border: 0;
+    }
+
+    .hero-panel {
+      position: relative;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background: linear-gradient(180deg, rgba(16, 31, 51, 0.96), rgba(10, 21, 36, 0.92));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: -90px -70px auto auto;
+      width: 230px;
+      height: 230px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.24), transparent 70%);
+    }
+
+    .panel-title {
+      position: relative;
+      margin: 0 0 16px;
+      font-size: 15px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 900;
+    }
+
+    .architecture-mini {
+      position: relative;
+      display: grid;
+      gap: 12px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      background: rgba(255, 255, 255, 0.035);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .node strong {
+      font-size: 14px;
+    }
+
+    .node span {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .node.highlight {
+      background: rgba(56, 189, 248, 0.11);
+      border-color: rgba(56, 189, 248, 0.38);
+    }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      padding: 15px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    section {
+      padding: 64px 0;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 28px;
+    }
+
+    .section-kicker {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.05;
+      letter-spacing: -0.055em;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      max-width: 620px;
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(16, 31, 51, 0.94), rgba(11, 23, 39, 0.86));
+      padding: 24px;
+      box-shadow: 0 16px 55px rgba(0, 0, 0, 0.18);
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      letter-spacing: -0.035em;
+    }
+
+    .card p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .list {
+      padding: 0;
+      margin: 16px 0 0;
+      list-style: none;
+      display: grid;
+      gap: 9px;
+    }
+
+    .list li {
+      position: relative;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.72em;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      background: rgba(56, 189, 248, 0.08);
+      color: #c8f1ff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .diagram {
+      font-family: var(--mono);
+      white-space: pre;
+      overflow-x: auto;
+      padding: 24px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      background: #06101d;
+      color: #bfe8ff;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .flow-step {
+      min-height: 112px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.035);
+      position: relative;
+    }
+
+    .flow-step em {
+      display: inline-flex;
+      width: 28px;
+      height: 28px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+      font-style: normal;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .flow-step span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .deep-dive {
+      display: grid;
+      gap: 22px;
+    }
+
+    .deep-card {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(16, 31, 51, 0.96), rgba(11, 23, 39, 0.86));
+      box-shadow: 0 16px 55px rgba(0, 0, 0, 0.18);
+    }
+
+    .deep-top {
+      padding: 24px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .deep-top h3 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -0.045em;
+    }
+
+    .deep-tag {
+      white-space: nowrap;
+      font-family: var(--mono);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .psr {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .psr-block {
+      padding: 24px;
+      border-right: 1px solid var(--line);
+    }
+
+    .psr-block:last-child {
+      border-right: 0;
+    }
+
+    .psr-block h4 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .psr-block p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .quote {
+      padding: 28px;
+      border-radius: 28px;
+      border: 1px solid rgba(52, 211, 153, 0.28);
+      background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(56, 189, 248, 0.07));
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.35;
+    }
+
+    .footer {
+      padding: 64px 0 80px;
+      color: var(--muted);
+      text-align: center;
+      border-top: 1px solid var(--line);
+    }
+
+    .print-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .grid.two,
+      .grid.three,
+      .grid.four,
+      .psr {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .section-desc {
+        margin-top: 14px;
+      }
+
+      .psr-block {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .psr-block:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page,
+      .nav-inner {
+        width: min(100% - 26px, 1180px);
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 56px;
+      }
+
+      .metrics-row,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .deep-top {
+        display: block;
+      }
+
+      .deep-tag {
+        display: block;
+        margin-top: 8px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        color: #111827;
+      }
+
+      .nav,
+      .hero-actions,
+      .print-note {
+        display: none;
+      }
+
+      .page {
+        width: 100%;
+      }
+
+      section,
+      .hero {
+        padding: 28px 0;
+        border-top: 1px solid #ddd;
+      }
+
+      .card,
+      .deep-card,
+      .hero-panel,
+      .diagram,
+      .metric,
+      .flow-step,
+      .quote {
+        box-shadow: none;
+        background: #fff;
+        color: #111827;
+        border-color: #d1d5db;
+      }
+
+      .section-desc,
+      .card p,
+      .list li,
+      .psr-block p,
+      .metric-label,
+      .node span,
+      .flow-step span {
+        color: #4b5563;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top"><span class="brand-mark"></span><span>Pickbit Backend</span></a>
+      <div class="nav-links">
+        <a href="#architecture">Architecture</a>
+        <a href="#features">Features</a>
+        <a href="#deep-dive">Deep Dive</a>
+        <a href="#load-test">Load Test</a>
+        <a href="#deployment">Deployment</a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top" class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Real-time Auction Marketplace Backend</div>
+        <h1>Pickbit</h1>
+        <p class="hero-subtitle">실시간 경매 기반 중고거래 플랫폼 백엔드</p>
+        <p class="hero-desc">
+          Pickbit은 상품 등록, 실시간 경매, 낙찰 후 결제까지 이어지는 중고거래 플랫폼 백엔드입니다.
+          Spring Boot 멀티모듈 구조로 도메인 서비스를 분리하고 Redis, Kafka, Consul, WebSocket 기반 인프라를 활용해
+          경매 시스템의 정합성과 실시간성을 함께 다뤘습니다.
+        </p>
+        <div class="badge-row">
+          <span class="badge">Spring Boot 4</span>
+          <span class="badge">Java 25</span>
+          <span class="badge">Redis Lock</span>
+          <span class="badge">WebSocket Scale-out</span>
+          <span class="badge">Kafka Outbox</span>
+          <span class="badge">OAuth Linking</span>
+          <span class="badge">Toss Payments</span>
+          <span class="badge">Gatling</span>
+        </div>
+        <div class="hero-actions">
+          <a class="button primary" href="#deep-dive">핵심 문제 해결 보기</a>
+          <a class="button" href="#architecture">아키텍처 보기</a>
+        </div>
+      </div>
+
+      <aside class="hero-panel" aria-label="Project summary">
+        <p class="panel-title">System Snapshot</p>
+        <div class="architecture-mini">
+          <div class="node highlight"><strong>Client / Frontend</strong><span>pickbit.co.kr</span></div>
+          <div class="node"><strong>Caddy + Gateway</strong><span>HTTPS / JWT / Rate Limit</span></div>
+          <div class="node"><strong>Domain Services</strong><span>Auth · User · Product · Auction · Payment</span></div>
+          <div class="node"><strong>Event & Realtime</strong><span>Kafka · Redis Pub/Sub · WebSocket</span></div>
+          <div class="node"><strong>Storage</strong><span>MySQL · Redis · Object Storage</span></div>
+        </div>
+        <div class="metrics-row">
+          <div class="metric"><div class="metric-value">8</div><div class="metric-label">Service Modules</div></div>
+          <div class="metric"><div class="metric-value">3,650</div><div class="metric-label">Bid Test Requests</div></div>
+          <div class="metric"><div class="metric-value">28ms</div><div class="metric-label">p95 Latency</div></div>
+          <div class="metric"><div class="metric-value">0</div><div class="metric-label">Gatling KO</div></div>
+        </div>
+      </aside>
+    </header>
+
+    <section id="overview">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">01 / Overview</p>
+          <h2>단순 CRUD를 넘어선 경매 도메인 중심 백엔드</h2>
+        </div>
+        <p class="section-desc">
+          프로젝트의 핵심 관심사는 “동시에 많은 사용자가 같은 경매에 입찰할 때 데이터 정합성과 사용자 경험을 어떻게 유지할 것인가”였습니다.
+          인증, 상품, 경매, 결제, 알림을 분리하고 각 도메인의 책임을 명확히 두었습니다.
+        </p>
+      </div>
+      <div class="grid three">
+        <article class="card">
+          <h3>도메인 분리</h3>
+          <p>인증, 사용자, 상품, 경매, 결제, 알림, 파일 업로드를 독립 실행 가능한 서비스 모듈로 분리했습니다.</p>
+        </article>
+        <article class="card">
+          <h3>실시간 경매</h3>
+          <p>입찰은 REST API로 정합성을 보장하고, 결과는 WebSocket/STOMP로 구독자에게 실시간 전파합니다.</p>
+        </article>
+        <article class="card">
+          <h3>운영 관점 설계</h3>
+          <p>Docker Compose, Caddy, Consul, Redis, Kafka, ELK 기반으로 개발/배포 환경을 분리했습니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">02 / Architecture</p>
+          <h2>멀티모듈 모노레포 기반 서비스 분리</h2>
+        </div>
+        <p class="section-desc">
+          저장소는 하나로 유지해 초기 개발 생산성을 확보하면서도, 서비스 경계는 독립 실행 가능한 Spring Boot 모듈로 나누었습니다.
+        </p>
+      </div>
+      <pre class="diagram">Client
+  -> Caddy HTTPS Reverse Proxy
+  -> Gateway Service
+      -> Auth Service        -> MySQL / Redis
+      -> User Service        -> MySQL / Kafka Inbox
+      -> Product Service     -> MySQL / Auction Client
+      -> Auction Service     -> MySQL / Redis Lock / WebSocket
+      -> Payment Service     -> MySQL / Toss Payments / Kafka
+      -> File Service        -> NCP Object Storage
+      -> Notification Service-> MySQL / Kafka
+
+Infrastructure
+  -> Consul Service Discovery
+  -> Kafka + Kafka Connect + Debezium Outbox
+  -> Redis: Refresh Token, OAuth Code, Lock, Rate Limit, Pub/Sub
+  -> Docker Compose develop/deploy</pre>
+    </section>
+
+    <section id="modules">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">03 / Modules</p>
+          <h2>서비스별 책임</h2>
+        </div>
+      </div>
+      <div class="grid four">
+        <article class="card"><h3>gateway-service</h3><ul class="list"><li>외부 요청 단일 진입점</li><li>JWT 검증 및 인증 헤더 전파</li><li>Redis 기반 입찰 rate limit</li><li>Consul 기반 라우팅</li></ul></article>
+        <article class="card"><h3>auth-service</h3><ul class="list"><li>자체 로그인/OAuth 로그인</li><li>JWT 및 refresh token 관리</li><li>Redis OAuth 임시 code 관리</li><li>OAuth provider link 기반 계정 연결</li></ul></article>
+        <article class="card"><h3>auction-service</h3><ul class="list"><li>경매 생성/시작/종료</li><li>입찰 처리 및 동시성 제어</li><li>WebSocket 실시간 알림</li><li>Redis Pub/Sub scale-out</li></ul></article>
+        <article class="card"><h3>payment-service</h3><ul class="list"><li>낙찰 후 결제 생성</li><li>Toss Payments confirm</li><li>웹훅 검증 및 처리</li><li>결제 상태 관리</li></ul></article>
+        <article class="card"><h3>product-service</h3><ul class="list"><li>상품 등록/조회/검색</li><li>카테고리 관리</li><li>상품 상태 전이</li><li>경매 서비스 연동</li></ul></article>
+        <article class="card"><h3>file-service</h3><ul class="list"><li>이미지 업로드</li><li>NCP Object Storage 연동</li><li>파일 검증</li><li>업로드 응답 제공</li></ul></article>
+        <article class="card"><h3>notification-service</h3><ul class="list"><li>이벤트 기반 알림</li><li>알림 목록 조회</li><li>Kafka Inbox 처리</li><li>중복 이벤트 방어</li></ul></article>
+        <article class="card"><h3>library</h3><ul class="list"><li>공통 DTO</li><li>공통 예외 처리</li><li>인증 컨텍스트</li><li>로깅/이벤트 공통 구성</li></ul></article>
+      </div>
+    </section>
+
+    <section id="stack">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">04 / Tech Stack</p>
+          <h2>기술 스택</h2>
+        </div>
+      </div>
+      <div class="grid three">
+        <article class="card"><h3>Backend</h3><div class="badge-row"><span class="badge">Java 25</span><span class="badge">Spring Boot 4</span><span class="badge">Spring Security</span><span class="badge">Spring Data JPA</span><span class="badge">QueryDSL</span><span class="badge">Spring Cloud Gateway</span></div></article>
+        <article class="card"><h3>Data & Messaging</h3><div class="badge-row"><span class="badge">MySQL</span><span class="badge">Redis</span><span class="badge">Redisson</span><span class="badge">Kafka</span><span class="badge">Debezium Outbox</span><span class="badge">Consul</span></div></article>
+        <article class="card"><h3>External & Ops</h3><div class="badge-row"><span class="badge">Toss Payments</span><span class="badge">NCP Object Storage</span><span class="badge">Docker Compose</span><span class="badge">Caddy</span><span class="badge">Gatling</span><span class="badge">Testcontainers</span></div></article>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">05 / Main Flow</p>
+          <h2>상품 등록부터 결제까지</h2>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-step"><em>1</em><strong>이미지 업로드</strong><span>file-service가 Object Storage에 상품 이미지를 업로드</span></div>
+        <div class="flow-step"><em>2</em><strong>상품 등록</strong><span>product-service가 상품과 이미지 메타데이터 저장</span></div>
+        <div class="flow-step"><em>3</em><strong>경매 생성</strong><span>판매자가 ACTIVE 상품으로 경매를 생성</span></div>
+        <div class="flow-step"><em>4</em><strong>실시간 입찰</strong><span>REST 입찰 처리 후 WebSocket으로 현재가 전파</span></div>
+        <div class="flow-step"><em>5</em><strong>낙찰 후 결제</strong><span>payment-service가 결제 요청/승인/상태 관리</span></div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">06 / Features</p>
+          <h2>주요 기능</h2>
+        </div>
+      </div>
+      <div class="grid three">
+        <article class="card"><h3>인증과 계정 연결</h3><p>자체 로그인, OAuth 로그인, JWT, refresh token, OAuth provider link 기반 계정 연결을 제공합니다.</p></article>
+        <article class="card"><h3>상품과 경매</h3><p>상품 등록 후 경매를 생성하고, 스케줄러가 경매 시작/종료 상태를 자동 전환합니다.</p></article>
+        <article class="card"><h3>입찰과 실시간 알림</h3><p>입찰 정합성은 REST API에서 보장하고, 결과는 WebSocket으로 실시간 전달합니다.</p></article>
+        <article class="card"><h3>결제</h3><p>경매 종료 후 낙찰자에게 결제 대기 항목을 생성하고 Toss Payments 승인 흐름을 처리합니다.</p></article>
+        <article class="card"><h3>이벤트 처리</h3><p>Kafka, Debezium Outbox, Inbox 패턴으로 서비스 간 이벤트 전달과 중복 처리를 관리합니다.</p></article>
+        <article class="card"><h3>운영 환경</h3><p>develop/deploy Docker Compose, Caddy HTTPS, Consul discovery, ELK 로그 분석 환경을 구성했습니다.</p></article>
+      </div>
+    </section>
+
+    <section id="deep-dive">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">07 / Engineering Deep Dive</p>
+          <h2>핵심 문제 해결</h2>
+        </div>
+        <p class="section-desc">각 문제를 단순 구현이 아니라 문제 정의, 해결책, 결과 관점으로 정리했습니다.</p>
+      </div>
+      <div class="deep-dive">
+        <article class="deep-card">
+          <div class="deep-top"><h3>입찰 동시성 제어</h3><span class="deep-tag">Redisson Lock + JPA @Version</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>같은 경매에 여러 사용자가 동시에 입찰하거나, 스케줄러/취소 경로가 같은 Auction row를 수정하면 현재가와 낙찰자 상태가 깨질 수 있었습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>같은 경매 입찰은 Redisson 분산 락으로 직렬화하고, 입찰 외 경로와의 교차 충돌은 Auction 엔티티의 JPA @Version으로 방어했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>입찰 간 정합성을 보장하면서도 스케줄러/취소 등 다른 경로와의 DB row 충돌을 409 Conflict로 감지할 수 있게 했습니다.</p></div>
+          </div>
+        </article>
+
+        <article class="deep-card">
+          <div class="deep-top"><h3>입찰 트래픽 안정성</h3><span class="deep-tag">Gateway Rate Limit</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>한 사용자가 초당 수십~수백 건의 입찰 요청을 보내면 락 대기열을 점유해 정상 사용자의 입찰 경험을 방해할 수 있었습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>Gateway에서 Redis 기반 RequestRateLimiter를 적용하고, JWT 검증 후 주입한 X-User-Id를 기준으로 사용자별 rate limit을 구성했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>과도한 입찰 요청을 auction-service 앞단에서 차단하고, 서비스 인스턴스 수와 무관한 일관된 제한 정책을 적용했습니다.</p></div>
+          </div>
+        </article>
+
+        <article class="deep-card">
+          <div class="deep-top"><h3>WebSocket 실시간 알림 수평 확장</h3><span class="deep-tag">Redis Pub/Sub Bridge</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>Spring SimpleBroker는 인스턴스 내부 메모리만 사용하기 때문에 auction-service가 여러 대면 다른 인스턴스에 붙은 구독자는 알림을 받지 못했습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>입찰 성공 이벤트를 Redis Pub/Sub으로 발행하고 모든 auction-service 인스턴스가 구독한 뒤 로컬 WebSocket 브로커로 전달하도록 변경했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>어떤 인스턴스에서 입찰이 처리되더라도 모든 인스턴스의 구독자에게 알림이 도달하며, 100ms debounce로 알림 폭주를 완화했습니다.</p></div>
+          </div>
+        </article>
+
+        <article class="deep-card">
+          <div class="deep-top"><h3>OAuth 계정 연결</h3><span class="deep-tag">auth_account / auth_provider_link</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>자체 로그인과 카카오 로그인을 함께 지원하면 동일 사용자의 계정이 분리될 수 있고, 이메일만으로 자동 병합하면 보안 리스크가 있었습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>계정 본체와 OAuth provider link를 분리하고, 기존 계정 이메일/비밀번호 인증 후 providerId를 연결하는 명시적 계정 연결 플로우를 구현했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>카카오 account_email 권한이 없어도 사용자가 직접 기존 픽빗 계정에 카카오 계정을 연결할 수 있게 했습니다.</p></div>
+          </div>
+        </article>
+
+        <article class="deep-card">
+          <div class="deep-top"><h3>결제 도메인 분리</h3><span class="deep-tag">Auction vs Payment</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>경매 종료는 낙찰자 결정이지 거래 완료가 아니며, 결제 취소/미결제를 경매 취소로 처리하면 도메인 의미가 흐려집니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>Auction은 낙찰자 결정까지만 책임지고, Payment는 결제 요청/승인/실패/취소 상태를 담당하도록 분리했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>경매 상태와 결제 상태를 독립적으로 표현하고, Toss Payments confirm 및 웹훅 처리 흐름을 명확히 관리할 수 있게 했습니다.</p></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="load-test">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">08 / Load Test</p>
+          <h2>입찰 API 부하 테스트</h2>
+        </div>
+        <p class="section-desc">Gatling으로 입찰 API를 검증하고, 단순 HTTP 성공이 아니라 DB 저장 결과와 상태 분포까지 함께 확인했습니다.</p>
+      </div>
+      <div class="grid four">
+        <div class="metric"><div class="metric-value">3,650</div><div class="metric-label">Total Requests</div></div>
+        <div class="metric"><div class="metric-value">0</div><div class="metric-label">Gatling KO</div></div>
+        <div class="metric"><div class="metric-value">24.33</div><div class="metric-label">req/s Average</div></div>
+        <div class="metric"><div class="metric-value">28ms</div><div class="metric-label">p95 Latency</div></div>
+      </div>
+      <div class="quote" style="margin-top: 18px;">
+        목표 p95 &lt; 1000ms 조건에서 p95 28ms, p99 64ms를 기록하며 입찰 API의 기본 성능 목표를 충족했습니다.
+      </div>
+    </section>
+
+    <section id="deployment">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">09 / Deployment & Operations</p>
+          <h2>개발/배포 환경과 운영 고려</h2>
+        </div>
+      </div>
+      <div class="grid three">
+        <article class="card"><h3>Docker Compose</h3><p>develop은 로컬 개발 인프라 중심, deploy는 백엔드 서비스와 인프라를 함께 실행하는 단일 서버 배포 구조로 분리했습니다.</p></article>
+        <article class="card"><h3>Caddy HTTPS</h3><p>pickbit.co.kr과 api.pickbit.co.kr을 분리하고, Caddy가 HTTPS reverse proxy와 인증서 자동 갱신을 담당합니다.</p></article>
+        <article class="card"><h3>Secret 관리</h3><p>DB 비밀번호, OAuth secret, JWT secret, Toss/NCP key는 Git에 포함하지 않고 secret 파일 또는 환경변수로 주입합니다.</p></article>
+      </div>
+    </section>
+
+    <section id="docs">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">10 / Documentation</p>
+          <h2>문서화와 협업</h2>
+        </div>
+        <p class="section-desc">프론트 연동 문서와 트러블슈팅 문서를 함께 작성해 API 사용 방식과 도메인 흐름을 명확히 했습니다.</p>
+      </div>
+      <div class="grid three">
+        <article class="card"><h3>Frontend Guides</h3><ul class="list"><li>경매 생성/입찰 흐름</li><li>실시간 WebSocket 구독</li><li>결제 및 거래 단계</li><li>OAuth 계정 연결</li></ul></article>
+        <article class="card"><h3>Engineering Notes</h3><ul class="list"><li>입찰 트래픽 안정성</li><li>WebSocket 수평 확장</li><li>부하 테스트 분석</li><li>Docker 환경 가이드</li></ul></article>
+        <article class="card"><h3>Troubleshooting</h3><ul class="list"><li>OAuth scope 권한 문제</li><li>Kafka/Redis 인프라 경고</li><li>배포 환경변수 누락</li><li>결제/웹훅 연동 이슈</li></ul></article>
+      </div>
+    </section>
+
+    <section id="retrospective">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">11 / Retrospective</p>
+          <h2>배운 점과 개선 방향</h2>
+        </div>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <h3>What I Learned</h3>
+          <ul class="list">
+            <li>실시간 시스템은 정합성, 응답성, 사용자 경험을 함께 고려해야 한다는 점</li>
+            <li>분산 락만으로는 모든 동시성 문제가 해결되지 않아 DB 레벨 방어가 필요하다는 점</li>
+            <li>OAuth는 provider 권한과 보안 UX를 함께 설계해야 한다는 점</li>
+            <li>도메인별 책임 분리가 결제/거래 같은 후속 흐름을 명확하게 만든다는 점</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Future Improvements</h3>
+          <ul class="list">
+            <li>결제 이후 배송/구매확정/분쟁 처리까지 trade 도메인 고도화</li>
+            <li>알림 영속성이 필요해질 경우 RabbitMQ STOMP relay 또는 메시지 백로그 구조 검토</li>
+            <li>OAuth provider 확장과 카카오 account_email 권한 확보 후 자동 연결 UX 개선</li>
+            <li>운영 모니터링 대시보드와 관리자 기능 추가</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="page">
+      <strong>Pickbit Backend Portfolio</strong>
+      <p class="print-note">This page is a standalone HTML document. It can be hosted statically or exported as PDF from the browser.</p>
+    </div>
+  </footer>
+</body>
+</html>

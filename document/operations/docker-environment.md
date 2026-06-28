@@ -86,6 +86,7 @@ Docker 컨테이너에서는 `./secrets` 디렉터리가 `/app/secrets`로 read-
 | `OAUTH_REDIRECT_BASE_URL` | OAuth redirect 기준 Gateway URL |
 | `FRONTEND_OAUTH_CALLBACK_URL` | 프론트 OAuth callback URL |
 | `FRONTEND_OAUTH_SIGNUP_URL` | 프론트 OAuth signup URL |
+| `FRONTEND_OAUTH_LINK_URL` | 프론트 OAuth 계정 연결 URL |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth 인증 정보 |
 | `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET` | Kakao OAuth 인증 정보 |
 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | Naver OAuth 인증 정보 |
