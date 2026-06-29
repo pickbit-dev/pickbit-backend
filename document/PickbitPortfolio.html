@@ -394,6 +394,190 @@
       line-height: 1.6;
     }
 
+    .arch-stack {
+      display: grid;
+      gap: 20px;
+    }
+
+    .arch-box {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(16, 31, 51, 0.96), rgba(8, 19, 34, 0.9));
+      padding: 24px;
+      box-shadow: 0 16px 55px rgba(0, 0, 0, 0.18);
+      overflow-x: auto;
+    }
+
+    .arch-title {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      min-width: max-content;
+      padding-bottom: 4px;
+    }
+
+    .arch-flow + .arch-flow {
+      margin-top: 18px;
+    }
+
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .arch-node-box {
+      min-width: 118px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1.5px solid var(--line);
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .arch-node-label {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .arch-node-box.frontend {
+      border-color: rgba(148, 163, 184, 0.46);
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .arch-node-box.gateway {
+      border-color: rgba(56, 189, 248, 0.52);
+      background: rgba(56, 189, 248, 0.1);
+      color: #c8f1ff;
+    }
+
+    .arch-node-box.service {
+      border-color: rgba(129, 140, 248, 0.58);
+      background: rgba(129, 140, 248, 0.1);
+      color: #dddfff;
+    }
+
+    .arch-node-box.redis {
+      border-color: rgba(248, 113, 113, 0.58);
+      background: rgba(248, 113, 113, 0.1);
+      color: #fecaca;
+    }
+
+    .arch-node-box.db {
+      border-color: rgba(52, 211, 153, 0.56);
+      background: rgba(52, 211, 153, 0.1);
+      color: #bbf7d0;
+    }
+
+    .arch-node-box.kafka {
+      border-color: rgba(251, 191, 36, 0.58);
+      background: rgba(251, 191, 36, 0.1);
+      color: #fde68a;
+    }
+
+    .arch-node-box.ws {
+      border-color: rgba(34, 211, 238, 0.58);
+      background: rgba(34, 211, 238, 0.1);
+      color: #a5f3fc;
+    }
+
+    .arch-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+
+    .arch-arrow-line {
+      width: 44px;
+      height: 2px;
+      background: rgba(148, 163, 184, 0.46);
+      position: relative;
+    }
+
+    .arch-arrow-line::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-left: 7px solid rgba(148, 163, 184, 0.62);
+    }
+
+    .arch-arrow-text {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .module-col {
+      display: grid;
+      gap: 8px;
+    }
+
+    .module-header {
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(129, 140, 248, 0.9));
+      color: #06101d;
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .module-item {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .arch-note {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
     .flow {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -536,6 +720,10 @@
         grid-template-columns: repeat(2, 1fr);
       }
 
+      .module-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .section-head {
         display: block;
       }
@@ -570,6 +758,10 @@
 
       .metrics-row,
       .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .module-grid {
         grid-template-columns: 1fr;
       }
 
@@ -608,6 +800,7 @@
       .card,
       .deep-card,
       .hero-panel,
+      .arch-box,
       .diagram,
       .metric,
       .flow-step,
@@ -726,22 +919,136 @@
           저장소는 하나로 유지해 초기 개발 생산성을 확보하면서도, 서비스 경계는 독립 실행 가능한 Spring Boot 모듈로 나누었습니다.
         </p>
       </div>
-      <pre class="diagram">Client
-  -> Caddy HTTPS Reverse Proxy
-  -> Gateway Service
-      -> Auth Service        -> MySQL / Redis
-      -> User Service        -> MySQL / Kafka Inbox
-      -> Product Service     -> MySQL / Auction Client
-      -> Auction Service     -> MySQL / Redis Lock / WebSocket
-      -> Payment Service     -> MySQL / Toss Payments / Kafka
-      -> File Service        -> NCP Object Storage
-      -> Notification Service-> MySQL / Kafka
+      <div class="arch-stack">
+        <div class="arch-box">
+          <p class="arch-title">Request Routing — 외부 요청 진입과 인증 전파</p>
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-node-box frontend">Client</div>
+              <div class="arch-node-label">Browser / App</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">HTTPS</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box gateway">Gateway</div>
+              <div class="arch-node-label">JWT / Rate Limit</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">X-User-Id</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box service">Domain Services</div>
+              <div class="arch-node-label">Consul Routing</div>
+            </div>
+          </div>
+        </div>
 
-Infrastructure
-  -> Consul Service Discovery
-  -> Kafka + Kafka Connect + Debezium Outbox
-  -> Redis: Refresh Token, OAuth Code, Lock, Rate Limit, Pub/Sub
-  -> Docker Compose develop/deploy</pre>
+        <div class="arch-box">
+          <p class="arch-title">Realtime Bidding — 입찰 정합성과 실시간 알림</p>
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-node-box frontend">Client</div>
+              <div class="arch-node-label">입찰 요청</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">POST /bids</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box service">Auction Service</div>
+              <div class="arch-node-label">BidCommandService</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">tryLock(5s)</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box redis">Redis Lock</div>
+              <div class="arch-node-label">Redisson Watchdog</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">commit</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box db">MySQL</div>
+              <div class="arch-node-label">Auction / Bid</div>
+            </div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-node-box service">AFTER_COMMIT</div>
+              <div class="arch-node-label">도메인 이벤트</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">publish</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box redis">Redis Pub/Sub</div>
+              <div class="arch-node-label">auction:ws:{id}</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">fan-out</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box ws">WebSocket</div>
+              <div class="arch-node-label">/topic/auctions/{id}</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">100ms debounce</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box frontend">Subscribers</div>
+              <div class="arch-node-label">실시간 현재가</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-box">
+          <p class="arch-title">OAuth Account Linking — 카카오 이메일 권한 없는 연결 플로우</p>
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-node-box frontend">Kakao Login</div>
+              <div class="arch-node-label">providerId only</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">OAuth success</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box service">Auth Service</div>
+              <div class="arch-node-label">provider link 조회</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">create codes</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box redis">Redis</div>
+              <div class="arch-node-label">linkCode / signupCode</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">redirect</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box frontend">/oauth/link</div>
+              <div class="arch-node-label">연결 또는 가입 선택</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">verify password</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box db">auth_provider_link</div>
+              <div class="arch-node-label">providerId 연결</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-box">
+          <p class="arch-title">Gradle Multi-Module Monorepo</p>
+          <div class="module-grid">
+            <div class="module-col">
+              <div class="module-header">Gateway / Auth</div>
+              <div class="module-item">JWT 검증 · 인증 헤더 전파</div>
+              <div class="module-item">자체 로그인 · OAuth 로그인</div>
+              <div class="module-item">Refresh Token · OAuth Code</div>
+            </div>
+            <div class="module-col">
+              <div class="module-header">Product / File</div>
+              <div class="module-item">상품 등록 · 검색 · 상태 관리</div>
+              <div class="module-item">카테고리 · 이미지 메타데이터</div>
+              <div class="module-item">NCP Object Storage 업로드</div>
+            </div>
+            <div class="module-col">
+              <div class="module-header">Auction / Payment</div>
+              <div class="module-item">경매 생성 · 입찰 · 스케줄러</div>
+              <div class="module-item">실시간 WebSocket 알림</div>
+              <div class="module-item">Toss 결제 승인 · 상태 관리</div>
+            </div>
+            <div class="module-col">
+              <div class="module-header">Event / Common</div>
+              <div class="module-item">Kafka · Debezium Outbox</div>
+              <div class="module-item">Notification · Inbox 중복 방어</div>
+              <div class="module-item">library 공통 DTO · 예외 · 로깅</div>
+            </div>
+          </div>
+          <div class="arch-note">
+            MySQL은 서비스별 데이터 저장소로 사용하고, Redis는 refresh token, OAuth 임시 code, 분산 락, rate limit, WebSocket Pub/Sub 브리지에 사용합니다.
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="modules">
@@ -863,6 +1170,15 @@ Infrastructure
             <div class="psr-block"><h4>Result</h4><p>경매 상태와 결제 상태를 독립적으로 표현하고, Toss Payments confirm 및 웹훅 처리 흐름을 명확히 관리할 수 있게 했습니다.</p></div>
           </div>
         </article>
+
+        <article class="deep-card">
+          <div class="deep-top"><h3>Outbox/Inbox 중복 이벤트 처리</h3><span class="deep-tag">Kafka At-least-once</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>Kafka consumer 재시작, retry, offset commit 타이밍에 따라 같은 eventId가 여러 번 소비될 수 있어 중복 사용자 생성이나 중복 패널티 적용 위험이 있었습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>도메인 변경과 OutBoxEvent 저장을 같은 트랜잭션으로 묶고, 소비 측은 Inbox.successEventId로 이미 성공 처리한 이벤트인지 먼저 확인하도록 했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>이벤트 전달은 at-least-once를 전제로 두되, consumer handler를 멱등하게 만들어 중복 이벤트가 와도 도메인 상태가 깨지지 않게 했습니다.</p></div>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -896,6 +1212,9 @@ Infrastructure
         <article class="card"><h3>Docker Compose</h3><p>develop은 로컬 개발 인프라 중심, deploy는 백엔드 서비스와 인프라를 함께 실행하는 단일 서버 배포 구조로 분리했습니다.</p></article>
         <article class="card"><h3>Caddy HTTPS</h3><p>pickbit.co.kr과 api.pickbit.co.kr을 분리하고, Caddy가 HTTPS reverse proxy와 인증서 자동 갱신을 담당합니다.</p></article>
         <article class="card"><h3>Secret 관리</h3><p>DB 비밀번호, OAuth secret, JWT secret, Toss/NCP key는 Git에 포함하지 않고 secret 파일 또는 환경변수로 주입합니다.</p></article>
+        <article class="card"><h3>Redis 의존성 관리</h3><p>Redis는 refresh token, OAuth code, 입찰 락, rate limit, WebSocket Pub/Sub, ShedLock에 사용되므로 기능별 key prefix와 장애 영향 범위를 문서화했습니다.</p></article>
+        <article class="card"><h3>결제 운영 포인트</h3><p>Toss confirm은 서버 저장 금액과 요청 금액을 비교하고, webhook은 signature 검증 후 DONE/CANCELED/EXPIRED 상태만 안전하게 반영합니다.</p></article>
+        <article class="card"><h3>인증 전파 기준</h3><p>Gateway가 JWT를 검증한 뒤 X-User-Id 등 인증 헤더를 downstream으로 전파하고, 각 서비스는 AuthContextHolder로 사용자 컨텍스트를 조회합니다.</p></article>
       </div>
     </section>
 
@@ -905,12 +1224,13 @@ Infrastructure
           <p class="section-kicker">10 / Documentation</p>
           <h2>문서화와 협업</h2>
         </div>
-        <p class="section-desc">프론트 연동 문서와 트러블슈팅 문서를 함께 작성해 API 사용 방식과 도메인 흐름을 명확히 했습니다.</p>
+        <p class="section-desc">문서는 프론트 연동, 엔지니어링 노트, 운영 가이드, 트러블슈팅으로 분리해 목적별로 찾을 수 있게 정리했습니다.</p>
       </div>
-      <div class="grid three">
+      <div class="grid four">
         <article class="card"><h3>Frontend Guides</h3><ul class="list"><li>경매 생성/입찰 흐름</li><li>실시간 WebSocket 구독</li><li>결제 및 거래 단계</li><li>OAuth 계정 연결</li></ul></article>
-        <article class="card"><h3>Engineering Notes</h3><ul class="list"><li>입찰 트래픽 안정성</li><li>WebSocket 수평 확장</li><li>부하 테스트 분석</li><li>Docker 환경 가이드</li></ul></article>
-        <article class="card"><h3>Troubleshooting</h3><ul class="list"><li>OAuth scope 권한 문제</li><li>Kafka/Redis 인프라 경고</li><li>배포 환경변수 누락</li><li>결제/웹훅 연동 이슈</li></ul></article>
+        <article class="card"><h3>Engineering Notes</h3><ul class="list"><li>입찰 트래픽 안정성</li><li>WebSocket 수평 확장</li><li>부하 테스트 분석</li><li>Auth/Payment 설계</li></ul></article>
+        <article class="card"><h3>Operations</h3><ul class="list"><li>Docker develop/deploy 환경</li><li>입찰 부하 테스트 명령어</li><li>시크릿 파일 관리</li><li>환경별 포트 정책</li></ul></article>
+        <article class="card"><h3>Troubleshooting</h3><ul class="list"><li>카카오 OAuth scope 오류</li><li>OAuth redirect URL 설정 누락</li><li>Redis 의존 기능과 장애 영향 범위</li><li>Toss Payments confirm/webhook 처리</li><li>Gateway 인증 헤더 전파</li><li>Outbox/Inbox 중복 이벤트 처리</li><li>WebSocket 실시간 알림 수평 확장</li></ul></article>
       </div>
     </section>
 
@@ -929,6 +1249,7 @@ Infrastructure
             <li>분산 락만으로는 모든 동시성 문제가 해결되지 않아 DB 레벨 방어가 필요하다는 점</li>
             <li>OAuth는 provider 권한과 보안 UX를 함께 설계해야 한다는 점</li>
             <li>도메인별 책임 분리가 결제/거래 같은 후속 흐름을 명확하게 만든다는 점</li>
+            <li>이벤트 기반 구조에서는 중복 수신을 정상 상황으로 보고 멱등성을 설계해야 한다는 점</li>
           </ul>
         </article>
         <article class="card">

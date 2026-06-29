@@ -39,6 +39,11 @@ Pickbit 백엔드 문서는 목적별로 분리합니다.
 - [카카오 KOE205 OAuth scope 오류](troubleshooting/oauth-kakao-scope.md)
 - [OAuth redirect URL 설정 누락](troubleshooting/auth-config-placeholder.md)
 - [경매 동시성 및 실시간 알림 문제](troubleshooting/auction-concurrency.md)
+- [Redis 의존 기능과 장애 영향 범위](troubleshooting/redis-dependencies.md)
+- [Toss Payments Confirm/Webhook 처리](troubleshooting/payment-confirm-webhook.md)
+- [Gateway 인증 헤더 전파 문제](troubleshooting/gateway-auth-propagation.md)
+- [Outbox/Inbox 기반 중복 이벤트 처리](troubleshooting/outbox-inbox-duplicate-event.md)
+- [WebSocket 실시간 알림 수평 확장 문제](troubleshooting/websocket-scale-out.md)
 
 ## Portfolio
 
