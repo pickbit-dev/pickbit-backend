@@ -107,9 +107,14 @@ public class Payment extends BaseEntity {
         this.status = PaymentStatus.ESCROWED;
     }
 
-    public void markReleased(LocalDateTime now) {
+    public void markPurchaseConfirmed(LocalDateTime now) {
         ensureStatus(PaymentStatus.ESCROWED, PaymentStatus.DISPUTED);
         this.confirmedAt = (this.confirmedAt == null) ? now : this.confirmedAt;
+        this.status = PaymentStatus.PURCHASE_CONFIRMED;
+    }
+
+    public void markReleased(LocalDateTime now) {
+        ensureStatus(PaymentStatus.PURCHASE_CONFIRMED);
         this.releasedAt = now;
         this.status = PaymentStatus.RELEASED;
     }

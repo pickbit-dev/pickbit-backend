@@ -2,6 +2,12 @@ spring:
   application:
     name: payment-service
 
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: ${BATCH_JDBC_INITIALIZE_SCHEMA:never}
+
   cloud:
     consul:
       discovery:
@@ -24,3 +30,10 @@ client:
     success-url: ${TOSS_SUCCESS_URL}
     fail-url: ${TOSS_FAIL_URL}
     webhook-secret: ${TOSS_WEBHOOK_SECRET}
+
+payment:
+  settlement-batch:
+    cron: ${SETTLEMENT_BATCH_CRON:0 0/10 * * * *}
+    chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
+    platform-fee-rate: ${SETTLEMENT_PLATFORM_FEE_RATE:0.05}
+    pg-fee-rate: ${SETTLEMENT_PG_FEE_RATE:0.00}

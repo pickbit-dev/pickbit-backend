@@ -45,7 +45,25 @@ public class Settlement extends BaseEntity {
     @Column(columnDefinition = "TEXT", comment = "정산 실패 사유")
     private String failureReason;
 
+    public void applyAmounts(
+            BigDecimal grossAmount,
+            BigDecimal platformFeeAmount,
+            BigDecimal pgFeeAmount,
+            BigDecimal netSellerAmount
+    ) {
+        if (this.status == SettlementStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 정산 금액은 변경할 수 없습니다.");
+        }
+        this.grossAmount = grossAmount;
+        this.platformFeeAmount = platformFeeAmount;
+        this.pgFeeAmount = pgFeeAmount;
+        this.netSellerAmount = netSellerAmount;
+    }
+
     public void markCompleted(LocalDateTime now) {
+        if (this.status == SettlementStatus.COMPLETED) {
+            return;
+        }
         this.status = SettlementStatus.COMPLETED;
         this.settledAt = now;
         this.failureReason = null;

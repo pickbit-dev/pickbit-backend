@@ -19,6 +19,7 @@ Pickbit 백엔드 구현과 연동 과정에서 발생한 문제를 증상, 원�
 ## Payment
 
 - [Toss Payments Confirm/Webhook 처리](payment-confirm-webhook.md)
+- [Spring Batch 정산 멱등성 및 실패 처리](settlement-batch-idempotency.md)
 
 ## Event
 

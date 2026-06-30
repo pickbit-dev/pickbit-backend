@@ -856,6 +856,7 @@
           <span class="badge">Kafka Outbox</span>
           <span class="badge">OAuth Linking</span>
           <span class="badge">Toss Payments</span>
+          <span class="badge">Spring Batch</span>
           <span class="badge">Gatling</span>
         </div>
         <div class="hero-actions">
@@ -1035,7 +1036,7 @@
               <div class="module-header">Auction / Payment</div>
               <div class="module-item">경매 생성 · 입찰 · 스케줄러</div>
               <div class="module-item">실시간 WebSocket 알림</div>
-              <div class="module-item">Toss 결제 승인 · 상태 관리</div>
+              <div class="module-item">Toss 결제 승인 · 정산 배치</div>
             </div>
             <div class="module-col">
               <div class="module-header">Event / Common</div>
@@ -1062,7 +1063,7 @@
         <article class="card"><h3>gateway-service</h3><ul class="list"><li>외부 요청 단일 진입점</li><li>JWT 검증 및 인증 헤더 전파</li><li>Redis 기반 입찰 rate limit</li><li>Consul 기반 라우팅</li></ul></article>
         <article class="card"><h3>auth-service</h3><ul class="list"><li>자체 로그인/OAuth 로그인</li><li>JWT 및 refresh token 관리</li><li>Redis OAuth 임시 code 관리</li><li>OAuth provider link 기반 계정 연결</li></ul></article>
         <article class="card"><h3>auction-service</h3><ul class="list"><li>경매 생성/시작/종료</li><li>입찰 처리 및 동시성 제어</li><li>WebSocket 실시간 알림</li><li>Redis Pub/Sub scale-out</li></ul></article>
-        <article class="card"><h3>payment-service</h3><ul class="list"><li>낙찰 후 결제 생성</li><li>Toss Payments confirm</li><li>웹훅 검증 및 처리</li><li>결제 상태 관리</li></ul></article>
+        <article class="card"><h3>payment-service</h3><ul class="list"><li>낙찰 후 결제 생성</li><li>Toss Payments confirm</li><li>구매확정/정산 상태 분리</li><li>Spring Batch 판매자 정산</li></ul></article>
         <article class="card"><h3>product-service</h3><ul class="list"><li>상품 등록/조회/검색</li><li>카테고리 관리</li><li>상품 상태 전이</li><li>경매 서비스 연동</li></ul></article>
         <article class="card"><h3>file-service</h3><ul class="list"><li>이미지 업로드</li><li>NCP Object Storage 연동</li><li>파일 검증</li><li>업로드 응답 제공</li></ul></article>
         <article class="card"><h3>notification-service</h3><ul class="list"><li>이벤트 기반 알림</li><li>알림 목록 조회</li><li>Kafka Inbox 처리</li><li>중복 이벤트 방어</li></ul></article>
@@ -1078,7 +1079,7 @@
         </div>
       </div>
       <div class="grid three">
-        <article class="card"><h3>Backend</h3><div class="badge-row"><span class="badge">Java 25</span><span class="badge">Spring Boot 4</span><span class="badge">Spring Security</span><span class="badge">Spring Data JPA</span><span class="badge">QueryDSL</span><span class="badge">Spring Cloud Gateway</span></div></article>
+        <article class="card"><h3>Backend</h3><div class="badge-row"><span class="badge">Java 25</span><span class="badge">Spring Boot 4</span><span class="badge">Spring Security</span><span class="badge">Spring Data JPA</span><span class="badge">Spring Batch</span><span class="badge">QueryDSL</span><span class="badge">Spring Cloud Gateway</span></div></article>
         <article class="card"><h3>Data & Messaging</h3><div class="badge-row"><span class="badge">MySQL</span><span class="badge">Redis</span><span class="badge">Redisson</span><span class="badge">Kafka</span><span class="badge">Debezium Outbox</span><span class="badge">Consul</span></div></article>
         <article class="card"><h3>External & Ops</h3><div class="badge-row"><span class="badge">Toss Payments</span><span class="badge">NCP Object Storage</span><span class="badge">Docker Compose</span><span class="badge">Caddy</span><span class="badge">Gatling</span><span class="badge">Testcontainers</span></div></article>
       </div>
@@ -1111,7 +1112,7 @@
         <article class="card"><h3>인증과 계정 연결</h3><p>자체 로그인, OAuth 로그인, JWT, refresh token, OAuth provider link 기반 계정 연결을 제공합니다.</p></article>
         <article class="card"><h3>상품과 경매</h3><p>상품 등록 후 경매를 생성하고, 스케줄러가 경매 시작/종료 상태를 자동 전환합니다.</p></article>
         <article class="card"><h3>입찰과 실시간 알림</h3><p>입찰 정합성은 REST API에서 보장하고, 결과는 WebSocket으로 실시간 전달합니다.</p></article>
-        <article class="card"><h3>결제</h3><p>경매 종료 후 낙찰자에게 결제 대기 항목을 생성하고 Toss Payments 승인 흐름을 처리합니다.</p></article>
+        <article class="card"><h3>결제와 정산</h3><p>경매 종료 후 결제 승인, 구매확정, Spring Batch 기반 판매자 정산 완료까지 상태를 분리해 처리합니다.</p></article>
         <article class="card"><h3>이벤트 처리</h3><p>Kafka, Debezium Outbox, Inbox 패턴으로 서비스 간 이벤트 전달과 중복 처리를 관리합니다.</p></article>
         <article class="card"><h3>운영 환경</h3><p>develop/deploy Docker Compose, Caddy HTTPS, Consul discovery, ELK 로그 분석 환경을 구성했습니다.</p></article>
       </div>
@@ -1172,6 +1173,15 @@
         </article>
 
         <article class="deep-card">
+          <div class="deep-top"><h3>판매자 정산 배치</h3><span class="deep-tag">Spring Batch</span></div>
+          <div class="psr">
+            <div class="psr-block"><h4>Problem</h4><p>구매확정과 정산완료를 같은 시점으로 처리하면 배치 실패, 이벤트 발행 실패, 재처리 기준을 구분하기 어려웠습니다.</p></div>
+            <div class="psr-block"><h4>Solution</h4><p>결제 상태를 ESCROWED → PURCHASE_CONFIRMED → RELEASED로 분리하고, PENDING settlement만 Spring Batch가 처리하도록 구성했습니다.</p></div>
+            <div class="psr-block"><h4>Result</h4><p>구매확정 API는 빠르게 종료하고, 정산 완료와 SETTLED outbox 이벤트는 배치 writer에서 원자적으로 처리할 수 있게 했습니다.</p></div>
+          </div>
+        </article>
+
+        <article class="deep-card">
           <div class="deep-top"><h3>Outbox/Inbox 중복 이벤트 처리</h3><span class="deep-tag">Kafka At-least-once</span></div>
           <div class="psr">
             <div class="psr-block"><h4>Problem</h4><p>Kafka consumer 재시작, retry, offset commit 타이밍에 따라 같은 eventId가 여러 번 소비될 수 있어 중복 사용자 생성이나 중복 패널티 적용 위험이 있었습니다.</p></div>
@@ -1214,6 +1224,7 @@
         <article class="card"><h3>Secret 관리</h3><p>DB 비밀번호, OAuth secret, JWT secret, Toss/NCP key는 Git에 포함하지 않고 secret 파일 또는 환경변수로 주입합니다.</p></article>
         <article class="card"><h3>Redis 의존성 관리</h3><p>Redis는 refresh token, OAuth code, 입찰 락, rate limit, WebSocket Pub/Sub, ShedLock에 사용되므로 기능별 key prefix와 장애 영향 범위를 문서화했습니다.</p></article>
         <article class="card"><h3>결제 운영 포인트</h3><p>Toss confirm은 서버 저장 금액과 요청 금액을 비교하고, webhook은 signature 검증 후 DONE/CANCELED/EXPIRED 상태만 안전하게 반영합니다.</p></article>
+        <article class="card"><h3>정산 배치 운영</h3><p>Spring Batch는 PENDING settlement만 처리하고, 실패 건은 FAILED로 남겨 원인 확인 후 별도 재처리 대상으로 관리합니다.</p></article>
         <article class="card"><h3>인증 전파 기준</h3><p>Gateway가 JWT를 검증한 뒤 X-User-Id 등 인증 헤더를 downstream으로 전파하고, 각 서비스는 AuthContextHolder로 사용자 컨텍스트를 조회합니다.</p></article>
       </div>
     </section>
@@ -1228,9 +1239,9 @@
       </div>
       <div class="grid four">
         <article class="card"><h3>Frontend Guides</h3><ul class="list"><li>경매 생성/입찰 흐름</li><li>실시간 WebSocket 구독</li><li>결제 및 거래 단계</li><li>OAuth 계정 연결</li></ul></article>
-        <article class="card"><h3>Engineering Notes</h3><ul class="list"><li>입찰 트래픽 안정성</li><li>WebSocket 수평 확장</li><li>부하 테스트 분석</li><li>Auth/Payment 설계</li></ul></article>
+        <article class="card"><h3>Engineering Notes</h3><ul class="list"><li>입찰 트래픽 안정성</li><li>WebSocket 수평 확장</li><li>부하 테스트 분석</li><li>Auth/Payment 설계</li><li>판매자 정산 배치 설계</li></ul></article>
         <article class="card"><h3>Operations</h3><ul class="list"><li>Docker develop/deploy 환경</li><li>입찰 부하 테스트 명령어</li><li>시크릿 파일 관리</li><li>환경별 포트 정책</li></ul></article>
-        <article class="card"><h3>Troubleshooting</h3><ul class="list"><li>카카오 OAuth scope 오류</li><li>OAuth redirect URL 설정 누락</li><li>Redis 의존 기능과 장애 영향 범위</li><li>Toss Payments confirm/webhook 처리</li><li>Gateway 인증 헤더 전파</li><li>Outbox/Inbox 중복 이벤트 처리</li><li>WebSocket 실시간 알림 수평 확장</li></ul></article>
+        <article class="card"><h3>Troubleshooting</h3><ul class="list"><li>카카오 OAuth scope 오류</li><li>OAuth redirect URL 설정 누락</li><li>Redis 의존 기능과 장애 영향 범위</li><li>Toss Payments confirm/webhook 처리</li><li>Spring Batch 정산 멱등성</li><li>Gateway 인증 헤더 전파</li><li>Outbox/Inbox 중복 이벤트 처리</li><li>WebSocket 실시간 알림 수평 확장</li></ul></article>
       </div>
     </section>
 

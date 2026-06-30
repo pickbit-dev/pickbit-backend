@@ -204,7 +204,7 @@ class PaymentCommandServiceTest {
     }
 
     @Test
-    @DisplayName("구매확정 성공: ESCROWED → RELEASED, 정산 생성, SETTLED outbox 발행")
+    @DisplayName("구매확정 성공: ESCROWED → PURCHASE_CONFIRMED, PENDING 정산 생성")
     void confirmPurchase_success() {
         payment.markPgPending(PAYMENT_KEY);
         payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 7);
@@ -215,11 +215,12 @@ class PaymentCommandServiceTest {
 
         paymentCommandService.confirmPurchase(BUYER_ID, payment.getId());
 
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.RELEASED);
-        assertThat(payment.getReleasedAt()).isNotNull();
-        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.COMPLETED);
-        assertThat(settlement.getSettledAt()).isNotNull();
-        verify(outboxRecorder).paymentSettledEvent(payment, settlement);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PURCHASE_CONFIRMED);
+        assertThat(payment.getConfirmedAt()).isNotNull();
+        assertThat(payment.getReleasedAt()).isNull();
+        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.PENDING);
+        assertThat(settlement.getSettledAt()).isNull();
+        verifyNoInteractions(outboxRecorder);
     }
 
     @Test
@@ -227,6 +228,7 @@ class PaymentCommandServiceTest {
     void confirmPurchase_alreadyReleased() {
         payment.markPgPending(PAYMENT_KEY);
         payment.markEscrowed(PAYMENT_KEY, LocalDateTime.now(), 7);
+        payment.markPurchaseConfirmed(LocalDateTime.now());
         payment.markReleased(LocalDateTime.now());
         given(paymentRepository.findByIdForUpdate(payment.getId())).willReturn(Optional.of(payment));
 

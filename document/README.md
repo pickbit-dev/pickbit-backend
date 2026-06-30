@@ -22,6 +22,7 @@ Pickbit 백엔드 문서는 목적별로 분리합니다.
 - [Gatling 부하 테스트 실행 가이드](engineering/load-test-guide.md)
 - [Auth Service 설계](engineering/auth-service-design.md)
 - [결제 및 거래 단계 설계](engineering/payment-trade-design.md)
+- [판매자 정산 배치 설계](engineering/settlement-batch-design.md)
 - [공통 라이브러리 개발 가이드](engineering/library-development.md)
 
 ## Operations
@@ -41,6 +42,7 @@ Pickbit 백엔드 문서는 목적별로 분리합니다.
 - [경매 동시성 및 실시간 알림 문제](troubleshooting/auction-concurrency.md)
 - [Redis 의존 기능과 장애 영향 범위](troubleshooting/redis-dependencies.md)
 - [Toss Payments Confirm/Webhook 처리](troubleshooting/payment-confirm-webhook.md)
+- [Spring Batch 정산 멱등성 및 실패 처리](troubleshooting/settlement-batch-idempotency.md)
 - [Gateway 인증 헤더 전파 문제](troubleshooting/gateway-auth-propagation.md)
 - [Outbox/Inbox 기반 중복 이벤트 처리](troubleshooting/outbox-inbox-duplicate-event.md)
 - [WebSocket 실시간 알림 수평 확장 문제](troubleshooting/websocket-scale-out.md)

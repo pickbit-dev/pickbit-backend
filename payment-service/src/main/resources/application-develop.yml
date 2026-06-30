@@ -47,6 +47,11 @@ payment:
     cron: "0 * * * * *"
   confirm-scheduler:
     cron: "0 * * * * *"
+  settlement-batch:
+    cron: "0 */10 * * * *"
+    chunk-size: 100
+    platform-fee-rate: 0.05
+    pg-fee-rate: 0.00
 
 client:
   toss-payments:

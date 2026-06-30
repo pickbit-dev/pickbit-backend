@@ -92,14 +92,14 @@ public class PaymentCommandService {
                 .orElseThrow(() -> new PaymentNotFoundException(paymentId));
         ensureBuyer(payment, buyerUserId);
 
-        if (payment.getStatus() == PaymentStatus.RELEASED) {
+        if (payment.getStatus() == PaymentStatus.PURCHASE_CONFIRMED || payment.getStatus() == PaymentStatus.RELEASED) {
             return PaymentDetailResponse.from(payment);
         }
         if (payment.getStatus() != PaymentStatus.ESCROWED) {
             throw new InvalidPaymentStatusException("결제 완료 상태에서만 구매확정할 수 있습니다. status=" + payment.getStatus());
         }
 
-        releasePayment(payment, LocalDateTime.now());
+        confirmPurchaseAndCreatePendingSettlement(payment, LocalDateTime.now());
         return PaymentDetailResponse.from(payment);
     }
 
@@ -113,7 +113,7 @@ public class PaymentCommandService {
         if (payment.getConfirmDeadlineAt() == null || payment.getConfirmDeadlineAt().isAfter(now)) {
             return false;
         }
-        releasePayment(payment, now);
+        confirmPurchaseAndCreatePendingSettlement(payment, now);
         return true;
     }
 
@@ -154,15 +154,13 @@ public class PaymentCommandService {
         }
     }
 
-    private void releasePayment(Payment payment, LocalDateTime now) {
-        payment.markReleased(now);
-        Settlement settlement = settlementRepository.findByPaymentId(payment.getId())
-                .orElseGet(() -> createSettlement(payment));
-        settlement.markCompleted(now);
-        outboxRecorder.paymentSettledEvent(payment, settlement);
+    private void confirmPurchaseAndCreatePendingSettlement(Payment payment, LocalDateTime now) {
+        payment.markPurchaseConfirmed(now);
+        settlementRepository.findByPaymentId(payment.getId())
+                .orElseGet(() -> createPendingSettlement(payment));
     }
 
-    private Settlement createSettlement(Payment payment) {
+    private Settlement createPendingSettlement(Payment payment) {
         Settlement settlement = Settlement.builder()
                 .paymentId(payment.getId())
                 .grossAmount(payment.getAmount())

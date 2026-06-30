@@ -47,6 +47,11 @@ payment:
     cron: "0 * * * * *"
   confirm-scheduler:
     cron: "0 * * * * *"
+  settlement-batch:
+    cron: ${SETTLEMENT_BATCH_CRON:0 */10 * * * *}
+    chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
+    platform-fee-rate: ${SETTLEMENT_PLATFORM_FEE_RATE:0.05}
+    pg-fee-rate: ${SETTLEMENT_PG_FEE_RATE:0.00}
 
 client:
   toss-payments:
