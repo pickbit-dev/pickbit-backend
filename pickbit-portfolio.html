@@ -858,13 +858,13 @@
         </div>
         <div class="info-card">
           <div class="info-card-label">아키텍처</div>
-          <div class="info-card-value">마이크로서비스 (도메인 서비스 + 공유 라이브러리)</div>
-          <div class="info-card-sub">Product · Auction · Payment · File + Library 모듈</div>
+          <div class="info-card-value">마이크로서비스 (8개 서비스 + 공유 라이브러리)</div>
+          <div class="info-card-sub">Auth · User · Product · Auction · Payment · Notification · File · Gateway</div>
         </div>
         <div class="info-card">
           <div class="info-card-label">서비스 간 통신</div>
-          <div class="info-card-value">REST (Spring RestClient)</div>
-          <div class="info-card-sub">경매 생성 시 Product Service로 상품 유효성 검증</div>
+          <div class="info-card-value">REST + Kafka Outbox/Inbox</div>
+          <div class="info-card-sub">동기 검증은 REST, 상태 전파는 이벤트 기반 최종 일관성</div>
         </div>
       </div>
     </div>
@@ -1072,6 +1072,13 @@
       <div class="arch-title">Gradle Multi-Module Monorepo</div>
       <div class="module-grid">
         <div class="module-col">
+          <div class="module-header" style="background:#1f2937;">Auth / User</div>
+          <div class="module-item">자체 로그인 · OAuth 계정 연결</div>
+          <div class="module-item">JWT · Refresh Token</div>
+          <div class="module-item">프로필 · 신뢰도 점수</div>
+          <div class="module-item">UserPenalty 이력</div>
+        </div>
+        <div class="module-col">
           <div class="module-header" style="background:#4a6cf7;">Product Service</div>
           <div class="module-item">상품 CRUD · 카테고리 관리</div>
           <div class="module-item">QueryDSL 동적 검색</div>
@@ -1098,6 +1105,13 @@
           <div class="module-item">NCP Object Storage</div>
           <div class="module-item">AWS S3 호환 레이어</div>
           <div class="module-item">파일 검증 · 에러 처리</div>
+        </div>
+        <div class="module-col">
+          <div class="module-header" style="background:#d97706;">Notification Service</div>
+          <div class="module-item">Kafka 이벤트 기반 알림 생성</div>
+          <div class="module-item">알림 목록 · 읽음 처리</div>
+          <div class="module-item">Inbox 중복 이벤트 방어</div>
+          <div class="module-item">AUCTION/PAYMENT/PRODUCT 대상 연결</div>
         </div>
       </div>
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--white); border-radius: 6px; border: 1.5px solid var(--border); font-size: 0.75rem; color: var(--text-light); text-align: center; line-height: 1.7;">
@@ -1390,6 +1404,35 @@
     <div class="domain-grid">
 
       <div class="domain-card">
+        <div class="domain-card-name">AuthAccount / ProviderLink</div>
+        <ul class="domain-field-list">
+          <li><span class="field-name">email / nickname</span><span class="field-type">String unique</span></li>
+          <li><span class="field-name">password</span><span class="field-type">BCrypt</span></li>
+          <li><span class="field-name">role / enabled</span><span class="field-type">Enum / Boolean</span></li>
+          <li><span class="field-name">lastLoginAt</span><span class="field-type">LocalDateTime</span></li>
+          <li><span class="field-name">provider / providerId</span><span class="field-type">OAuth Link</span></li>
+        </ul>
+        <div class="domain-note">
+          Provider: LOCAL · KAKAO · GOOGLE · NAVER / Role: USER · ADMIN
+        </div>
+      </div>
+
+      <div class="domain-card">
+        <div class="domain-card-name">User / UserPenalty</div>
+        <ul class="domain-field-list">
+          <li><span class="field-name">accountId</span><span class="field-type">Long unique</span></li>
+          <li><span class="field-name">nickname / email</span><span class="field-type">String</span></li>
+          <li><span class="field-name">profileImageUrl</span><span class="field-type">String</span></li>
+          <li><span class="field-name">provider / role</span><span class="field-type">String</span></li>
+          <li><span class="field-name">trustScore</span><span class="field-type">0~100</span></li>
+          <li><span class="field-name">penalty reason</span><span class="field-type">Enum</span></li>
+        </ul>
+        <div class="domain-note">
+          패널티: PAYMENT_CANCELLED_BEFORE_PAYMENT · PAYMENT_FAILED_NO_PAYMENT
+        </div>
+      </div>
+
+      <div class="domain-card">
         <div class="domain-card-name">Auction (경매)</div>
         <ul class="domain-field-list">
           <li><span class="field-name">id</span><span class="field-type">Long PK</span></li>
@@ -1424,7 +1467,7 @@
           <li><span class="field-name">bidStatus</span><span class="field-type">Enum</span></li>
         </ul>
         <div class="domain-note">
-          상태: WINNING (현재 최고가) / OUTBID (갱신됨)
+          상태: ACTIVE · OUTBID · WINNING
         </div>
       </div>
 
@@ -1443,7 +1486,7 @@
           <li><span class="field-name">images</span><span class="field-type">List&lt;ProductImage&gt;</span></li>
         </ul>
         <div class="domain-note">
-          상태: ACTIVE · AUCTION_COMPLETED · RESERVED · DELETED
+          상태: ACTIVE → AUCTION_SCHEDULED → IN_AUCTION → AUCTION_COMPLETED → TRADE_IN_PROGRESS → SOLD / INACTIVE / DELETED
         </div>
       </div>
 
@@ -1480,6 +1523,21 @@
       </div>
 
       <div class="domain-card">
+        <div class="domain-card-name">Notification / Inbox / Outbox</div>
+        <ul class="domain-field-list">
+          <li><span class="field-name">recipientUserId</span><span class="field-type">Long</span></li>
+          <li><span class="field-name">type</span><span class="field-type">Enum</span></li>
+          <li><span class="field-name">title / message</span><span class="field-type">String</span></li>
+          <li><span class="field-name">targetType / targetId</span><span class="field-type">Enum / Long</span></li>
+          <li><span class="field-name">readAt</span><span class="field-type">Nullable Time</span></li>
+          <li><span class="field-name">eventId / successEventId</span><span class="field-type">Inbox key</span></li>
+        </ul>
+        <div class="domain-note">
+          타입: AUCTION_WON · PAYMENT_ESCROWED · PAYMENT_REFUNDED · PAYMENT_FAILED_NO_PAYMENT · PAYMENT_CANCELLED_BEFORE_PAYMENT
+        </div>
+      </div>
+
+      <div class="domain-card">
         <div class="domain-card-name">Category (카테고리)</div>
         <ul class="domain-field-list">
           <li><span class="field-name">id</span><span class="field-type">Long PK</span></li>
@@ -1505,6 +1563,86 @@
     <h2 class="section-title">API 명세</h2>
     <div class="section-divider"></div>
 
+    <!-- Auth / User Service -->
+    <div class="api-service">
+      <div class="api-service-name">
+        Auth / User Service
+        <span class="api-service-port">:8081 · :8087</span>
+      </div>
+      <table class="api-table">
+        <thead>
+          <tr><th>Method</th><th>Endpoint</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/signup</td>
+            <td>로컬 회원가입</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/login</td>
+            <td>이메일/비밀번호 로그인 및 토큰 발급</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/refresh</td>
+            <td>refresh token 기반 토큰 재발급</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/logout</td>
+            <td>refresh token 무효화 및 로그아웃</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/auth/oauth/signup-context</td>
+            <td>OAuth 회원가입 임시 context 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/auth/oauth/link-context</td>
+            <td>OAuth 계정 연결 임시 context 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/oauth/signup</td>
+            <td>OAuth context 기반 신규 가입</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/oauth/link</td>
+            <td>기존 계정에 OAuth provider 연결</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/oauth/exchange</td>
+            <td>OAuth 임시 code를 서비스 토큰으로 교환</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auth/validate</td>
+            <td>Gateway용 access token 검증</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/users/me</td>
+            <td>현재 로그인 사용자 프로필 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/users/me</td>
+            <td>닉네임/프로필 이미지 수정</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/users/{accountId}</td>
+            <td>계정 ID 기준 사용자 공개 정보 조회</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Product Service -->
     <div class="api-service">
       <div class="api-service-name">
@@ -1518,48 +1656,88 @@
         <tbody>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/products</td>
+            <td class="api-path">/api/products</td>
             <td>상품 검색 (QueryDSL 동적 필터 + 페이지네이션)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/products/{id}</td>
+            <td class="api-path">/api/products/me/selling</td>
+            <td>내 판매 상품 목록 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/products/{id}</td>
             <td>상품 상세 조회</td>
           </tr>
           <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/products</td>
+            <td class="api-path">/api/products</td>
             <td>상품 등록</td>
           </tr>
           <tr>
             <td><span class="method-badge method-patch">PATCH</span></td>
-            <td class="api-path">/products/{id}</td>
+            <td class="api-path">/api/products/{id}</td>
             <td>상품 수정</td>
           </tr>
           <tr>
             <td><span class="method-badge method-delete">DELETE</span></td>
-            <td class="api-path">/products/{id}</td>
+            <td class="api-path">/api/products/{id}</td>
             <td>상품 삭제</td>
           </tr>
           <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/products/ai/listing-suggestion</td>
+            <td>AI 기반 상품 등록 문구/카테고리 추천</td>
+          </tr>
+          <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/categories</td>
+            <td class="api-path">/api/categories</td>
             <td>활성 카테고리 목록</td>
           </tr>
           <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/categories/all</td>
+            <td>비활성 포함 전체 카테고리 목록</td>
+          </tr>
+          <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/categories</td>
+            <td class="api-path">/api/categories</td>
             <td>카테고리 생성</td>
           </tr>
           <tr>
-            <td><span class="method-badge method-patch">PATCH</span></td>
-            <td class="api-path">/categories/{id}/active</td>
-            <td>카테고리 활성화/비활성화</td>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/categories/{id}</td>
+            <td>카테고리 단건 조회</td>
           </tr>
           <tr>
             <td><span class="method-badge method-patch">PATCH</span></td>
-            <td class="api-path">/internal/products/{id}/status</td>
+            <td class="api-path">/api/categories/{id}</td>
+            <td>카테고리명/정렬 순서 수정</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/categories/{id}/active</td>
+            <td>카테고리 활성화/비활성화</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/internal/products/{id}</td>
+            <td>상품 상세 내부 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/internal/products/{id}/status</td>
             <td>상품 상태 변경 (내부 API)</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/internal/products/{id}/auction-reservation</td>
+            <td>경매 생성 전 상품 예약 상태 전이</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/internal/products/{id}/auction-reservation/release</td>
+            <td>경매 취소/실패 시 상품 예약 해제</td>
           </tr>
         </tbody>
       </table>
@@ -1578,33 +1756,58 @@
         <tbody>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/auctions</td>
+            <td class="api-path">/api/auctions</td>
             <td>경매 목록 조회 (상태 필터)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/auctions/{id}</td>
+            <td class="api-path">/api/auctions/{auctionId}</td>
             <td>경매 상세 조회</td>
           </tr>
           <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/auctions/products/{productId}</td>
+            <td>상품 ID 기준 최신 경매 조회</td>
+          </tr>
+          <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/auctions</td>
+            <td class="api-path">/api/auctions</td>
             <td>경매 생성 (상품 유효성 검증 포함)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-delete">DELETE</span></td>
-            <td class="api-path">/auctions/{id}</td>
+            <td class="api-path">/api/auctions/{auctionId}</td>
             <td>경매 취소 (SCHEDULED만 가능)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/auctions/{id}/bids</td>
+            <td class="api-path">/api/auctions/{auctionId}/award-current</td>
+            <td>현재 최고 입찰자 조기 낙찰</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/auctions/{auctionId}/bids</td>
             <td>입찰 (분산 락 적용)</td>
           </tr>
           <tr>
             <td><span class="method-badge method-get">GET</span></td>
-            <td class="api-path">/auctions/{id}/bids</td>
+            <td class="api-path">/api/auctions/{auctionId}/bids</td>
             <td>입찰 이력 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/auctions/{auctionId}/bids/timeline</td>
+            <td>입찰 이력 최신순 타임라인 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/auctions/{auctionId}/events</td>
+            <td>재연결/초기 진입용 경매 이벤트 replay</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/internal/auctions/products/{productId}/scheduled</td>
+            <td>결제/상품 서비스용 예정 경매 내부 조회</td>
           </tr>
         </tbody>
       </table>
@@ -1634,7 +1837,7 @@
     <div class="api-service">
       <div class="api-service-name">
         WebSocket (STOMP)
-        <span class="api-service-port">:8085/ws</span>
+        <span class="api-service-port">:8085 · /api/auctions/ws</span>
       </div>
       <table class="api-table">
         <thead>
@@ -1645,6 +1848,36 @@
             <td><span class="method-badge" style="background:rgba(217,119,6,0.1); color:#92400e;">SUB</span></td>
             <td class="api-path">/topic/auctions/{auctionId}</td>
             <td>경매별 실시간 입찰 알림 구독</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Notification Service -->
+    <div class="api-service">
+      <div class="api-service-name">
+        Notification Service
+        <span class="api-service-port">:8088</span>
+      </div>
+      <table class="api-table">
+        <thead>
+          <tr><th>Method</th><th>Endpoint</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/notifications/me</td>
+            <td>내 알림 목록 페이징 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/notifications/{notificationId}/read</td>
+            <td>특정 알림 읽음 처리</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-patch">PATCH</span></td>
+            <td class="api-path">/api/notifications/read-all</td>
+            <td>내 모든 미읽음 알림 읽음 처리</td>
           </tr>
         </tbody>
       </table>
@@ -1662,18 +1895,43 @@
         </thead>
         <tbody>
           <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/payments/me</td>
+            <td>내 결제 목록 조회 (REQUIRED/HISTORY)</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/payments/{paymentId}</td>
+            <td>결제 상세 조회</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td class="api-path">/api/payments/{paymentId}/request-info</td>
+            <td>PG 결제창 요청 정보 조회</td>
+          </tr>
+          <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/payments/confirm</td>
+            <td class="api-path">/api/payments/confirm</td>
             <td>Toss Payments 결제 승인 및 ESCROWED 상태 전이</td>
           </tr>
           <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/payments/{id}/purchase-confirm</td>
+            <td class="api-path">/api/payments/{paymentId}/confirm-purchase</td>
             <td>구매확정 처리 및 PENDING 정산 row 생성</td>
           </tr>
           <tr>
             <td><span class="method-badge method-post">POST</span></td>
-            <td class="api-path">/payments/webhook/toss</td>
+            <td class="api-path">/api/payments/{paymentId}/refund</td>
+            <td>ESCROWED 결제 환불</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/payments/{paymentId}/cancel-before-pay</td>
+            <td>결제 전 낙찰 포기</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/api/payments/webhook/toss</td>
             <td>Toss webhook signature 검증 및 결제 상태 반영</td>
           </tr>
         </tbody>

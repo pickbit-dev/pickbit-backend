@@ -844,9 +844,9 @@
         <h1>Pickbit</h1>
         <p class="hero-subtitle">실시간 경매 기반 중고거래 플랫폼 백엔드</p>
         <p class="hero-desc">
-          Pickbit은 상품 등록, 실시간 경매, 낙찰 후 결제까지 이어지는 중고거래 플랫폼 백엔드입니다.
+          Pickbit은 상품 등록, 실시간 경매, 낙찰 후 결제, 구매확정, 판매자 정산까지 이어지는 중고거래 플랫폼 백엔드입니다.
           Spring Boot 멀티모듈 구조로 도메인 서비스를 분리하고 Redis, Kafka, Consul, WebSocket 기반 인프라를 활용해
-          경매 시스템의 정합성과 실시간성을 함께 다뤘습니다.
+          경매 시스템의 정합성, 실시간성, 결제 이후 상태 전이를 함께 다뤘습니다.
         </p>
         <div class="badge-row">
           <span class="badge">Spring Boot 4</span>
@@ -869,8 +869,8 @@
         <p class="panel-title">System Snapshot</p>
         <div class="architecture-mini">
           <div class="node highlight"><strong>Client / Frontend</strong><span>pickbit.co.kr</span></div>
-          <div class="node"><strong>Caddy + Gateway</strong><span>HTTPS / JWT / Rate Limit</span></div>
-          <div class="node"><strong>Domain Services</strong><span>Auth · User · Product · Auction · Payment</span></div>
+          <div class="node"><strong>Gateway</strong><span>JWT / Rate Limit / Routing</span></div>
+          <div class="node"><strong>Domain Services</strong><span>Auth · User · Product · Auction · Payment · Notification · File</span></div>
           <div class="node"><strong>Event & Realtime</strong><span>Kafka · Redis Pub/Sub · WebSocket</span></div>
           <div class="node"><strong>Storage</strong><span>MySQL · Redis · Object Storage</span></div>
         </div>
@@ -905,7 +905,7 @@
         </article>
         <article class="card">
           <h3>운영 관점 설계</h3>
-          <p>Docker Compose, Caddy, Consul, Redis, Kafka, ELK 기반으로 개발/배포 환경을 분리했습니다.</p>
+          <p>Docker Compose, Consul, Redis, Kafka, ELK 기반으로 개발/배포 환경을 분리했습니다.</p>
         </article>
       </div>
     </section>
@@ -1018,6 +1018,39 @@
         </div>
 
         <div class="arch-box">
+          <p class="arch-title">Settlement Batch — 구매확정 이후 판매자 정산</p>
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-node-box frontend">Buyer</div>
+              <div class="arch-node-label">구매확정</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">confirm purchase</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box service">Payment</div>
+              <div class="arch-node-label">PURCHASE_CONFIRMED</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">create</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box db">Settlement</div>
+              <div class="arch-node-label">PENDING</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">chunk</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box service">Spring Batch</div>
+              <div class="arch-node-label">fee calculation</div>
+            </div>
+            <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-text">commit</div></div>
+            <div class="arch-node">
+              <div class="arch-node-box kafka">Outbox</div>
+              <div class="arch-node-label">SETTLED event</div>
+            </div>
+          </div>
+          <div class="arch-note">
+            결제 상태는 ESCROWED → PURCHASE_CONFIRMED → RELEASED로 분리하고, 정산 실패 건은 FAILED로 남겨 재처리 기준을 명확히 했습니다.
+          </div>
+        </div>
+
+        <div class="arch-box">
           <p class="arch-title">Gradle Multi-Module Monorepo</p>
           <div class="module-grid">
             <div class="module-col">
@@ -1079,9 +1112,9 @@
         </div>
       </div>
       <div class="grid three">
-        <article class="card"><h3>Backend</h3><div class="badge-row"><span class="badge">Java 25</span><span class="badge">Spring Boot 4</span><span class="badge">Spring Security</span><span class="badge">Spring Data JPA</span><span class="badge">Spring Batch</span><span class="badge">QueryDSL</span><span class="badge">Spring Cloud Gateway</span></div></article>
+        <article class="card"><h3>Backend</h3><div class="badge-row"><span class="badge">Java 25</span><span class="badge">Spring Boot 4</span><span class="badge">Spring Security</span><span class="badge">Spring Data JPA</span><span class="badge">Spring Batch</span><span class="badge">Spring Batch JDBC</span><span class="badge">QueryDSL</span><span class="badge">Spring Cloud Gateway</span></div></article>
         <article class="card"><h3>Data & Messaging</h3><div class="badge-row"><span class="badge">MySQL</span><span class="badge">Redis</span><span class="badge">Redisson</span><span class="badge">Kafka</span><span class="badge">Debezium Outbox</span><span class="badge">Consul</span></div></article>
-        <article class="card"><h3>External & Ops</h3><div class="badge-row"><span class="badge">Toss Payments</span><span class="badge">NCP Object Storage</span><span class="badge">Docker Compose</span><span class="badge">Caddy</span><span class="badge">Gatling</span><span class="badge">Testcontainers</span></div></article>
+        <article class="card"><h3>External & Ops</h3><div class="badge-row"><span class="badge">Toss Payments</span><span class="badge">NCP Object Storage</span><span class="badge">Docker Compose</span><span class="badge">Gatling</span><span class="badge">Testcontainers</span></div></article>
       </div>
     </section>
 
@@ -1089,7 +1122,7 @@
       <div class="section-head">
         <div>
           <p class="section-kicker">05 / Main Flow</p>
-          <h2>상품 등록부터 결제까지</h2>
+          <h2>상품 등록부터 정산 완료까지</h2>
         </div>
       </div>
       <div class="flow">
@@ -1098,6 +1131,7 @@
         <div class="flow-step"><em>3</em><strong>경매 생성</strong><span>판매자가 ACTIVE 상품으로 경매를 생성</span></div>
         <div class="flow-step"><em>4</em><strong>실시간 입찰</strong><span>REST 입찰 처리 후 WebSocket으로 현재가 전파</span></div>
         <div class="flow-step"><em>5</em><strong>낙찰 후 결제</strong><span>payment-service가 결제 요청/승인/상태 관리</span></div>
+        <div class="flow-step"><em>6</em><strong>구매확정 · 정산</strong><span>Spring Batch가 PENDING settlement를 처리하고 SETTLED 이벤트 저장</span></div>
       </div>
     </section>
 
@@ -1114,7 +1148,7 @@
         <article class="card"><h3>입찰과 실시간 알림</h3><p>입찰 정합성은 REST API에서 보장하고, 결과는 WebSocket으로 실시간 전달합니다.</p></article>
         <article class="card"><h3>결제와 정산</h3><p>경매 종료 후 결제 승인, 구매확정, Spring Batch 기반 판매자 정산 완료까지 상태를 분리해 처리합니다.</p></article>
         <article class="card"><h3>이벤트 처리</h3><p>Kafka, Debezium Outbox, Inbox 패턴으로 서비스 간 이벤트 전달과 중복 처리를 관리합니다.</p></article>
-        <article class="card"><h3>운영 환경</h3><p>develop/deploy Docker Compose, Caddy HTTPS, Consul discovery, ELK 로그 분석 환경을 구성했습니다.</p></article>
+        <article class="card"><h3>운영 환경</h3><p>develop/deploy Docker Compose, Consul discovery, ELK 로그 분석 환경을 구성했습니다.</p></article>
       </div>
     </section>
 
@@ -1220,7 +1254,7 @@
       </div>
       <div class="grid three">
         <article class="card"><h3>Docker Compose</h3><p>develop은 로컬 개발 인프라 중심, deploy는 백엔드 서비스와 인프라를 함께 실행하는 단일 서버 배포 구조로 분리했습니다.</p></article>
-        <article class="card"><h3>Caddy HTTPS</h3><p>pickbit.co.kr과 api.pickbit.co.kr을 분리하고, Caddy가 HTTPS reverse proxy와 인증서 자동 갱신을 담당합니다.</p></article>
+        <article class="card"><h3>Gateway Routing</h3><p>Gateway가 외부 API 진입점으로 JWT 검증, rate limit, downstream 인증 헤더 전파를 담당합니다.</p></article>
         <article class="card"><h3>Secret 관리</h3><p>DB 비밀번호, OAuth secret, JWT secret, Toss/NCP key는 Git에 포함하지 않고 secret 파일 또는 환경변수로 주입합니다.</p></article>
         <article class="card"><h3>Redis 의존성 관리</h3><p>Redis는 refresh token, OAuth code, 입찰 락, rate limit, WebSocket Pub/Sub, ShedLock에 사용되므로 기능별 key prefix와 장애 영향 범위를 문서화했습니다.</p></article>
         <article class="card"><h3>결제 운영 포인트</h3><p>Toss confirm은 서버 저장 금액과 요청 금액을 비교하고, webhook은 signature 검증 후 DONE/CANCELED/EXPIRED 상태만 안전하게 반영합니다.</p></article>
@@ -1266,7 +1300,7 @@
         <article class="card">
           <h3>Future Improvements</h3>
           <ul class="list">
-            <li>결제 이후 배송/구매확정/분쟁 처리까지 trade 도메인 고도화</li>
+            <li>결제 이후 배송/분쟁 처리까지 trade 도메인 고도화</li>
             <li>알림 영속성이 필요해질 경우 RabbitMQ STOMP relay 또는 메시지 백로그 구조 검토</li>
             <li>OAuth provider 확장과 카카오 account_email 권한 확보 후 자동 연결 UX 개선</li>
             <li>운영 모니터링 대시보드와 관리자 기능 추가</li>
