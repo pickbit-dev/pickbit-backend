@@ -800,7 +800,7 @@
     <h1 class="hero-name">PickBit</h1>
     <p class="hero-title">경매 전용 C2C 마켓플레이스</p>
     <p class="hero-desc">
-      실시간 입찰, 분산 락 동시성 제어, WebSocket 라이브 알림을 갖춘<br/>
+      실시간 입찰, 결제, 구매확정, 판매자 정산까지 연결되는<br/>
       마이크로서비스 기반 경매 전용 마켓플레이스 백엔드 시스템
     </p>
     <div class="hero-links">
@@ -835,12 +835,13 @@
         </p>
         <p>
           다수의 사용자가 동시에 입찰하는 상황에서의 데이터 정합성을 핵심 과제로 설정하고,
-          Redis 분산 락을 통한 동시성 제어와 WebSocket(STOMP)을 통한 실시간 입찰 현황 전달을
-          중점적으로 설계했습니다.
+          Redis 분산 락을 통한 동시성 제어와 WebSocket(STOMP)을 통한 실시간 입찰 현황 전달,
+          낙찰 이후 결제/구매확정/정산까지 이어지는 거래 흐름을 중점적으로 설계했습니다.
         </p>
         <p>
           Gradle 멀티모듈 모노레포 구조로 서비스 간 코드를 공유하면서도
-          각 서비스가 독립적으로 빌드·배포 가능하도록 설계했습니다.
+          각 서비스가 독립적으로 빌드·배포 가능하도록 설계했습니다. 결제 도메인은 구매확정과
+          판매자 정산완료를 분리하고, Spring Batch 기반 배치로 정산 완료 이벤트를 안정적으로 발행하도록 구성했습니다.
         </p>
       </div>
 
@@ -857,8 +858,8 @@
         </div>
         <div class="info-card">
           <div class="info-card-label">아키텍처</div>
-          <div class="info-card-value">마이크로서비스 (3 서비스 + 공유 라이브러리)</div>
-          <div class="info-card-sub">Product · Auction · File + Library 모듈</div>
+          <div class="info-card-value">마이크로서비스 (도메인 서비스 + 공유 라이브러리)</div>
+          <div class="info-card-sub">Product · Auction · Payment · File + Library 모듈</div>
         </div>
         <div class="info-card">
           <div class="info-card-label">서비스 간 통신</div>
@@ -889,6 +890,7 @@
         <div class="chip-group">
           <span class="chip primary">Spring Boot 4.0</span>
           <span class="chip primary">Spring Data JPA</span>
+          <span class="chip primary">Spring Batch</span>
           <span class="chip primary">Spring WebSocket</span>
           <span class="chip">Spring Validation</span>
         </div>
@@ -918,6 +920,20 @@
         <div class="chip-group">
           <span class="chip primary">STOMP over WebSocket</span>
           <span class="chip">SockJS Fallback</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-category">Messaging / Events</div>
+        <div class="chip-group">
+          <span class="chip primary">Kafka</span>
+          <span class="chip">Outbox Pattern</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-category">Payment</div>
+        <div class="chip-group">
+          <span class="chip primary">Toss Payments</span>
+          <span class="chip">Spring Batch JDBC</span>
         </div>
       </div>
       <div class="stack-row">
@@ -1070,6 +1086,13 @@
           <div class="module-item">WebSocket 실시간 알림</div>
         </div>
         <div class="module-col">
+          <div class="module-header" style="background:#dc2626;">Payment Service</div>
+          <div class="module-item">Toss 결제 승인 · 웹훅 검증</div>
+          <div class="module-item">구매확정/정산 상태 분리</div>
+          <div class="module-item">Spring Batch 판매자 정산</div>
+          <div class="module-item">Outbox 정산 완료 이벤트</div>
+        </div>
+        <div class="module-col">
           <div class="module-header" style="background:#059669;">File Service</div>
           <div class="module-item">멀티 이미지 업로드</div>
           <div class="module-item">NCP Object Storage</div>
@@ -1079,6 +1102,63 @@
       </div>
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--white); border-radius: 6px; border: 1.5px solid var(--border); font-size: 0.75rem; color: var(--text-light); text-align: center; line-height: 1.7;">
         <strong style="color: var(--dark);">Library 모듈 (공유)</strong> — BaseEntity · PageResponse · SliceResponse · GlobalExceptionHandler (RFC 7807) · QueryBaseRepository · LoggingFilter · OpenAPI Auto Export
+      </div>
+    </div>
+
+    <!-- Settlement Batch Flow -->
+    <div class="arch-box">
+      <div class="arch-title">Settlement Batch — 구매확정 이후 판매자 정산</div>
+      <div class="flow">
+        <div class="flow-node">
+          <div class="node-box">Buyer</div>
+          <div class="node-label">구매확정</div>
+        </div>
+        <div class="flow-arrow-label">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-text">confirm purchase</div>
+        </div>
+        <div class="flow-node">
+          <div class="node-box primary-node">Payment Service</div>
+          <div class="node-label">PURCHASE_CONFIRMED</div>
+        </div>
+        <div class="flow-arrow-label">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-text">PENDING</div>
+        </div>
+        <div class="flow-node">
+          <div class="node-box db-node">Settlement</div>
+          <div class="node-label">정산 대기 row</div>
+        </div>
+      </div>
+      <div class="flow" style="margin-top: 1.5rem;">
+        <div class="flow-node">
+          <div class="node-box primary-node">Spring Batch</div>
+          <div class="node-label">chunk processing</div>
+        </div>
+        <div class="flow-arrow-label">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-text">fee calculate</div>
+        </div>
+        <div class="flow-node">
+          <div class="node-box db-node">Payment</div>
+          <div class="node-label">RELEASED</div>
+        </div>
+        <div class="flow-arrow-label">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-text">completed</div>
+        </div>
+        <div class="flow-node">
+          <div class="node-box db-node">Settlement</div>
+          <div class="node-label">COMPLETED</div>
+        </div>
+        <div class="flow-arrow-label">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-text">outbox</div>
+        </div>
+        <div class="flow-node">
+          <div class="node-box ws-node">Kafka</div>
+          <div class="node-label">SETTLED event</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1165,6 +1245,21 @@
           <li>상품 상태 추적 (ACTIVE → AUCTION_COMPLETED → DELETED)</li>
           <li>썸네일/상세 이미지 분류 관리</li>
           <li>카테고리 활성화/비활성화 토글</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(220,38,38,0.1);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+        </div>
+        <div class="feature-card-name">Spring Batch 판매자 정산</div>
+        <div class="feature-card-desc">
+          구매확정 이후 정산 대기 건을 배치로 처리하여 판매자 정산 완료 상태와 이벤트 발행을 분리합니다.
+        </div>
+        <ul class="feature-card-list">
+          <li><code>PENDING</code> settlement만 chunk 단위로 조회</li>
+          <li>수수료 계산 후 Payment RELEASED / Settlement COMPLETED 전이</li>
+          <li>정산 완료 시점에 Outbox 기반 SETTLED 이벤트 저장</li>
         </ul>
       </div>
 
@@ -1268,6 +1363,19 @@
         </div>
       </div>
 
+      <div class="decision-card">
+        <div class="decision-header">
+          <div class="decision-num">7</div>
+          <div class="decision-title">정산 배치 — 구매확정과 정산완료 상태 분리</div>
+        </div>
+        <div class="decision-body">
+          구매확정은 구매자가 거래를 확정한 시점이고, 정산완료는 판매자에게 지급 가능한 상태가 된 시점입니다.
+          두 상태를 분리하기 위해 결제 상태를 <code>ESCROWED → PURCHASE_CONFIRMED → RELEASED</code>로 재설계하고,
+          Spring Batch가 <code>PENDING</code> settlement만 처리하도록 구성했습니다. 정산 완료 이벤트는 Batch writer에서
+          payment/settlement 상태 전이와 함께 Outbox에 저장하여 장애 시 재처리 기준을 명확히 했습니다.
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -1336,6 +1444,38 @@
         </ul>
         <div class="domain-note">
           상태: ACTIVE · AUCTION_COMPLETED · RESERVED · DELETED
+        </div>
+      </div>
+
+      <div class="domain-card">
+        <div class="domain-card-name">Payment (결제)</div>
+        <ul class="domain-field-list">
+          <li><span class="field-name">id</span><span class="field-type">Long PK</span></li>
+          <li><span class="field-name">auctionId</span><span class="field-type">Long</span></li>
+          <li><span class="field-name">buyerUserId / sellerUserId</span><span class="field-type">Long</span></li>
+          <li><span class="field-name">amount</span><span class="field-type">BigDecimal</span></li>
+          <li><span class="field-name">pgPaymentKey / pgOrderId</span><span class="field-type">String</span></li>
+          <li><span class="field-name">status</span><span class="field-type">Enum</span></li>
+          <li><span class="field-name">paidAt / confirmedAt / releasedAt</span><span class="field-type">LocalDateTime</span></li>
+        </ul>
+        <div class="domain-note">
+          상태: REQUESTED → PG_PENDING → ESCROWED → PURCHASE_CONFIRMED → RELEASED
+        </div>
+      </div>
+
+      <div class="domain-card">
+        <div class="domain-card-name">Settlement (정산)</div>
+        <ul class="domain-field-list">
+          <li><span class="field-name">id</span><span class="field-type">Long PK</span></li>
+          <li><span class="field-name">paymentId</span><span class="field-type">Long unique</span></li>
+          <li><span class="field-name">grossAmount</span><span class="field-type">BigDecimal</span></li>
+          <li><span class="field-name">platformFeeAmount</span><span class="field-type">BigDecimal</span></li>
+          <li><span class="field-name">pgFeeAmount</span><span class="field-type">BigDecimal</span></li>
+          <li><span class="field-name">netSellerAmount</span><span class="field-type">BigDecimal</span></li>
+          <li><span class="field-name">status / failureReason</span><span class="field-type">Enum / Text</span></li>
+        </ul>
+        <div class="domain-note">
+          상태: PENDING → COMPLETED / FAILED
         </div>
       </div>
 
@@ -1505,6 +1645,36 @@
             <td><span class="method-badge" style="background:rgba(217,119,6,0.1); color:#92400e;">SUB</span></td>
             <td class="api-path">/topic/auctions/{auctionId}</td>
             <td>경매별 실시간 입찰 알림 구독</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Payment Service -->
+    <div class="api-service">
+      <div class="api-service-name">
+        Payment Service
+        <span class="api-service-port">:8086</span>
+      </div>
+      <table class="api-table">
+        <thead>
+          <tr><th>Method</th><th>Endpoint</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/payments/confirm</td>
+            <td>Toss Payments 결제 승인 및 ESCROWED 상태 전이</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/payments/{id}/purchase-confirm</td>
+            <td>구매확정 처리 및 PENDING 정산 row 생성</td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td class="api-path">/payments/webhook/toss</td>
+            <td>Toss webhook signature 검증 및 결제 상태 반영</td>
           </tr>
         </tbody>
       </table>
