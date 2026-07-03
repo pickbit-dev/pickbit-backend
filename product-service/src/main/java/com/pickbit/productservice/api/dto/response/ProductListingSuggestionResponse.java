@@ -6,10 +6,12 @@ package com.pickbit.productservice.api.dto.response;
  * @param categoryId 추천 카테고리 ID
  * @param categoryName 추천 카테고리명
  * @param description 추천 상품 설명
+ * @param createdCategory AI 추천 과정에서 새 카테고리를 생성했는지 여부
  */
 public record ProductListingSuggestionResponse(
         Long categoryId,
         String categoryName,
-        String description
+        String description,
+        boolean createdCategory
 ) {
 }
