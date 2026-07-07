@@ -3,7 +3,7 @@ api.pickbit.co.kr {
 }
 
 pickbit.co.kr {
-    reverse_proxy 192.168.20.231:1125
+    reverse_proxy 192.168.20.16:1125
 }
 
 www.pickbit.co.kr {
