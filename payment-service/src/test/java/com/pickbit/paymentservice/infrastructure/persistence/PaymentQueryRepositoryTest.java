@@ -5,11 +5,13 @@ import com.pickbit.paymentservice.api.dto.request.PaymentViewType;
 import com.pickbit.paymentservice.api.dto.response.PaymentSummaryResponse;
 import com.pickbit.paymentservice.domain.Payment;
 import com.pickbit.paymentservice.domain.enums.PaymentStatus;
+import com.pickbit.paymentservice.config.TestContainerConfig;
 import com.pickbit.paymentservice.domain.enums.PgProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@Import(TestContainerConfig.class)
 @ActiveProfiles("test")
 @Transactional
 class PaymentQueryRepositoryTest {

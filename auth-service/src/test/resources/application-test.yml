@@ -1,0 +1,68 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  cloud:
+    consul:
+      enabled: false
+
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        default_batch_fetch_size: 100
+    database: mysql
+    hibernate:
+      ddl-auto: create-drop
+
+  kafka:
+    listener:
+      auto-startup: false
+
+  # SecurityConfig 가 ClientRegistrationRepository 를 요구하는데, 이 빈은 아래 등록 정보가
+  # 하나라도 있어야 만들어진다. 실제 OAuth 설정은 develop/deploy 프로필에만 있어서
+  # test 프로필로는 빈이 없어 securityFilterChain 생성이 실패한다.
+  # 테스트는 OAuth 제공자를 실제로 호출하지 않고 서비스 계층만 검증하므로 더미면 충분하다.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            scope: profile,email
+
+openapi:
+  docs-export:
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
+
+# application.yml 이 기본값 없이 환경변수를 요구하는 값들이다.
+# 이게 없으면 컨텍스트가 PlaceholderResolutionException 으로 죽고,
+# 컨텍스트를 공유하는 통합 테스트 전체가 한꺼번에 실패한다.
+jwt:
+  # HS256 은 키가 32바이트 이상이어야 한다. 테스트 전용 더미 값이다.
+  secret: test-jwt-secret-key-for-integration-tests-only-32bytes+
+  access-token-validity-ms: 1800000
+  refresh-token-validity-ms: 1209600000
+
+frontend:
+  oauth-callback-url: http://localhost:3000/oauth/callback
+  oauth-signup-url: http://localhost:3000/oauth/signup
+  oauth-link-url: http://localhost:3000/oauth/link
+
+auth:
+  cookie:
+    access-token-name: accessToken
+    refresh-token-name: refreshToken
+    path: /
+    domain: localhost
+    http-only: true
+    secure: false
+    same-site: Lax

@@ -1,0 +1,58 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  cloud:
+    consul:
+      enabled: false
+
+  jpa:
+    defer-datasource-initialization: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        default_batch_fetch_size: 100
+    database: mysql
+    hibernate:
+      ddl-auto: create-drop
+
+  kafka:
+    listener:
+      auto-startup: false
+
+  batch:
+    job:
+      enabled: false
+    # JobRepository 가 BATCH_* 메타 테이블을 요구한다. ddl-auto 는 JPA 엔티티만 만들고
+    # 이 테이블들은 만들지 않으므로, 없으면 컨텍스트 기동 단계에서 실패한다.
+    jdbc:
+      initialize-schema: always
+
+openapi:
+  docs-export:
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
+
+# application.yml 이 기본값 없이 환경변수를 요구하는 값들이다.
+# 실제 PG 를 호출하는 테스트는 없고 컨텍스트 기동에만 필요한 자리채움이다.
+client:
+  toss-payments:
+    base-url: http://localhost:0
+    secret-key: test-secret-key
+    success-url: http://localhost:3000/payment/success
+    fail-url: http://localhost:3000/payment/fail
+    webhook-secret: test-webhook-secret
+
+payment:
+  # 테스트 도중 스케줄러가 끼어들어 데이터를 바꾸지 않게 막는다.
+  settlement-batch:
+    cron: "-"
+  confirm-scheduler:
+    cron: "-"
+  expiry-scheduler:
+    cron: "-"
