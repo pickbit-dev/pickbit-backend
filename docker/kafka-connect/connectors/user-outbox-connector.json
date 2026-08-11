@@ -23,7 +23,7 @@
     "transforms.outbox.table.field.event.payload": "payload",
     "transforms.outbox.route.by.field": "entity",
     "transforms.outbox.route.topic.replacement": "${routedByValue}-topic",
-    "transforms.outbox.table.fields.additional.placement": "event_id:header:event_id,event_type:header:action",
+    "transforms.outbox.table.fields.additional.placement": "event_id:header:event_id,event_type:header:action,id:header:event_version",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.storage.StringConverter"
   }

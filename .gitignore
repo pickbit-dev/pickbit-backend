@@ -39,20 +39,13 @@ logs/
 openapi
 
 ### Local profile secrets ###
+# NOTE: do not reintroduce a blanket `**/*.yml` rule here. It silently swallowed
+# every newly created config file (git add reported nothing); the tracked
+# application-*.yml files only survived because they predated the rule.
 .env
 .env.*
 !.env.example
 secrets/
 *secret*.yml
 *secret*.yaml
-**/*.yml
-**/*.yaml
-!.github/
-!.github/workflows/
-!.github/workflows/*.yml
-!docker/compose/
-!docker/compose/services/
-!docker/compose/services/*.yml
-!docker-compose.develop.yml
-!docker-compose.deploy.yml
 !application-secret.example.yml

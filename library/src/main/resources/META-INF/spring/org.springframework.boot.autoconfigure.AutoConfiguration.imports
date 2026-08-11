@@ -3,3 +3,5 @@ com.pickbit.library.persistence.config.QueryDslConfig
 com.pickbit.library.event.EventBoxAutoConfiguration
 com.pickbit.library.auth.AuthAutoConfiguration
 com.pickbit.library.logging.LoggingAutoConfiguration
+com.pickbit.library.maintenance.RetentionAutoConfiguration
+com.pickbit.library.inbox.InboxRetryAutoConfiguration

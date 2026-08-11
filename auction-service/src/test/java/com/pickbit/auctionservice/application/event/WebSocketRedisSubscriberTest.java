@@ -35,6 +35,13 @@ import static org.mockito.Mockito.verify;
 @ActiveProfiles("test")
 class WebSocketRedisSubscriberTest {
 
+    /**
+     * 다른 테스트 클래스가 만드는 경매는 auto-increment 라 1, 2, 3 부터 시작한다.
+     * 같은 Spring 컨텍스트를 공유하므로 그 경매들의 실시간 이벤트가 같은 채널로 흘러들어와
+     * 이 테스트의 호출 횟수 단언을 깨뜨린다. 충돌할 수 없는 범위를 쓴다.
+     */
+    private static final long ISOLATED_AUCTION_ID_BASE = 900_000L;
+
     private static final String CHANNEL_PREFIX = "auction:ws:";
     private static final String TOPIC_PREFIX = "/topic/auctions/";
 
@@ -58,7 +65,7 @@ class WebSocketRedisSubscriberTest {
     @Test
     @DisplayName("Redis 채널 발행 시 로컬 SimpMessagingTemplate으로 즉시 전달")
     void publish_to_redis_is_bridged_to_local_broker() throws Exception {
-        Long auctionId = 1L;
+        Long auctionId = ISOLATED_AUCTION_ID_BASE + 1;
         AuctionBidEvent event = AuctionBidEvent.ofNewBid(
                 BigDecimal.valueOf(100), "user1", LocalDateTime.now());
 
@@ -79,7 +86,7 @@ class WebSocketRedisSubscriberTest {
     @Test
     @DisplayName("연속 ACTIVE 이벤트는 모두 즉시 송출")
     void rapid_active_events_are_all_sent() throws Exception {
-        Long auctionId = 2L;
+        Long auctionId = ISOLATED_AUCTION_ID_BASE + 2;
         for (int i = 1; i <= 3; i++) {
             AuctionBidEvent event = AuctionBidEvent.ofNewBid(
                     BigDecimal.valueOf(i * 100), "user" + i, LocalDateTime.now());
@@ -101,7 +108,7 @@ class WebSocketRedisSubscriberTest {
     @Test
     @DisplayName("ENDED 이벤트도 Redis 수신 시 즉시 전송")
     void ended_event_is_sent_immediately() throws Exception {
-        Long auctionId = 3L;
+        Long auctionId = ISOLATED_AUCTION_ID_BASE + 3;
 
         AuctionBidEvent ended = AuctionBidEvent.ofEnded("winner", BigDecimal.valueOf(500));
         stringRedisTemplate.convertAndSend(CHANNEL_PREFIX + auctionId,

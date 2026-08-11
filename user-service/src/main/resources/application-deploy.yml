@@ -24,13 +24,13 @@ spring:
       ddl-auto: update
 
   kafka:
-    bootstrap-servers: localhost:19092
+    bootstrap-servers: kafka:9092
 
   cloud:
     consul:
       enabled: true
-      host: localhost
-      port: 18500
+      host: consul-server
+      port: 8500
 
 server:
   port: 18082

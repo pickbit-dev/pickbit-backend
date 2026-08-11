@@ -312,7 +312,8 @@ class AuthServiceIntegrationTest {
                     {"eventId":"%s","accountId":%d,"nickname":"changed","updatedAt":"2026-05-13T00:00:00"}
                     """.formatted(eventId, account.getId());
 
-            userNicknameEventHandler.handleNicknameUpdated(eventId, aggregateId, messageBody);
+            // eventVersion 은 아웃박스 행 ID. 커넥터 갱신 전 메시지에는 없을 수 있어 null 도 허용된다.
+            userNicknameEventHandler.handleNicknameUpdated(eventId, aggregateId, messageBody, 1L);
 
             assertThat(account.getNickname()).isEqualTo("changed");
             assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();

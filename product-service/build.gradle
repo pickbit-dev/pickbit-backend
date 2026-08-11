@@ -13,6 +13,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // 읽기 트래픽이 가장 많은 서비스라 조회 결과를 Redis 에 캐싱한다.
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // 이게 없으면 spring.data.redis.lettuce.pool.* 설정이 조용히 무시된다.
+    implementation 'org.apache.commons:commons-pool2'
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     implementation 'org.mapstruct:mapstruct:1.6.3'
     implementation 'io.github.openfeign.querydsl:querydsl-jpa:6.11'

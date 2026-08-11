@@ -52,6 +52,8 @@ payment:
     chunk-size: 100
     platform-fee-rate: 0.05
     pg-fee-rate: 0.00
+    # 실패한 정산의 재시도 상한. 넘으면 배치가 더 집어가지 않고 사람이 확인해야 한다.
+    max-retries: ${SETTLEMENT_BATCH_MAX_RETRIES:5}
 
 client:
   toss-payments:

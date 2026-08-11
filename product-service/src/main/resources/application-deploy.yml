@@ -24,13 +24,26 @@ spring:
       ddl-auto: update
 
   kafka:
-    bootstrap-servers: localhost:19092
+    bootstrap-servers: kafka:9092
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+      timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 32
+          max-idle: 16
+          min-idle: 4
+          max-wait: 1s
 
   cloud:
     consul:
       enabled: true
-      host: localhost
-      port: 18500
+      host: consul-server
+      port: 8500
 
 
 server:
@@ -38,7 +51,7 @@ server:
 
 client:
   auction-service:
-    base-url: http://localhost:18085
+    base-url: http://auction-service:18085
 
 ncp:
   storage:

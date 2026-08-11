@@ -26,6 +26,11 @@ spring:
   kafka:
     bootstrap-servers: localhost:19092
 
+  data:
+    redis:
+      host: localhost
+      port: 16379
+
   cloud:
     consul:
       enabled: true

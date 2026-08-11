@@ -37,7 +37,9 @@ public record AuctionEventResponse(
 ) {
     public static AuctionEventResponse from(AuctionEvent event) {
         return new AuctionEventResponse(
-                event.getId(),
+                // DB id 가 아니라 경매 내 순번을 노출한다. 입찰이 비동기로 기록되면서
+                // auto-increment 순서가 실제 입찰 순서를 보장하지 못하게 됐다.
+                event.getSequence(),
                 event.getEventType(),
                 event.getAuction().getId(),
                 event.getBidId(),

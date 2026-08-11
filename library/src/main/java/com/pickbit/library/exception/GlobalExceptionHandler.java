@@ -127,6 +127,12 @@ public abstract class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, "요청하신 리소스를 찾을 수 없습니다.", request);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    protected ResponseEntity<ProblemDetail> handleForbiddenException(ForbiddenException e, HttpServletRequest request) {
+        logException(HttpStatus.FORBIDDEN, e);
+        return buildResponse(HttpStatus.FORBIDDEN, e.getMessage(), request);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     protected ResponseEntity<ProblemDetail> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
         logException(HttpStatus.BAD_REQUEST, e);

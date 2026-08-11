@@ -6,6 +6,7 @@ import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.api.dto.response.ProductSummaryResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
 import com.pickbit.productservice.domain.Product;
+import com.pickbit.productservice.infrastructure.redis.ViewCountBuffer;
 import com.pickbit.productservice.domain.product.entity.enums.ProductStatus;
 import com.pickbit.productservice.exception.ProductNotFoundException;
 import com.pickbit.productservice.infrastructure.client.AuctionServiceClient;
@@ -27,6 +28,8 @@ public class ProductQueryService {
     private final ProductQueryRepository productQueryRepository;
     private final ProductMapper productMapper;
     private final AuctionServiceClient auctionServiceClient;
+    private final ViewCountBuffer viewCountBuffer;
+    private final ProductDetailReader productDetailReader;
 
     public PageResponse<ProductSummaryResponse> searchProducts(ProductSearchCondition condition, Pageable pageable) {
         Page<ProductSummaryResponse> page = productQueryRepository.searchSummary(condition, applyProductSort(condition, pageable));
@@ -38,11 +41,20 @@ public class ProductQueryService {
         return PageResponse.from(page);
     }
 
-    @Transactional
+    /**
+     * 상품 상세를 조회합니다.
+     *
+     * <p>읽기 트래픽의 대부분을 차지하므로 캐싱합니다. 예전에는 조회 때마다 조회수 UPDATE 가
+     * 실행돼서 사실상 쓰기 API였고 캐싱을 해도 DB 부하가 그대로였습니다. 지금은 조회수를
+     * Redis 에 모으고 스케줄러가 반영하므로 이 경로에서 DB 쓰기가 없습니다.
+     *
+     * <p>조회수 증가는 <b>캐시 바깥</b>에 있어야 합니다. 캐시된 메서드 안에 두면 캐시 적중 시
+     * 호출되지 않아 조회수가 적중률만큼 누락됩니다.
+     */
     public ProductDetailResponse getProduct(Long id) {
-        Product product = findActiveProduct(id);
-        product.increaseViewCount();
-        return productMapper.toDetailResponse(product, getAuctionStartTime(product));
+        ProductDetailResponse response = productDetailReader.read(id);
+        viewCountBuffer.increase(id);
+        return response;
     }
 
     public ProductDetailResponse getInternalProduct(Long id) {

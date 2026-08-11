@@ -11,47 +11,90 @@
         <property name="LOGSTASH_DESTINATION_EFFECTIVE" value="${LOGSTASH_DESTINATION:-localhost:15000}"/>
     </springProfile>
 
-    <springProfile name="qa,deploy">
-        <property name="LOGSTASH_DESTINATION_EFFECTIVE" value="${LOGSTASH_DESTINATION:-logstash:5000}"/>
+    <!--
+        qa/deploy에서는 LOGSTASH_DESTINATION_EFFECTIVE를 정의하지 않는다.
+        아래 <if>가 거짓이 되어 Logstash TCP 어펜더가 만들어지지 않고,
+        로그는 JSON으로 표준 출력에 실려 Grafana Alloy가 컨테이너 stdout에서 수집한다.
+    -->
+
+    <!-- 1-a. 콘솔 출력 (로컬/개발: 사람이 읽는 컬러 패턴) -->
+    <springProfile name="!qa &amp; !deploy">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+                <layout class="ch.qos.logback.classic.PatternLayout">
+                    <pattern>%green(%d{yyyy-MM-dd HH:mm:ss}) %magenta([%thread]) %highlight(%-5level) %cyan(%logger{36}) - %yellow(%msg%n)</pattern>
+                </layout>
+            </encoder>
+        </appender>
     </springProfile>
 
-    <!-- 1. 콘솔 출력 (컬러 패턴) -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="ch.qos.logback.classic.PatternLayout">
-                <pattern>%green(%d{yyyy-MM-dd HH:mm:ss}) %magenta([%thread]) %highlight(%-5level) %cyan(%logger{36}) - %yellow(%msg%n)</pattern>
-            </layout>
-        </encoder>
-    </appender>
+    <!-- 1-b. 콘솔 출력 (qa/deploy: Loki 수집용 JSON) -->
+    <springProfile name="qa | deploy">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                    <pattern>
+                        <pattern>
+                            {
+                            "application": "${APP_NAME}",
+                            "environment": "${ENV}",
+                            "host": "${HOSTNAME:-localhost}",
+                            "thread": "%thread",
+                            "logger": "%logger",
+                            "version": "${build.version:-unknown}"
+                            }
+                        </pattern>
+                    </pattern>
+                </providers>
+            </encoder>
+        </appender>
+    </springProfile>
 
-    <!-- 2. 일반 로그 파일 -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
-            <maxHistory>30</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} ${ENV} %-5level [%thread] %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <!--
+        2, 3. 파일 어펜더는 로컬/개발 전용이다.
+        qa/deploy에서는 컨테이너 stdout(JSON) 한 곳에만 쓰고 Alloy가 Loki로 넘긴다.
+        예전에는 같은 한 줄이 stdout + FILE + ERROR_FILE + Loki 청크로 네 번 기록됐다.
+        용량 상한이 없는 파일 어펜더였고, 디스크 쓰기가 처리량도 갉아먹었다.
+    -->
+    <springProfile name="!qa &amp; !deploy">
+        <!-- 2. 일반 로그 파일 -->
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_FILE}</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>2GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss} ${ENV} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
 
-    <!-- 3. 에러 로그 전용 파일 -->
-    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${ERROR_LOG_FILE}</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}-error.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
-            <maxHistory>90</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} ERROR [%thread] %logger{36} - %msg%n%ex</pattern>
-        </encoder>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>ERROR</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-    </appender>
+        <!-- 3. 에러 로그 전용 파일 -->
+        <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${ERROR_LOG_FILE}</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_PATH}/${APP_NAME}-${ENV}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>90</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss} ERROR [%thread] %logger{36} - %msg%n%ex</pattern>
+            </encoder>
+            <filter class="ch.qos.logback.classic.filter.LevelFilter">
+                <level>ERROR</level>
+                <onMatch>ACCEPT</onMatch>
+                <onMismatch>DENY</onMismatch>
+            </filter>
+        </appender>
+    </springProfile>
 
     <!-- 4. Logstash TCP 연동 (선택 사항) -->
     <if condition='isDefined("LOGSTASH_DESTINATION_EFFECTIVE")'>

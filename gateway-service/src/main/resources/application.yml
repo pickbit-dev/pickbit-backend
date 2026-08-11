@@ -6,6 +6,14 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            connect-timeout: 1000
+            # 미설정이면 응답 타임아웃이 아예 없어서 느린 다운스트림이 커넥션을 무한히 붙잡는다.
+            response-timeout: 10s
+            pool:
+              type: fixed
+              max-connections: 500
+              acquire-timeout: 2000
           discovery:
             locator:
               enabled: false
@@ -26,8 +34,11 @@ spring:
               filters:
                 - name: RequestRateLimiter
                   args:
-                    redis-rate-limiter.replenishRate: 2
-                    redis-rate-limiter.burstCapacity: 5
+                    # 사람이 손으로 누를 수 있는 속도는 넘지만, 적은 인원으로도 높은 TPS 를
+                    # 측정할 수 있을 만큼은 여유를 둔다. (이전 2/s, burst 5 는 bidder 20명 기준
+                    # 전체 40 TPS 가 천장이라 처리량 측정 자체가 불가능했다)
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
             - id: auth-service-openapi
@@ -69,14 +80,51 @@ spring:
     loadbalancer:
       enabled: true
 
+  data:
+    redis:
+      # rate limiter 가 매 입찰마다 Redis 를 친다. 풀을 명시하지 않으면 기본 단일 커넥션이다.
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 64
+          max-idle: 32
+          min-idle: 8
+          max-wait: 1s
+      timeout: 2s
 
 
+
+
+# 게이트웨이가 JWT를 직접 검증하므로 auth-service와 같은 시크릿이 필요하다.
+jwt:
+  secret: ${JWT_SECRET}
+
+gateway:
+  # 테스트용 인증 우회. 기본 비활성이고 key가 비어 있으면 활성으로 둬도 동작하지 않는다.
+  # 자세한 사용법과 주의사항은 document/operations/api-key-testing.md 참고.
+  api-key:
+    enabled: ${GATEWAY_API_KEY_ENABLED:false}
+    key: ${GATEWAY_API_KEY:}
+    allow-admin-role: ${GATEWAY_API_KEY_ALLOW_ADMIN:false}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        # gateway 엔드포인트는 노출하지 않는다. /actuator가 게이트웨이의 공개 경로라
+        # /actuator/gateway/routes가 인증 없이 내부 라우팅 테이블 전체를 노출하게 된다.
+        include: health,info,prometheus
+
+  # p95/p99 는 히스토그램 버킷으로 내보내고 Grafana 에서 histogram_quantile 로 계산한다.
+  # 인스턴스가 늘어나도 합산이 되기 때문이다. (미리 계산된 percentile 은 합산할 수 없다)
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
 
 springdoc:
   swagger-ui:

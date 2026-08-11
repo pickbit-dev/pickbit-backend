@@ -1,6 +1,13 @@
 spring:
   application:
     name: file-service
+  # Java 25 + Boot 4. 요청 스레드가 DB/Redis 응답을 기다리는 시간이 대부분이라 효과가 크다.
+  # 단, Hikari 를 먼저 키운 뒤에 켜야 한다. 안 그러면 수천 개 요청이 커넥션 앞에 줄을 서서
+  # 스레드 대기가 커넥션 타임아웃 폭풍으로 바뀔 뿐이다.
+  threads:
+    virtual:
+      enabled: true
+
   cloud:
     consul:
       discovery:
@@ -19,4 +26,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+
+  # p95/p99 는 히스토그램 버킷으로 내보내고 Grafana 에서 histogram_quantile 로 계산한다.
+  # 인스턴스가 늘어나도 합산이 되기 때문이다. (미리 계산된 percentile 은 합산할 수 없다)
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s

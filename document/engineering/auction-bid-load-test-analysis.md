@@ -2,6 +2,16 @@
 
 이 문서는 `AuctionBidSimulation`으로 실행한 입찰 API 부하 테스트 결과를 Gatling 리포트와 `bid.csv` DB 덤프 기준으로 정리한다.
 
+> **2026-06-18 시점의 기록이다. 이후 구조와 테스트 설정이 모두 바뀌었다.**
+>
+> - 입찰 경로가 Redisson 분산락 + 동기 트랜잭션 → **Redis Lua 중재 + 비동기 영속화**로 바뀌었다
+>   ([bid-arbitration-design.md](./bid-arbitration-design.md))
+> - `bidders.csv`(미리 발급한 JWT)는 제거되고 게이트웨이 API key 방식으로 대체됐다
+> - 당시 시뮬레이션은 `429`를 성공으로 셌고 실패율 단언이 없었다. 지금은 `429`/`5xx`가 실패다
+> - 게이트웨이 rate limit 이 사용자당 2/s → 10/s 로 완화됐다
+>
+> **여기 기록된 24.33 req/s 는 개선 전 기준선으로만 쓴다.** 재현하려면 위 문서를 따를 것.
+
 ## 분석 대상
 
 대상 API:

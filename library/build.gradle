@@ -19,8 +19,17 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // Kafka 를 소비하는 서비스에서만 쓰인다. 라이브러리에 전이시키지 않는다.
+    compileOnly 'org.springframework.boot:spring-boot-starter-kafka'
+
     implementation 'com.slack.api:slack-api-client:1.45.3'
     implementation("io.github.openfeign.querydsl:querydsl-jpa:6.11")
     annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:6.11:jakarta")
 
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

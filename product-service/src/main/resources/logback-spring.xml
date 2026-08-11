@@ -10,7 +10,7 @@
         </root>
     </springProfile>
 
-    <springProfile name="develop,qa,deploy">
+    <springProfile name="develop">
         <if condition='isDefined("LOGSTASH_DESTINATION_EFFECTIVE")'>
             <then>
                 <root level="info">
@@ -28,5 +28,15 @@
                 </root>
             </else>
         </if>
+    </springProfile>
+
+    <!--
+        qa/deploy: 컨테이너 stdout(JSON)만 사용한다.
+        Grafana Alloy가 도커 소켓에서 수집해 Loki로 보낸다.
+    -->
+    <springProfile name="qa,deploy">
+        <root level="info">
+            <appender-ref ref="CONSOLE"/>
+        </root>
     </springProfile>
 </configuration>

@@ -28,7 +28,13 @@ load-test
 | `BASE_URL` | `http://localhost:18080` | Gateway base URL |
 | `PRODUCT_ID` | `1` | 상세 조회에 사용할 상품 ID |
 | `AUCTION_ID` | `1` | 상세 조회/입찰에 사용할 경매 ID |
-| `ACCESS_TOKEN` | 없음 | 마이페이지 등 단일 사용자 인증 API 호출에 사용할 Bearer token |
+| `API_KEY` | 없음 | **권장 인증 방식.** 게이트웨이 테스트용 API key. 사용자 ID 를 헤더로 지정하므로 사용자별 토큰이 필요 없다 |
+| `ACCESS_TOKEN` | 없음 | `API_KEY` 가 없을 때의 폴백. 단일 사용자 Bearer token |
+| `BIDDER_COUNT` | `500` | 서로 다른 입찰자 수. rate limit(사용자당 10/s) 때문에 목표 TPS ÷ 10 이상이어야 한다 |
+| `BIDDER_ID_BASE` | `1000` | 입찰자 사용자 ID 시작값 |
+| `AUCTION_ID_BASE` | `1` | 다중 경매 시나리오의 경매 ID 시작값 |
+| `AUCTION_COUNT` | `20` | 다중 경매 시나리오에서 사용할 경매 수 |
+| `TOTAL_RPS` | `1000` | `MixedLoadSimulation` 의 합산 목표 처리량 |
 | `RAMP_USERS` | 시뮬레이션별 기본값 | ramp-up 동안 투입할 사용자 수 |
 | `RPS` | 조회 시뮬레이션 기본값 | 초당 요청 사용자 주입률 |
 | `TPS` | 입찰 시뮬레이션 기본값 | 초당 입찰 사용자 주입률 |
@@ -36,6 +42,10 @@ load-test
 | `DURATION_SECONDS` | 시뮬레이션별 기본값 | steady-state 시간 |
 | `BID_BASE_AMOUNT` | `10000` | 입찰 테스트 시작 금액 |
 | `BID_INCREMENT` | `1000` | 입찰 요청마다 증가시킬 금액 |
+
+> **`bidders.csv` 는 제거됐습니다.** 미리 발급한 JWT 20개를 넣어두는 방식이었는데 토큰이
+> 만료되면 전체 테스트가 무용지물이 됐고(실제로 2026-06-18 만료), 인원을 늘리려면 그만큼
+> 토큰을 다시 발급해야 했습니다. 지금은 `API_KEY` + `BIDDER_COUNT` 로 대체합니다.
 
 ## 사전 준비
 
@@ -47,16 +57,17 @@ Gateway를 기준으로 테스트하므로 테스트 대상 서버가 먼저 실
 BASE_URL=http://localhost:18080
 ```
 
-develop Gateway 예시:
+EC2(deploy) 예시:
 
 ```bash
-BASE_URL=http://192.168.20.70:18080
+BASE_URL=https://api.pickbit.co.kr
 ```
 
-인증이 필요한 시뮬레이션은 로그인 후 발급받은 access token이 필요하다.
+인증이 필요한 시뮬레이션은 게이트웨이 API key 를 씁니다. 켜는 방법과 주의사항은
+[api-key-testing.md](../operations/api-key-testing.md) 를 참고하세요.
 
 ```bash
-ACCESS_TOKEN=eyJ...
+export API_KEY=<GATEWAY_API_KEY 와 같은 값>
 ```
 
 ## 컴파일 검증
@@ -167,38 +178,34 @@ POST /api/auctions/{AUCTION_ID}/bids
 
 실행:
 
-`AuctionBidSimulation`은 `load-test/src/gatling/resources/bidders.csv`의 토큰을 순환하면서 같은 경매에 입찰한다.
-
-```csv
-accessToken
-eyJ...
-eyJ...
-```
-
-실행:
+`AuctionBidSimulation`은 `BIDDER_COUNT` 명의 사용자를 순환하면서 같은 경매에 입찰한다.
+`MultiAuctionBidSimulation`은 같은 부하를 `AUCTION_COUNT` 개 경매에 분산한다.
 
 ```bash
 BASE_URL=http://localhost:18080 \
+API_KEY=$GATEWAY_API_KEY \
 AUCTION_ID=1 \
-BID_BASE_AMOUNT=10000 \
-BID_INCREMENT=1000 \
-RAMP_USERS=10 \
-TPS=5 \
-./gradlew :load-test:gatlingRun \
-  --simulation com.pickbit.loadtest.AuctionBidSimulation
+BIDDER_COUNT=500 \
+TPS=100 \
+./gradlew :load-test:gatlingRun-com.pickbit.loadtest.AuctionBidSimulation
 ```
 
 주의:
 
 - `AUCTION_ID`는 `ACTIVE` 상태여야 한다.
-- `bidders.csv`의 모든 사용자는 해당 경매의 판매자가 아니어야 한다.
-- `bidders.csv`에는 서로 다른 사용자 access token을 넣어야 사용자 단위 Gateway rate limit을 실제 경쟁 상황에 가깝게 검증할 수 있다.
+- 입찰자 사용자(`BIDDER_ID_BASE` ~ `+BIDDER_COUNT`)는 해당 경매의 판매자가 아니어야 한다.
+- 게이트웨이 rate limit 이 사용자당 10/s 이므로 **`BIDDER_COUNT` 는 목표 TPS ÷ 10 이상**이어야 한다.
+  부족하면 `429`가 대량 발생하고 테스트가 실패한다.
 - 테스트 중 입찰 금액은 `BID_BASE_AMOUNT`부터 `BID_INCREMENT`만큼 계속 증가한다.
-- 단일 경매에 동시 입찰을 거는 테스트라 일부 요청은 입찰가 검증 실패로 `400`, 경합 상황에서 `409`, 사용자별 rate limit 초과 시 `429`가 발생할 수 있다.
-- 테스트 후 DB에서 최종 `currentPrice`, `WINNING`/`ACTIVE` 입찰 상태, payment 생성 여부를 별도로 확인해야 한다.
+- 단일 경매 동시 입찰이라 늦게 도착한 낮은 금액은 `400`으로 거절된다. 이는 정상 경합이므로
+  실패로 세지 않는다. **`429`와 `5xx`는 실패로 계수한다** — rate limit 에 막혔거나 서버가
+  처리하지 못한 것이므로 처리량 측정 자체가 무효다.
+- 테스트 후 반드시 정합성을 검증한다. 비동기 영속화라 처리량 숫자만으로는 부족하다.
+  쿼리는 [bid-load-test-commands.md](../operations/bid-load-test-commands.md) 4장 참고.
 
 기본 assertion:
 
+- 실패율(429/5xx) `< 1%`
 - p95 응답 시간 `< 1000ms`
 
 ## 결과 위치
@@ -211,22 +218,29 @@ load-test/build/reports/gatling
 
 ## 권장 테스트 순서
 
-1. `ProductReadSimulation`으로 기본 조회 성능 확인
-2. `AuctionReadSimulation`으로 경매 조회 성능 확인
-3. `MyPageSimulation`으로 인증 API 성능 확인
-4. `AuctionBidSimulation`으로 같은 경매 입찰 경합 성능 확인
+1. `ProductReadSimulation` / `AuctionReadSimulation` 으로 조회 성능 확인
+2. `MyPageSimulation` 으로 인증 API 성능 확인
+3. `AuctionBidSimulation` 으로 **단일 경매** 입찰 상한 확인
+4. `MultiAuctionBidSimulation` 으로 **경매 분산 시** 입찰 처리량 확인
+5. `MixedLoadSimulation` 으로 **합산 1000 rps** 목표 측정
 
 처음에는 작은 부하로 시작하고 점진적으로 올린다.
 
-```text
-10 users -> 50 users -> 100 users -> 300 users
+```bash
+TOTAL_RPS=250 -> 500 -> 1000 -> 1500
 ```
 
 ## 권장 목표치
 
-- 조회 API p95 `< 500ms`
-- 마이페이지 API p95 `< 700ms`
-- 입찰 API p95 `< 1000ms`
+| 구간 | 목표 |
+|---|---|
+| 공개 조회 (비로그인 GET) | 1000 rps, p95 `< 200ms` |
+| 인증 포함 혼합 | 1000 rps, p95 `< 300ms` |
+| 입찰 — 단일 경매 | 500+ TPS |
+| 입찰 — 경매 20개 합산 | 1000+ TPS |
+| 실패율 (429/5xx) | `< 1%` |
+
+기준선은 `auction-bid-load-test-analysis.md` 의 **24.33 req/s** (2026-06-18, 개선 전)이다.
 - 실패율 `< 1%`
 
 입찰 API는 단순 성공률보다 데이터 정합성도 함께 확인해야 한다.

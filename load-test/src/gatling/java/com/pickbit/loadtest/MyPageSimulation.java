@@ -24,7 +24,7 @@ public class MyPageSimulation extends Simulation {
     private static final int DURATION_SECONDS = LoadTestConfig.intEnv("DURATION_SECONDS", 60);
 
     static {
-        LoadTestConfig.requireAccessToken();
+        LoadTestConfig.requireCredentials();
     }
 
     private final HttpProtocolBuilder httpProtocol = http
@@ -32,6 +32,7 @@ public class MyPageSimulation extends Simulation {
             .acceptHeader("application/json");
 
     private final ScenarioBuilder scenario = scenario("my-page")
+            .feed(LoadTestConfig.bidderFeeder())
             .exec(http("GET /api/products/me/selling")
                     .get("/api/products/me/selling?page=0&size=20")
                     .headers(LoadTestConfig.authHeaders())

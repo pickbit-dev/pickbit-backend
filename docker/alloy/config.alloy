@@ -1,0 +1,59 @@
+// 컨테이너 stdout을 수집해 Loki로 보낸다.
+// 애플리케이션은 deploy 프로파일에서 JSON 한 줄씩 출력하고(logging-library의 base.xml 참고),
+// 인프라 컨테이너는 평문을 출력하므로 JSON 파싱은 앱 컨테이너에만 적용한다.
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // "/pickbit-deploy-auth-service" -> "pickbit-deploy-auth-service"
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { job = "docker" }
+  forward_to = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  stage.match {
+    selector = "{container=~\"pickbit-deploy-(gateway|auth|user|product|file|auction|payment|notification)-service\"}"
+
+    stage.json {
+      expressions = {
+        level       = "level",
+        application = "application",
+      }
+    }
+
+    stage.labels {
+      values = {
+        level       = "",
+        application = "",
+      }
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

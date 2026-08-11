@@ -4,7 +4,13 @@
 
 Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose로 구성한다.
 
-develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 백엔드 애플리케이션, MySQL, Redis, Consul, Kafka, Kafka Connect, ELK, Caddy를 실행한다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500`, `9200`, `5601` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
+develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 백엔드 애플리케이션, 프론트엔드, MySQL, Redis, Consul, Kafka, Kafka Connect, Loki 기반 로깅, Caddy를 실행한다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
+
+> deploy 환경은 AWS EC2 단일 노드에서 돌아간다. 프로비저닝, 최초 스키마 부트스트랩,
+> 배포/롤백 절차는 [aws-ec2-deployment.md](./aws-ec2-deployment.md)를 참고한다.
+>
+> **관측 스택은 ELK에서 Loki + Grafana로 교체되었다.** 16GB 인스턴스에서 Elasticsearch +
+> Logstash + Kibana가 약 4GB를 차지해 부담이 컸다. develop 스택은 기존 ELK를 그대로 쓴다.
 
 ## 2. 포트 정책
 
@@ -25,17 +31,28 @@ develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 �
 | notification-service | `18087` | Docker 미사용 | 내부 전용 |
 | MySQL | `3306` | `13306` | 내부 전용 |
 | Redis | `6379` | `16379` | 내부 전용 |
-| Consul UI/API | `8500` | `18500` | `28500` |
+| frontend (Next.js) | `3000` | Docker 미사용 | 내부 전용 |
+| MySQL | `3306` | `13306` | 내부 전용 |
+| Redis | `6379` | `16379` | 내부 전용 |
+| Consul UI/API | `8500` | `18500` | `127.0.0.1:28500` |
 | Kafka external listener | `19092` | `19092` | 내부 전용 |
 | Kafka UI | `8080` | `19090` | 미노출 |
 | Kafka Connect | `8083` | `18088` | 내부 전용 |
-| Elasticsearch HTTP | `9200` | `19200` | 내부 전용 |
-| Elasticsearch transport | `9300` | `19300` | 내부 전용 |
-| Logstash TCP | `5000` | `15000` | 내부 전용 |
-| Logstash monitoring | `9600` | `19600` | 내부 전용 |
-| Kibana | `5601` | `15601` | `25601` |
+| Loki | `3100` | 미사용 | 내부 전용 |
+| Grafana | `3000` | 미사용 | `127.0.0.1:23000` |
+| Elasticsearch HTTP | `9200` | `19200` | 미사용 (deploy에서 제거) |
+| Elasticsearch transport | `9300` | `19300` | 미사용 (deploy에서 제거) |
+| Logstash TCP | `5000` | `15000` | 미사용 (deploy에서 제거) |
+| Logstash monitoring | `9600` | `19600` | 미사용 (deploy에서 제거) |
+| Kibana | `5601` | `15601` | 미사용 (deploy에서 제거) |
 
-deploy 환경에서 MySQL, Redis, Kafka, Kafka Connect, Elasticsearch, Logstash, 개별 백엔드 서비스는 Docker 내부 네트워크 전용이다. 외부 접속은 Gateway를 기준으로 한다.
+deploy 환경에서 MySQL, Redis, Kafka, Kafka Connect, Loki, 프론트엔드, 개별 백엔드 서비스는 Docker 내부 네트워크 전용이다. 외부 접속은 Caddy를 기준으로 한다.
+
+Consul UI와 Grafana는 **루프백에만 바인딩**한다. Consul은 ACL이 없어 UI에 닿는 누구나 서비스를 등록/해제할 수 있고, Docker의 iptables 규칙은 호스트 방화벽을 우회하기 때문이다. 접근은 SSH 터널을 쓴다.
+
+```bash
+ssh -i pickbit.pem -L 23000:localhost:23000 -L 28500:localhost:28500 ubuntu@<Elastic-IP>
+```
 
 ## 3. 시크릿 파일
 

@@ -1,0 +1,20 @@
+# 리눅스 컨테이너 안에서 실행되는 파일은 반드시 LF 로 체크아웃되어야 한다.
+#
+# Windows 에서 core.autocrlf=true 로 체크아웃하면 이 파일들이 CRLF 가 되는데,
+# 셔뱅 줄이 `#!/usr/bin/env bash\r` 로 읽혀 인터프리터 이름에 \r 이 붙는다.
+# 그러면 컨테이너가 `env: can't execute 'bash': No such file or directory` 로 죽는다.
+# (실제로 develop 스택의 kafka-connect-init 이 이 이유로 exit 127 나면서
+#  Debezium 커넥터가 하나도 등록되지 않았다. Git Bash 는 CRLF 셔뱅을 알아서
+#  처리해주기 때문에 호스트에서는 멀쩡해 보이고 컨테이너 안에서만 터진다.)
+*.sh    text eol=lf
+*.lua   text eol=lf
+
+gradlew text eol=lf
+
+Dockerfile      text eol=lf
+Dockerfile.*    text eol=lf
+*.Dockerfile    text eol=lf
+
+# Windows 배치 파일은 반대로 CRLF 여야 한다.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf

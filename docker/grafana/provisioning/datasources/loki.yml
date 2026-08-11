@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    # 기본 데이터소스는 Prometheus 다. 대시보드가 메트릭 위주라서.
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000

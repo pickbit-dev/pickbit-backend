@@ -3,6 +3,7 @@ package com.pickbit.productservice.api;
 import com.pickbit.productservice.api.dto.request.CategoryCreateRequest;
 import com.pickbit.productservice.api.dto.request.CategoryUpdateRequest;
 import com.pickbit.productservice.api.dto.response.CategoryResponse;
+import com.pickbit.library.auth.AuthContextHolder;
 import com.pickbit.productservice.application.CategoryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,16 +24,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryController {
 
+    private static final String ADMIN_ROLE = "ADMIN";
+
     private final CategoryService categoryService;
 
     /**
-     * 새 카테고리를 등록합니다.
+     * 새 카테고리를 등록합니다. 관리자만 호출할 수 있습니다.
      *
      * @param request 카테고리 등록 요청
      * @return 등록된 카테고리 정보 (HTTP 201)
      */
     @PostMapping
     public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryCreateRequest request) {
+        AuthContextHolder.requireRole(ADMIN_ROLE);
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.createCategory(request));
     }
 
@@ -68,7 +72,7 @@ public class CategoryController {
     }
 
     /**
-     * 카테고리 정보를 수정합니다.
+     * 카테고리 정보를 수정합니다. 관리자만 호출할 수 있습니다.
      *
      * @param id      수정할 카테고리 ID
      * @param request 수정할 카테고리 정보
@@ -79,11 +83,12 @@ public class CategoryController {
             @PathVariable Long id,
             @Valid @RequestBody CategoryUpdateRequest request
     ) {
+        AuthContextHolder.requireRole(ADMIN_ROLE);
         return ResponseEntity.ok(categoryService.updateCategory(id, request));
     }
 
     /**
-     * 카테고리를 활성화/비활성화합니다.
+     * 카테고리를 활성화/비활성화합니다. 관리자만 호출할 수 있습니다.
      *
      * @param id     카테고리 ID
      * @param active 활성화 여부
@@ -94,6 +99,7 @@ public class CategoryController {
             @PathVariable Long id,
             @RequestParam boolean active
     ) {
+        AuthContextHolder.requireRole(ADMIN_ROLE);
         return ResponseEntity.ok(categoryService.setActive(id, active));
     }
 }

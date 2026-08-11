@@ -44,6 +44,9 @@ configure(subprojects.findAll { !['library', 'logging-library', 'gateway-service
         implementation project(':logging-library')
         implementation 'org.springframework.boot:spring-boot-starter-web'
         implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        // /actuator/prometheus 를 열어 Prometheus 가 긁어갈 수 있게 한다.
+        // 이게 없으면 액추에이터가 있어도 메트릭 엔드포인트 자체가 생기지 않는다.
+        runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
         implementation 'org.springframework.cloud:spring-cloud-starter-consul-discovery'
         implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
         implementation 'com.github.therapi:therapi-runtime-javadoc:0.15.0'

@@ -8,8 +8,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,11 +24,22 @@ import java.time.LocalDateTime;
 @Getter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(indexes = @Index(name = "idx_auction_event_auction_sequence", columnList = "auction_id, sequence"))
 public class AuctionEvent extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false, comment = "경매 ID")
     private Auction auction;
+
+    /**
+     * 경매 안에서의 이벤트 순번입니다.
+     *
+     * <p>입찰이 비동기로 기록되면서 DB의 auto-increment id 순서가 실제 입찰 순서를 보장하지 못하게
+     * 됐습니다. 순번은 Redis 가 입찰을 수락하는 순간 원자적으로 발급하며,
+     * 클라이언트의 누락 이벤트 복구({@code ?afterEventId=})도 이 값을 기준으로 합니다.
+     */
+    @Column(comment = "경매 내 이벤트 순번", nullable = false)
+    private Long sequence;
 
     @Enumerated(EnumType.STRING)
     @Column(comment = "이벤트 종류", nullable = false, length = 30)

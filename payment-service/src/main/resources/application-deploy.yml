@@ -24,18 +24,18 @@ spring:
       ddl-auto: update
 
   kafka:
-    bootstrap-servers: localhost:19092
+    bootstrap-servers: kafka:9092
 
   data:
     redis:
-      host: localhost
-      port: 16379
+      host: redis
+      port: 6379
 
   cloud:
     consul:
       enabled: true
-      host: localhost
-      port: 18500
+      host: consul-server
+      port: 8500
 
 server:
   port: 18086
@@ -52,6 +52,8 @@ payment:
     chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
     platform-fee-rate: ${SETTLEMENT_PLATFORM_FEE_RATE:0.05}
     pg-fee-rate: ${SETTLEMENT_PG_FEE_RATE:0.00}
+    # 실패한 정산의 재시도 상한. 넘으면 배치가 더 집어가지 않고 사람이 확인해야 한다.
+    max-retries: ${SETTLEMENT_BATCH_MAX_RETRIES:5}
 
 client:
   toss-payments:

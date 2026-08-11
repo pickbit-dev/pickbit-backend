@@ -7,8 +7,8 @@ spring:
   cloud:
     consul:
       enabled: true
-      host: localhost
-      port: 18500
+      host: consul-server
+      port: 8500
 
 server:
   port: 18084

@@ -28,39 +28,33 @@ concurrency:
   group: backend-deploy-main
   cancel-in-progress: false
 
+env:
+  REGISTRY: ghcr.io
+
 jobs:
-  deploy:
-    name: Deploy backend to Mac mini
-    runs-on: [self-hosted, pickbit-macmini, backend, deploy]
-
-    env:
-      LOCAL_SECRETS_DIR: /Users/jonghun/Documents/git_file/pickbit-backend/secrets
-      APP_SERVICES: gateway-service auth-service user-service product-service auction-service payment-service notification-service file-service
-
+  # 어떤 서비스를 다시 빌드/배포할지 결정한다.
+  resolve:
+    name: Resolve deploy targets
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.targets.outputs.services }}
+      matrix: ${{ steps.targets.outputs.matrix }}
+      redeploy_caddy: ${{ steps.targets.outputs.redeploy_caddy }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Copy local deploy secrets
-        run: |
-          test -d "$LOCAL_SECRETS_DIR"
-          rm -rf secrets
-          mkdir -p secrets
-          cp -R "$LOCAL_SECRETS_DIR"/. secrets/
-
-      - name: Validate deploy compose
-        run: docker compose -f docker-compose.deploy.yml config
-
-      - name: Resolve deploy targets
+      - name: Resolve
         id: targets
         run: |
           set -euo pipefail
 
+          APP_SERVICES="gateway-service auth-service user-service product-service auction-service payment-service notification-service file-service"
           selected="${{ github.event.inputs.service || 'auto' }}"
           services=""
-          all_stack="false"
+          redeploy_caddy="false"
 
           add_service() {
             case " $services " in
@@ -70,69 +64,171 @@ jobs:
           }
 
           add_all_app_services() {
-            for service in $APP_SERVICES; do
-              add_service "$service"
-            done
+            for service in $APP_SERVICES; do add_service "$service"; done
           }
 
           if [ "$selected" = "all" ]; then
-            all_stack="true"
+            add_all_app_services
+            redeploy_caddy="true"
+          elif [ "$selected" = "caddy" ]; then
+            redeploy_caddy="true"
           elif [ "$selected" != "auto" ]; then
             add_service "$selected"
-          else
-            if [ "${{ github.event_name }}" = "push" ]; then
-              before="${{ github.event.before }}"
-              after="${{ github.sha }}"
-
-              if [ "$before" = "0000000000000000000000000000000000000000" ]; then
-                changed_files="$(git diff-tree --no-commit-id --name-only -r "$after")"
-              else
-                changed_files="$(git diff --name-only "$before" "$after")"
-              fi
-
-              if printf '%s\n' "$changed_files" | grep -Eq '^(Dockerfile|docker-compose\.deploy\.yml|build\.gradle|settings\.gradle|gradle/|library/|logging-library/)'; then
-                add_all_app_services
-              fi
-
-              if printf '%s\n' "$changed_files" | grep -q '^gateway-service/'; then add_service gateway-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^auth-service/'; then add_service auth-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^user-service/'; then add_service user-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^product-service/'; then add_service product-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^auction-service/'; then add_service auction-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^payment-service/'; then add_service payment-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^notification-service/'; then add_service notification-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^file-service/'; then add_service file-service; fi
-              if printf '%s\n' "$changed_files" | grep -q '^docker/caddy/'; then add_service caddy; fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            before="${{ github.event.before }}"
+            after="${{ github.sha }}"
+            if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+              changed_files="$(git diff-tree --no-commit-id --name-only -r "$after")"
             else
+              changed_files="$(git diff --name-only "$before" "$after")"
+            fi
+
+            # 공용 모듈이나 빌드 정의가 바뀌면 전부 다시 빌드한다.
+            if printf '%s\n' "$changed_files" | grep -Eq '^(Dockerfile|docker-compose\.deploy\.yml|build\.gradle|settings\.gradle|gradle/|library/|logging-library/)'; then
               add_all_app_services
             fi
+            for service in $APP_SERVICES; do
+              if printf '%s\n' "$changed_files" | grep -q "^${service}/"; then add_service "$service"; fi
+            done
+            if printf '%s\n' "$changed_files" | grep -q '^docker/caddy/'; then redeploy_caddy="true"; fi
+          else
+            add_all_app_services
           fi
 
           services="$(printf '%s' "$services" | xargs || true)"
-          echo "all_stack=$all_stack" >> "$GITHUB_OUTPUT"
           echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "redeploy_caddy=$redeploy_caddy" >> "$GITHUB_OUTPUT"
 
-          if [ "$all_stack" = "true" ]; then
-            echo "Deploy target: full compose stack"
-          elif [ -z "$services" ]; then
-            echo "No deployable backend service changes detected."
+          # 매트릭스용 JSON 배열
+          if [ -z "$services" ]; then
+            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
           else
-            echo "Deploy targets: $services"
+            printf 'matrix=[' >> "$GITHUB_OUTPUT"
+            printf '%s' "$services" | tr ' ' '\n' | sed 's/.*/"&"/' | paste -sd, - | tr -d '\n' >> "$GITHUB_OUTPUT"
+            printf ']\n' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy full stack
-        if: steps.targets.outputs.all_stack == 'true'
-        run: docker compose -f docker-compose.deploy.yml up --build -d
+          echo "Deploy targets: ${services:-(none)} (caddy=$redeploy_caddy)"
 
-      - name: Deploy resolved services
-        if: steps.targets.outputs.all_stack != 'true' && steps.targets.outputs.services != ''
+  build:
+    name: Build ${{ matrix.service }}
+    needs: resolve
+    if: needs.resolve.outputs.services != ''
+    # EC2가 t4g(Graviton)이므로 ARM 러너에서 네이티브로 빌드한다. QEMU 크로스 빌드보다 훨씬 빠르다.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.resolve.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            SERVICE_NAME=${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/pickbit-${{ matrix.service }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/pickbit-${{ matrix.service }}:latest
+          # 서비스별로 캐시 스코프를 나눠 8개 빌드가 서로의 캐시를 덮어쓰지 않게 한다.
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+
+  deploy:
+    name: Deploy to EC2
+    needs: [resolve, build]
+    # build가 스킵돼도(=caddy만 변경) 배포는 돌아야 한다.
+    if: always() && needs.build.result != 'failure' && (needs.resolve.outputs.services != '' || needs.resolve.outputs.redeploy_caddy == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Check instance is running
+        id: instance
+        run: |
+          set -euo pipefail
+          state="$(aws ec2 describe-instances \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query 'Reservations[0].Instances[0].State.Name' --output text)"
+          echo "Instance state: $state"
+          if [ "$state" != "running" ]; then
+            echo "::warning::인스턴스가 running 이 아니라 배포를 건너뜁니다 (상태: $state). 인스턴스를 켠 뒤 이 워크플로를 수동 실행하세요."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy via SSM
+        if: steps.instance.outputs.skip == 'false'
         run: |
           set -euo pipefail
 
-          for service in ${{ steps.targets.outputs.services }}; do
-            if [ "$service" = "caddy" ]; then
-              docker compose -f docker-compose.deploy.yml up --build -d caddy
-            else
-              docker compose -f "docker/compose/services/${service}.deploy.yml" up --build -d
-            fi
-          done
+          SERVICES="${{ needs.resolve.outputs.services }}"
+          if [ "${{ needs.resolve.outputs.redeploy_caddy }}" = "true" ]; then
+            SERVICES="$SERVICES caddy"
+          fi
+          SERVICES="$(printf '%s' "$SERVICES" | xargs)"
+
+          # --no-deps: 지정한 서비스만 교체하고 MySQL/Kafka 등 인프라는 건드리지 않는다.
+          read -r -d '' SCRIPT <<EOF || true
+          set -euo pipefail
+          cd /opt/pickbit/pickbit-backend
+          git fetch --all --prune
+          git checkout ${{ github.sha }}
+          export BACKEND_IMAGE_TAG=${{ github.sha }}
+          sed -i "s/^BACKEND_IMAGE_TAG=.*/BACKEND_IMAGE_TAG=${{ github.sha }}/" .env
+          docker compose -f docker-compose.deploy.yml pull $SERVICES
+          docker compose -f docker-compose.deploy.yml up -d --no-deps $SERVICES
+          # -a 가 없으면 dangling 이미지만 지운다. 배포마다 SHA 태그가 붙은 이미지가
+          # 새로 생기는데 그것들은 dangling 이 아니라서 하나도 안 지워졌다 (배포당 약 1GB 누적).
+          docker image prune -af --filter "until=168h"
+          EOF
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${{ github.sha }}" \
+            --parameters commands="$SCRIPT" \
+            --query 'Command.CommandId' --output text)"
+
+          echo "SSM command: $command_id"
+          aws ssm wait command-executed \
+            --command-id "$command_id" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" || true
+
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query '{Status:Status,Out:StandardOutputContent,Err:StandardErrorContent}' \
+            --output text
+
+          status="$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query 'Status' --output text)"
+          [ "$status" = "Success" ] || { echo "::error::SSM 배포 실패 ($status)"; exit 1; }

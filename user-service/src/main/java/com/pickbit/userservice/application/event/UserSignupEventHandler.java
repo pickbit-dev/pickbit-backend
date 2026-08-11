@@ -6,10 +6,13 @@ import com.pickbit.userservice.exception.kafka.KafkaDuplicateEventException;
 import com.pickbit.userservice.exception.kafka.KafkaInvalidMessageException;
 import com.pickbit.userservice.exception.kafka.KafkaSyncException;
 import com.pickbit.userservice.infrastructure.persistence.UserRepository;
+import com.pickbit.library.inbox.InboxEventHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
 import org.springframework.util.StringUtils;
 
 import java.util.UUID;
@@ -17,7 +20,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserSignupEventHandler {
+public class UserSignupEventHandler implements InboxEventHandler {
 
     public static final String TOPIC = "AuthAccount-topic";
     private static final String SIGNUP_ACTION = "SIGNUP";
@@ -27,7 +30,7 @@ public class UserSignupEventHandler {
     private final EventHandlerSupport eventHandlerSupport;
 
     @Transactional
-    public void handleSignup(String eventId, String aggregateId, String messageBody) {
+    public void handleSignup(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, SIGNUP_ACTION);
         }
@@ -46,11 +49,11 @@ public class UserSignupEventHandler {
                 );
                 userRepository.save(user);
             }
-            inboxService.recordSuccess(eventId, TOPIC, SIGNUP_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, SIGNUP_ACTION, aggregateId, messageBody, eventVersion);
             log.info("회원가입 이벤트 처리 완료. eventId={}, accountId={}", eventId, event.accountId());
         } catch (Exception e) {
             log.error("회원가입 이벤트 처리 실패. eventId={}, accountId={}", eventId, event.accountId(), e);
-            inboxService.recordFailure(eventId, TOPIC, SIGNUP_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, SIGNUP_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, SIGNUP_ACTION, e);
         }
     }
@@ -92,5 +95,26 @@ public class UserSignupEventHandler {
 
     private String truncate(String value, int maxLength) {
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
+    }
+
+    @Override
+    public String topic() {
+        return TOPIC;
+    }
+
+    @Override
+    public Set<String> actions() {
+        return Set.of(SIGNUP_ACTION);
+    }
+
+    /**
+     * action 에 맞는 처리로 넘깁니다. Kafka 리스너와 인박스 재처리 스케줄러가 같은 진입점을 씁니다.
+     */
+    @Override
+    public void handle(String action, String eventId, String aggregateId, String messageBody, Long eventVersion) {
+        switch (action) {
+            case SIGNUP_ACTION -> handleSignup(eventId, aggregateId, messageBody, eventVersion);
+            default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
+        }
     }
 }

@@ -7,8 +7,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,6 +23,8 @@ import java.time.LocalDateTime;
 @Getter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+// 직전 최고 입찰을 OUTBID 로 내리는 UPDATE 가 입찰마다 실행되므로 복합 인덱스가 필요하다.
+@Table(indexes = @Index(name = "idx_bid_auction_status", columnList = "auction_id, bid_status"))
 public class Bid extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

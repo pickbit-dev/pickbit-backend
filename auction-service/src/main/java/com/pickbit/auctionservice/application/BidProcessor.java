@@ -51,7 +51,9 @@ public class BidProcessor {
             throw new UnauthorizedAuctionAccessException();
         }
 
-        boolean isFirstBid = bidRepository.findTopByAuctionIdOrderByAmountDesc(auctionId).isEmpty();
+        // 존재 여부만 필요하다. findTopByAuctionIdOrderByAmountDesc 를 쓰면 그 경매의 입찰
+        // 전체를 정렬하므로 입찰이 쌓일수록 입찰 처리가 느려진다.
+        boolean isFirstBid = !bidRepository.existsByAuctionId(auctionId);
         boolean isValidAmount = isFirstBid
                 ? request.bidAmount().compareTo(auction.getStartingPrice()) >= 0
                 : request.bidAmount().compareTo(auction.getCurrentPrice().add(auction.getMinimumBidIncrement())) >= 0;

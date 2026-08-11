@@ -59,8 +59,19 @@ public class SettlementBatchConfig {
         return new JpaPagingItemReaderBuilder<Settlement>()
                 .name("settlementReader")
                 .entityManagerFactory(entityManagerFactory)
-                .queryString("select s from Settlement s where s.status = :status order by s.id asc")
-                .parameterValues(Map.of("status", SettlementStatus.PENDING))
+                // FAILED 도 대상에 포함한다. 예전에는 PENDING 만 조회해서 한 번 실패한 정산은
+                // 영원히 재시도되지 않고 방치됐다 (상태 설명에는 "재시도 필요"라고 적혀 있었는데도).
+                // 계속 실패하는 건이 매 주기 배치를 잡아먹지 않도록 재시도 횟수에 상한을 둔다.
+                .queryString("""
+                        select s from Settlement s
+                        where s.status = :pending
+                           or (s.status = :failed and s.retryCount < :maxRetries)
+                        order by s.id asc
+                        """)
+                .parameterValues(Map.of(
+                        "pending", SettlementStatus.PENDING,
+                        "failed", SettlementStatus.FAILED,
+                        "maxRetries", properties.maxRetries()))
                 .pageSize(properties.chunkSize())
                 .build();
     }

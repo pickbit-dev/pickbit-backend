@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * 입찰 응답 DTO.
  *
- * @param id              입찰 ID
+ * @param id              입찰 ID. Redis 중재 경로에서는 DB 기록 전에 응답하므로 {@code null} 입니다.
  * @param auctionId       소속 경매 ID
  * @param bidderNickname  입찰자 닉네임
  * @param amount          입찰 금액

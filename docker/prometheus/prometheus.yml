@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: deploy
+
+scrape_configs:
+  # 애플리케이션 8개. 컨테이너 이름이 곧 DNS 이므로 정적 타겟으로 충분하다.
+  # (Consul SD 도 가능하지만 단일 노드에서는 정적 목록이 더 단순하고 예측 가능하다)
+  - job_name: pickbit-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["gateway-service:18080"]
+        labels: { service: gateway-service }
+      - targets: ["auth-service:18081"]
+        labels: { service: auth-service }
+      - targets: ["user-service:18082"]
+        labels: { service: user-service }
+      - targets: ["product-service:18083"]
+        labels: { service: product-service }
+      - targets: ["file-service:18084"]
+        labels: { service: file-service }
+      - targets: ["auction-service:18085"]
+        labels: { service: auction-service }
+      - targets: ["payment-service:18086"]
+        labels: { service: payment-service }
+      - targets: ["notification-service:18087"]
+        labels: { service: notification-service }
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,24 +1,28 @@
+# 기본 json-file 드라이버는 로테이션이 없어 컨테이너 로그가 무한히 커진다.
+# Alloy는 이 파일을 읽기만 하지 잘라내지 않으므로 여기서 상한을 걸어야 한다.
+# 컨테이너당 최대 60MB.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 x-app-common: &app-common
   restart: unless-stopped
+  # 16GB 인스턴스에 컨테이너 15개가 들어가므로 상한을 명시한다.
+  # 상한이 없으면 커널 OOM killer가 임의의 컨테이너를 골라 죽인다.
+  mem_limit: 900m
   networks:
     - pickbit-deploy
   environment: &app-common-env
     SPRING_PROFILES_ACTIVE: deploy
     ENV: deploy
-    LOG_PATH: /logs
-    LOGSTASH_DESTINATION: logstash:5000
-    JAVA_OPTS: -Xms512m -Xmx1024m
-    CONSUL_HOST: consul-server
-    CONSUL_PORT: 8500
-    REDIS_HOST: redis
-    REDIS_PORT: 6379
-    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    SPRING_CLOUD_CONSUL_HOST: consul-server
-    SPRING_CLOUD_CONSUL_PORT: 8500
-    SPRING_DATA_REDIS_HOST: redis
-    SPRING_DATA_REDIS_PORT: 6379
-    SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+    # 고정 힙 대신 컨테이너 상한 기준 비율로 잡아 mem_limit 변경에 자동으로 따라가게 한다.
+    JAVA_OPTS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
+    # 최초 부팅 시에만 .env에서 update / always로 올린 뒤 되돌린다.
+    # (Flyway가 없어 빈 스키마에 validate를 걸면 전 서비스가 기동에 실패한다)
+    SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
+    BATCH_JDBC_INITIALIZE_SCHEMA: ${BATCH_JDBC_INITIALIZE_SCHEMA:-never}
   depends_on:
     mysql:
       condition: service_healthy
@@ -28,37 +32,64 @@ x-app-common: &app-common
       condition: service_started
     kafka:
       condition: service_started
-    logstash:
-      condition: service_started
   volumes:
-    - pickbit-deploy-logs:/logs
+    # 로그는 파일이 아니라 컨테이너 stdout으로만 나간다 (Alloy -> Loki).
     - ./secrets:/app/secrets:ro
-
-x-build-common: &build-common
-  context: .
-  dockerfile: Dockerfile
+  healthcheck:
+    # $$ 는 compose가 아니라 컨테이너 셸이 해석한다 -> 서비스별 SERVER_PORT를 그대로 사용
+    test: ["CMD-SHELL", "curl -fsS http://localhost:$$SERVER_PORT/actuator/health || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 20
+    start_period: 90s
 
 services:
   caddy:
     image: caddy:2-alpine
     container_name: pickbit-deploy-caddy
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 128m
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # 발급받은 Let's Encrypt 인증서가 여기 저장된다. 이 볼륨을 지우면 재발급이 일어나고
+      # 잦은 재발급은 주당 발급 한도에 걸린다.
       - pickbit-deploy-caddy-data:/data
       - pickbit-deploy-caddy-config:/config
     depends_on:
-      - gateway-service
+      gateway-service:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - pickbit-deploy
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER}/pickbit-frontend:${FRONTEND_IMAGE_TAG:-latest}
+    container_name: pickbit-deploy-frontend
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 400m
+    environment:
+      NODE_ENV: production
+      # NEXT_PUBLIC_* 은 빌드 시점에 번들로 인라인되므로 런타임에는 필요 없다.
+      # SSR 프리페치만 런타임에 게이트웨이를 직접 호출한다.
+      INTERNAL_API_URL: http://gateway-service:18080
+    depends_on:
+      gateway-service:
+        condition: service_healthy
     networks:
       - pickbit-deploy
 
   mysql:
     image: mysql:8.4
     container_name: pickbit-deploy-mysql
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 2g
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_ROOT_HOST: "%"
@@ -66,12 +97,20 @@ services:
     secrets:
       - mysql_root_password
     command:
+      # binlog/GTID는 Debezium CDC의 전제 조건이라 끄면 아웃박스 발행이 멈춘다.
       - --server-id=1
       - --log-bin=mysql-bin
       - --binlog-format=ROW
       - --binlog-row-image=FULL
       - --gtid-mode=ON
       - --enforce-gtid-consistency=ON
+      - --binlog-expire-logs-seconds=259200
+      - --innodb-buffer-pool-size=1G
+      # 커밋마다 fsync 하지 않고 1초마다 flush 한다. 쓰기 처리량이 크게 오르는 대신
+      # OS 크래시 시 최대 1초치 트랜잭션을 잃는다. 입찰 중재도 Redis AOF 1초 손실을
+      # 감수하고 있으므로 일관된 선택이다.
+      - --innodb-flush-log-at-trx-commit=2
+      - --max-connections=200
       - --default-time-zone=+09:00
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -89,8 +128,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: pickbit-deploy-redis
+    logging: *default-logging
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    # 락/캐시/rate limiter/ShedLock 에 더해 진행 중 경매 상태와 입찰 스트림까지 올라간다.
+    mem_limit: 1200m
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy noeviction
     volumes:
       - pickbit-deploy-redis-data:/data
     healthcheck:
@@ -104,9 +146,13 @@ services:
   consul-server:
     image: hashicorp/consul:1.20
     container_name: pickbit-deploy-consul
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 256m
     ports:
-      - "28500:8500"
+      # ACL이 없어 UI에 닿는 누구나 서비스를 등록/해제할 수 있다.
+      # 루프백에만 바인딩하고 SSH 터널로 접근한다.
+      - "127.0.0.1:28500:8500"
     command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
     networks:
       - pickbit-deploy
@@ -114,8 +160,11 @@ services:
   kafka:
     image: apache/kafka:3.8.0
     container_name: pickbit-deploy-kafka
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 900m
     environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
@@ -129,6 +178,11 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      # 시간 상한만 있으면 부하 테스트 한 번에 디스크가 찰 수 있어 용량 상한도 건다.
+      # 파티션당 2GB x 3파티션 x 5토픽 = 최대 30GB 이지만 실제로는 훨씬 작다.
+      KAFKA_LOG_RETENTION_BYTES: 2147483648
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
     volumes:
       - pickbit-deploy-kafka-data:/var/lib/kafka/data
     networks:
@@ -137,6 +191,7 @@ services:
   kafka-init:
     image: apache/kafka:3.8.0
     container_name: pickbit-deploy-kafka-init
+    logging: *default-logging
     depends_on:
       - kafka
     command: >
@@ -154,8 +209,11 @@ services:
   kafka-connect:
     image: quay.io/debezium/connect:3.0
     container_name: pickbit-deploy-kafka-connect
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 900m
     environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: pickbit-deploy-connect-cluster
       CONFIG_STORAGE_TOPIC: pickbit-deploy-connect-configs
@@ -175,9 +233,13 @@ services:
     networks:
       - pickbit-deploy
 
+  # 커넥터는 아웃박스 테이블이 만들어진 뒤에 등록되어야 한다.
+  # 최초 부팅에서는 앱이 스키마를 만든 다음 이 스크립트를 수동으로 한 번 실행할 것.
+  # (document/operations/aws-ec2-deployment.md 참고)
   kafka-connect-init:
     image: python:3.13-alpine
     container_name: pickbit-deploy-kafka-connect-init
+    logging: *default-logging
     depends_on:
       - kafka-connect
     environment:
@@ -188,110 +250,163 @@ services:
     networks:
       - pickbit-deploy
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
-    container_name: pickbit-deploy-elasticsearch
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: pickbit-deploy-loki
+    logging: *default-logging
     restart: unless-stopped
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: -Xms1024m -Xmx1024m
+    mem_limit: 320m
+    command: -config.file=/etc/loki/loki-config.yml
     volumes:
-      - pickbit-deploy-elasticsearch-data:/usr/share/elasticsearch/data
+      - ./docker/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - pickbit-deploy-loki-data:/loki
     networks:
       - pickbit-deploy
 
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.15.3
-    container_name: pickbit-deploy-logstash
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: pickbit-deploy-alloy
+    logging: *default-logging
     restart: unless-stopped
-    environment:
-      ENV: deploy
-      LS_JAVA_OPTS: -Xms512m -Xmx512m
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    mem_limit: 256m
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
     volumes:
-      - ./docker/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # 컨테이너 stdout을 읽기 위해 도커 소켓이 필요하다 (읽기 전용).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - pickbit-deploy-alloy-data:/var/lib/alloy/data
     depends_on:
-      - elasticsearch
+      - loki
     networks:
       - pickbit-deploy
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.15.3
-    container_name: pickbit-deploy-kibana
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: pickbit-deploy-prometheus
+    logging: *default-logging
     restart: unless-stopped
+    mem_limit: 512m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # 로컬 디스크에만 쌓이므로 보관 기간과 용량을 모두 제한한다.
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=4GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - pickbit-deploy-prometheus-data:/prometheus
+    networks:
+      - pickbit-deploy
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: pickbit-deploy-grafana
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 320m
     ports:
-      - "25601:5601"
+      # 루프백 전용. SSH 터널(-L 23000:localhost:23000)로 접근한다.
+      - "127.0.0.1:23000:3000"
     environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - pickbit-deploy-grafana-data:/var/lib/grafana
     depends_on:
-      - elasticsearch
+      - loki
+      - prometheus
     networks:
       - pickbit-deploy
 
   gateway-service:
     <<: *app-common
     container_name: pickbit-deploy-gateway-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: gateway-service
+    logging: *default-logging
+    image: ghcr.io/${GHCR_OWNER}/pickbit-gateway-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18080
 
   auth-service:
     <<: *app-common
     container_name: pickbit-deploy-auth-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: auth-service
+    logging: *default-logging
+    # 앵커 기본값(900m) 대신 이 서비스의 실제 부하에 맞춘다.
+    mem_limit: 640m
+    image: ghcr.io/${GHCR_OWNER}/pickbit-auth-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18081
 
   user-service:
     <<: *app-common
     container_name: pickbit-deploy-user-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: user-service
+    logging: *default-logging
+    # 앵커 기본값(900m) 대신 이 서비스의 실제 부하에 맞춘다.
+    mem_limit: 640m
+    image: ghcr.io/${GHCR_OWNER}/pickbit-user-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18082
 
   product-service:
     <<: *app-common
     container_name: pickbit-deploy-product-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: product-service
+    logging: *default-logging
+    image: ghcr.io/${GHCR_OWNER}/pickbit-product-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18083
 
   file-service:
     <<: *app-common
     container_name: pickbit-deploy-file-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: file-service
+    logging: *default-logging
+    # 앵커 기본값(900m) 대신 이 서비스의 실제 부하에 맞춘다.
+    mem_limit: 512m
+    image: ghcr.io/${GHCR_OWNER}/pickbit-file-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18084
 
   auction-service:
     <<: *app-common
     container_name: pickbit-deploy-auction-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: auction-service
+    logging: *default-logging
+    image: ghcr.io/${GHCR_OWNER}/pickbit-auction-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18085
 
   payment-service:
     <<: *app-common
     container_name: pickbit-deploy-payment-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: payment-service
+    logging: *default-logging
+    # 앵커 기본값(900m) 대신 이 서비스의 실제 부하에 맞춘다.
+    mem_limit: 768m
+    image: ghcr.io/${GHCR_OWNER}/pickbit-payment-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18086
 
   notification-service:
     <<: *app-common
     container_name: pickbit-deploy-notification-service
-    build:
-      <<: *build-common
-      args:
-        SERVICE_NAME: notification-service
+    logging: *default-logging
+    # 앵커 기본값(900m) 대신 이 서비스의 실제 부하에 맞춘다.
+    mem_limit: 512m
+    image: ghcr.io/${GHCR_OWNER}/pickbit-notification-service:${BACKEND_IMAGE_TAG:-latest}
+    environment:
+      <<: *app-common-env
+      SERVER_PORT: 18087
 
 networks:
   pickbit-deploy:
@@ -303,9 +418,13 @@ volumes:
   pickbit-deploy-mysql-data:
   pickbit-deploy-redis-data:
   pickbit-deploy-kafka-data:
-  pickbit-deploy-elasticsearch-data:
-  pickbit-deploy-logs:
+  pickbit-deploy-loki-data:
+  pickbit-deploy-alloy-data:
+  pickbit-deploy-grafana-data:
+  pickbit-deploy-prometheus-data:
 
 secrets:
   mysql_root_password:
     file: ./secrets/mysql-root-password.txt
+  grafana_admin_password:
+    file: ./secrets/grafana-admin-password.txt

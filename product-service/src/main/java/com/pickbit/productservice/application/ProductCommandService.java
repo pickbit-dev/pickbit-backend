@@ -4,6 +4,7 @@ import com.pickbit.productservice.api.dto.request.ProductCreateRequest;
 import com.pickbit.productservice.api.dto.request.ProductUpdateRequest;
 import com.pickbit.productservice.api.dto.response.ProductDetailResponse;
 import com.pickbit.productservice.application.mapper.ProductMapper;
+import com.pickbit.productservice.config.CacheConfig;
 import com.pickbit.productservice.domain.Category;
 import com.pickbit.productservice.domain.Product;
 import com.pickbit.productservice.domain.ProductImage;
@@ -16,6 +17,7 @@ import com.pickbit.productservice.exception.UnauthorizedProductAccessException;
 import com.pickbit.productservice.infrastructure.persistence.CategoryRepository;
 import com.pickbit.productservice.infrastructure.persistence.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +58,7 @@ public class ProductCommandService {
         return productMapper.toDetailResponse(productRepository.save(product));
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public ProductDetailResponse updateProduct(Long sellerUserId, Long id, ProductUpdateRequest request) {
         Product product = findActiveProduct(id);
 
@@ -84,6 +87,7 @@ public class ProductCommandService {
         return productMapper.toDetailResponse(product);
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void deleteProduct(Long sellerUserId, Long id) {
         Product product = findActiveProduct(id);
         validateOwner(product, sellerUserId);
@@ -94,12 +98,14 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void updateProductStatus(Long id, ProductStatus status) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         updateStatus(product, status);
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void reserveForAuction(Long id, Long sellerUserId) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -111,6 +117,7 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void releaseAuctionReservation(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -121,6 +128,7 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public ProductPaymentRestoreResult restoreAfterPaymentFailure(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -131,6 +139,7 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void markTradeInProgress(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -141,6 +150,7 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void markSold(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
@@ -151,6 +161,7 @@ public class ProductCommandService {
         }
     }
 
+    @CacheEvict(value = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#id")
     public void deactivateAfterRefund(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));

@@ -6,15 +6,18 @@ import com.pickbit.productservice.domain.product.entity.enums.ProductPaymentRest
 import com.pickbit.productservice.exception.kafka.KafkaDuplicateEventException;
 import com.pickbit.productservice.exception.kafka.KafkaInvalidMessageException;
 import com.pickbit.productservice.exception.kafka.KafkaSyncException;
+import com.pickbit.library.inbox.InboxEventHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PaymentEventHandler {
+public class PaymentEventHandler implements InboxEventHandler {
 
     public static final String TOPIC = "Payment-topic";
     public static final String ESCROWED_ACTION = "ESCROWED";
@@ -28,7 +31,7 @@ public class PaymentEventHandler {
     private final EventHandlerSupport eventHandlerSupport;
 
     @Transactional
-    public void handleEscrowed(String eventId, String aggregateId, String messageBody) {
+    public void handleEscrowed(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, ESCROWED_ACTION);
         }
@@ -38,19 +41,19 @@ public class PaymentEventHandler {
 
         try {
             productCommandService.markTradeInProgress(event.productId());
-            inboxService.recordSuccess(eventId, TOPIC, ESCROWED_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, ESCROWED_ACTION, aggregateId, messageBody, eventVersion);
             log.info("결제 완료 상품 거래 진행 처리 완료. eventId={}, paymentId={}, productId={}, auctionId={}",
                     eventId, event.paymentId(), event.productId(), event.auctionId());
         } catch (Exception e) {
             log.error("결제 완료 상품 거래 진행 처리 실패. eventId={}, paymentId={}, productId={}",
                     eventId, event.paymentId(), event.productId(), e);
-            inboxService.recordFailure(eventId, TOPIC, ESCROWED_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, ESCROWED_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, ESCROWED_ACTION, e);
         }
     }
 
     @Transactional
-    public void handleSettled(String eventId, String aggregateId, String messageBody) {
+    public void handleSettled(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, SETTLED_ACTION);
         }
@@ -60,19 +63,19 @@ public class PaymentEventHandler {
 
         try {
             productCommandService.markSold(event.productId());
-            inboxService.recordSuccess(eventId, TOPIC, SETTLED_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, SETTLED_ACTION, aggregateId, messageBody, eventVersion);
             log.info("정산 완료 상품 판매 완료 처리 완료. eventId={}, paymentId={}, productId={}, auctionId={}",
                     eventId, event.paymentId(), event.productId(), event.auctionId());
         } catch (Exception e) {
             log.error("정산 완료 상품 판매 완료 처리 실패. eventId={}, paymentId={}, productId={}",
                     eventId, event.paymentId(), event.productId(), e);
-            inboxService.recordFailure(eventId, TOPIC, SETTLED_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, SETTLED_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, SETTLED_ACTION, e);
         }
     }
 
     @Transactional
-    public void handleRefunded(String eventId, String aggregateId, String messageBody) {
+    public void handleRefunded(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, REFUNDED_ACTION);
         }
@@ -82,19 +85,19 @@ public class PaymentEventHandler {
 
         try {
             productCommandService.deactivateAfterRefund(event.productId());
-            inboxService.recordSuccess(eventId, TOPIC, REFUNDED_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, REFUNDED_ACTION, aggregateId, messageBody, eventVersion);
             log.info("환불 상품 비활성화 처리 완료. eventId={}, paymentId={}, productId={}, auctionId={}",
                     eventId, event.paymentId(), event.productId(), event.auctionId());
         } catch (Exception e) {
             log.error("환불 상품 비활성화 처리 실패. eventId={}, paymentId={}, productId={}",
                     eventId, event.paymentId(), event.productId(), e);
-            inboxService.recordFailure(eventId, TOPIC, REFUNDED_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, REFUNDED_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, REFUNDED_ACTION, e);
         }
     }
 
     @Transactional
-    public void handleFailedNoPayment(String eventId, String aggregateId, String messageBody) {
+    public void handleFailedNoPayment(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION);
         }
@@ -104,18 +107,18 @@ public class PaymentEventHandler {
 
         try {
             ProductPaymentRestoreResult restoreResult = productCommandService.restoreAfterPaymentFailure(event.productId());
-            inboxService.recordSuccess(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION, aggregateId, messageBody, eventVersion);
             logRestoreResult(FAILED_NO_PAYMENT_ACTION, restoreResult, eventId, event.paymentId(), event.productId(), event.auctionId());
         } catch (Exception e) {
             log.error("미결제 만료 상품 복구 실패. eventId={}, paymentId={}, productId={}",
                     eventId, event.paymentId(), event.productId(), e);
-            inboxService.recordFailure(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, FAILED_NO_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, FAILED_NO_PAYMENT_ACTION, e);
         }
     }
 
     @Transactional
-    public void handleCancelledBeforePayment(String eventId, String aggregateId, String messageBody) {
+    public void handleCancelledBeforePayment(String eventId, String aggregateId, String messageBody, Long eventVersion) {
         if (inboxService.isAlreadyProcessed(eventId)) {
             throw new KafkaDuplicateEventException(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION);
         }
@@ -125,12 +128,12 @@ public class PaymentEventHandler {
 
         try {
             ProductPaymentRestoreResult restoreResult = productCommandService.restoreAfterPaymentFailure(event.productId());
-            inboxService.recordSuccess(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody);
+            inboxService.recordSuccess(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody, eventVersion);
             logRestoreResult(CANCELLED_BEFORE_PAYMENT_ACTION, restoreResult, eventId, event.paymentId(), event.productId(), event.auctionId());
         } catch (Exception e) {
             log.error("결제 전 포기 상품 복구 실패. eventId={}, paymentId={}, productId={}",
                     eventId, event.paymentId(), event.productId(), e);
-            inboxService.recordFailure(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage());
+            inboxService.recordFailure(eventId, TOPIC, CANCELLED_BEFORE_PAYMENT_ACTION, aggregateId, messageBody, e.getMessage(), eventVersion);
             throw new KafkaSyncException(eventId, CANCELLED_BEFORE_PAYMENT_ACTION, e);
         }
     }
@@ -159,6 +162,31 @@ public class PaymentEventHandler {
                     action, eventId, paymentId, productId, auctionId);
             case STALE_IGNORED -> log.warn("결제 이벤트 상품 복구 스킵 - 오래된 이벤트로 판단. action={}, eventId={}, paymentId={}, productId={}, auctionId={}",
                     action, eventId, paymentId, productId, auctionId);
+        }
+    }
+
+    @Override
+    public String topic() {
+        return TOPIC;
+    }
+
+    @Override
+    public Set<String> actions() {
+        return Set.of(ESCROWED_ACTION, SETTLED_ACTION, REFUNDED_ACTION, FAILED_NO_PAYMENT_ACTION, CANCELLED_BEFORE_PAYMENT_ACTION);
+    }
+
+    /**
+     * action 에 맞는 처리로 넘깁니다. Kafka 리스너와 인박스 재처리 스케줄러가 같은 진입점을 씁니다.
+     */
+    @Override
+    public void handle(String action, String eventId, String aggregateId, String messageBody, Long eventVersion) {
+        switch (action) {
+            case ESCROWED_ACTION -> handleEscrowed(eventId, aggregateId, messageBody, eventVersion);
+            case SETTLED_ACTION -> handleSettled(eventId, aggregateId, messageBody, eventVersion);
+            case REFUNDED_ACTION -> handleRefunded(eventId, aggregateId, messageBody, eventVersion);
+            case FAILED_NO_PAYMENT_ACTION -> handleFailedNoPayment(eventId, aggregateId, messageBody, eventVersion);
+            case CANCELLED_BEFORE_PAYMENT_ACTION -> handleCancelledBeforePayment(eventId, aggregateId, messageBody, eventVersion);
+            default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
         }
     }
 }

@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class PaymentExceptionHandler extends GlobalExceptionHandler {
 
-    @ExceptionHandler(PaymentNotFoundException.class)
-    protected ResponseEntity<ProblemDetail> handleNotFound(PaymentNotFoundException e, HttpServletRequest request) {
+    @ExceptionHandler({PaymentNotFoundException.class, SettlementNotFoundException.class})
+    protected ResponseEntity<ProblemDetail> handleNotFound(RuntimeException e, HttpServletRequest request) {
         logException(HttpStatus.NOT_FOUND, e);
         return buildResponse(HttpStatus.NOT_FOUND, e.getMessage(), request);
     }
@@ -27,8 +27,8 @@ public class PaymentExceptionHandler extends GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, e.getMessage(), request);
     }
 
-    @ExceptionHandler(PaymentAccessDeniedException.class)
-    protected ResponseEntity<ProblemDetail> handleForbidden(PaymentAccessDeniedException e, HttpServletRequest request) {
+    @ExceptionHandler({PaymentAccessDeniedException.class, SettlementAccessDeniedException.class})
+    protected ResponseEntity<ProblemDetail> handleForbidden(RuntimeException e, HttpServletRequest request) {
         logException(HttpStatus.FORBIDDEN, e);
         return buildResponse(HttpStatus.FORBIDDEN, e.getMessage(), request);
     }

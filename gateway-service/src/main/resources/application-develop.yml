@@ -22,6 +22,16 @@ spring:
 server:
   port: 18080
 
+gateway:
+  api-key:
+    # 로컬 개발에서는 켜두고, 키만 secrets/application-develop-secret.yml 에 넣으면 된다.
+    # 키가 비어 있으면 enabled 와 무관하게 비활성이므로 안전하다.
+    #   GATEWAY_API_KEY: <openssl rand -hex 32 결과>
+    enabled: ${GATEWAY_API_KEY_ENABLED:true}
+    key: ${GATEWAY_API_KEY:}
+    # 로컬에서는 카테고리 관리 API 같은 ADMIN 경로도 테스트할 수 있게 허용한다.
+    allow-admin-role: ${GATEWAY_API_KEY_ALLOW_ADMIN:true}
+
 cors:
   allowed-origins:
     - "*"

@@ -26,12 +26,14 @@ public class UserSignupEventListener {
     public void handleSignupMessage(
             @Header("action") String action,
             @Header("event_id") String eventId,
+            // 아웃박스 행 ID. 커넥터 갱신 전에 발행된 메시지에는 없을 수 있어 필수가 아니다.
+            @Header(name = "event_version", required = false) String eventVersion,
             @Header(KafkaHeaders.RECEIVED_KEY) String aggregateId,
             @Payload String messageBody
     ) {
         try {
             if ("SIGNUP".equals(action)) {
-                eventHandler.handleSignup(eventId, aggregateId, messageBody);
+                eventHandler.handleSignup(eventId, aggregateId, messageBody, parseVersion(eventVersion));
             } else {
                 log.warn("지원하지 않는 회원 action: {}", action);
             }
@@ -45,6 +47,17 @@ public class UserSignupEventListener {
         } catch (Exception e) {
             log.error("예상치 못한 오류: action={}, eventId={}", action, eventId, e);
             throw e;
+        }
+    }
+
+    private static Long parseVersion(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

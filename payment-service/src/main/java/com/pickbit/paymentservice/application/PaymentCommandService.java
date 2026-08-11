@@ -163,6 +163,13 @@ public class PaymentCommandService {
     private Settlement createPendingSettlement(Payment payment) {
         Settlement settlement = Settlement.builder()
                 .paymentId(payment.getId())
+                // 판매자와 상품 정보를 스냅샷으로 함께 남긴다.
+                // 정산 목록을 보여줄 때마다 Payment 와 조인하지 않아도 된다.
+                .sellerUserId(payment.getSellerUserId())
+                .auctionId(payment.getAuctionId())
+                .productId(payment.getProductId())
+                .productName(payment.getProductName())
+                .productThumbnailUrl(payment.getProductThumbnailUrl())
                 .grossAmount(payment.getAmount())
                 .platformFeeAmount(BigDecimal.ZERO)
                 .pgFeeAmount(BigDecimal.ZERO)

@@ -31,6 +31,12 @@ auction:
     cron: "-"
   cache:
     auction-ttl-seconds: 1
+  bid:
+    arbiter:
+      # 기존 통합 테스트는 "입찰 직후 DB에 반영되어 있다"는 동기 경로의 계약을 검증한다.
+      # 중재 경로는 비동기 영속화라 그 단언이 성립하지 않으므로 여기서는 폴백 경로를 테스트한다.
+      # 중재 경로는 BidArbiterIntegrationTest 가 반영을 기다리며 따로 검증한다.
+      enabled: false
 
 client:
   product-service:

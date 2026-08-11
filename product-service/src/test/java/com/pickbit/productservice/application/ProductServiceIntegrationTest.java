@@ -74,6 +74,12 @@ class ProductServiceIntegrationTest {
     @Autowired
     private InboxRepository inboxRepository;
 
+    @Autowired
+    private com.pickbit.productservice.infrastructure.redis.ViewCountBuffer viewCountBuffer;
+
+    @Autowired
+    private ViewCountFlushScheduler viewCountFlushScheduler;
+
     @MockitoBean
     private AuctionServiceClient auctionServiceClient;
 
@@ -228,15 +234,24 @@ class ProductServiceIntegrationTest {
         }
 
         @Test
-        @DisplayName("단건 조회 시 viewCount가 1씩 증가한다")
-        void getProduct_increasesViewCount() {
+        @DisplayName("조회수는 Redis에 모였다가 flush 시점에 DB로 반영된다")
+        void viewCount_isBufferedThenFlushed() {
             ProductDetailResponse created = productCommandService.createProduct(1L, "seller1", defaultCreateRequest);
 
             productQueryService.getProduct(created.id());
             productQueryService.getProduct(created.id());
-            ProductDetailResponse third = productQueryService.getProduct(created.id());
+            productQueryService.getProduct(created.id());
 
-            assertThat(third.viewCount()).isEqualTo(3L);
+            // 조회 경로에서는 DB에 쓰지 않는다. 예전에는 조회마다 UPDATE 가 나가서
+            // 캐싱을 해도 DB 부하가 그대로였고 인기 상품은 같은 행에 UPDATE 가 몰렸다.
+            assertThat(viewCountBuffer.pending(created.id())).isEqualTo(3L);
+            assertThat(productRepository.findById(created.id()).orElseThrow().getViewCount()).isZero();
+
+            viewCountFlushScheduler.flush();
+
+            assertThat(productRepository.findById(created.id()).orElseThrow().getViewCount()).isEqualTo(3L);
+            // 반영한 뒤에는 버퍼를 비워 다음 주기에 중복 반영되지 않는다.
+            assertThat(viewCountBuffer.pending(created.id())).isZero();
         }
     }
 
@@ -395,11 +410,11 @@ class ProductServiceIntegrationTest {
             String payload = "{\"eventId\":\"%s\",\"productId\":%d,\"status\":\"AUCTION_SCHEDULED\",\"reason\":\"AUCTION_CREATED\",\"auctionId\":10}"
                     .formatted(eventId, created.id());
 
-            productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload);
+            productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload, 1001L);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.AUCTION_SCHEDULED);
             assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
-            assertThatThrownBy(() -> productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload))
+            assertThatThrownBy(() -> productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload, 1002L))
                     .isInstanceOf(KafkaDuplicateEventException.class);
         }
 
@@ -412,7 +427,7 @@ class ProductServiceIntegrationTest {
             String payload = "{\"eventId\":\"%s\",\"productId\":%d,\"status\":\"IN_AUCTION\",\"reason\":\"AUCTION_STARTED\",\"auctionId\":10}"
                     .formatted(eventId, created.id());
 
-            productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload);
+            productStatusEventHandler.handleUpdate(eventId, "Product:" + created.id(), payload, 1003L);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.IN_AUCTION);
         }
@@ -430,7 +445,7 @@ class ProductServiceIntegrationTest {
             String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"amount\":10000,\"paidAt\":\"2026-06-17T10:00:00\",\"confirmDeadlineAt\":\"2026-06-24T10:00:00\"}"
                     .formatted(eventId, created.id());
 
-            paymentEventHandler.handleEscrowed(eventId, "Payment:1", payload);
+            paymentEventHandler.handleEscrowed(eventId, "Payment:1", payload, 1004L);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.TRADE_IN_PROGRESS);
             assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
@@ -445,7 +460,7 @@ class ProductServiceIntegrationTest {
             String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"grossAmount\":10000,\"netSellerAmount\":10000,\"releasedAt\":\"2026-06-17T10:00:00\"}"
                     .formatted(eventId, created.id());
 
-            paymentEventHandler.handleSettled(eventId, "Payment:1", payload);
+            paymentEventHandler.handleSettled(eventId, "Payment:1", payload, 1005L);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.SOLD);
             assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();
@@ -460,7 +475,7 @@ class ProductServiceIntegrationTest {
             String payload = "{\"eventId\":\"%s\",\"paymentId\":1,\"auctionId\":10,\"productId\":%d,\"buyerUserId\":100,\"sellerUserId\":1,\"amount\":10000,\"reason\":\"환불\",\"refundedAt\":\"2026-06-17T10:00:00\"}"
                     .formatted(eventId, created.id());
 
-            paymentEventHandler.handleRefunded(eventId, "Payment:1", payload);
+            paymentEventHandler.handleRefunded(eventId, "Payment:1", payload, 1006L);
 
             assertThat(productQueryService.getProduct(created.id()).productStatus()).isEqualTo(ProductStatus.INACTIVE);
             assertThat(inboxRepository.existsBySuccessEventId(eventId)).isTrue();

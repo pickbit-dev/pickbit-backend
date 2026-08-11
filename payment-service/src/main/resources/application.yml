@@ -1,6 +1,32 @@
 spring:
   application:
     name: payment-service
+  # Java 25 + Boot 4. 요청 스레드가 DB/Redis 응답을 기다리는 시간이 대부분이라 효과가 크다.
+  # 단, Hikari 를 먼저 키운 뒤에 켜야 한다. 안 그러면 수천 개 요청이 커넥션 앞에 줄을 서서
+  # 스레드 대기가 커넥션 타임아웃 폭풍으로 바뀔 뿐이다.
+  threads:
+    virtual:
+      enabled: true
+
+
+  jpa:
+    # 미설정 시 기본값이 true 라서 EntityManager 와 그에 딸린 DB 커넥션이
+    # 트랜잭션이 아니라 요청 전체(응답 직렬화 포함) 동안 붙잡힌다.
+    open-in-view: false
+
+  datasource:
+    hikari:
+      # 무작정 키우지 않는다. MySQL 이 유용하게 처리하는 동시 쿼리는 vCPU 대비 10~30 수준이고
+      # 그보다 많은 커넥션은 컨텍스트 스위칭만 늘린다. 6개 서비스 합계 100.
+      maximum-pool-size: 15
+      minimum-idle: 5
+      # 기본값 30초는 DB 가 느려질 때 요청 스레드를 전부 묶어버린다. 빠르게 실패시킨다.
+      connection-timeout: 3000
+      validation-timeout: 1000
+      idle-timeout: 300000
+      # MySQL wait_timeout 보다 짧아야 끊긴 커넥션을 잡지 않는다.
+      max-lifetime: 900000
+      leak-detection-threshold: 5000
 
   batch:
     job:
@@ -15,13 +41,37 @@ spring:
         health-check-path: /actuator/health
         health-check-interval: 10s
         metadata:
-          gateway-path: /api/payments/**
+          gateway-path: /api/payments/**,/api/settlements/**
+
+# 아웃박스/인박스 등은 삭제 로직이 없어 영원히 쌓였다. 오래된 행을 청크 단위로 지운다.
+# 아웃박스는 Debezium 이 binlog 로 읽어가므로 binlog 보관 기간(3일)보다 넉넉히 남긴다.
+# 인박스는 Kafka 중복 소비를 막는 멱등성 원장이라 더 길게 둔다.
+maintenance:
+  retention:
+    targets:
+      - table: inbox
+        days: 30
+      - table: out_box_event
+        days: 7
+      - table: pg_webhook_log
+        days: 90
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+
+  # p95/p99 는 히스토그램 버킷으로 내보내고 Grafana 에서 histogram_quantile 로 계산한다.
+  # 인스턴스가 늘어나도 합산이 되기 때문이다. (미리 계산된 percentile 은 합산할 수 없다)
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
 
 client:
   toss-payments:
@@ -37,3 +87,5 @@ payment:
     chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
     platform-fee-rate: ${SETTLEMENT_PLATFORM_FEE_RATE:0.05}
     pg-fee-rate: ${SETTLEMENT_PG_FEE_RATE:0.00}
+    # 실패한 정산의 재시도 상한. 넘으면 배치가 더 집어가지 않고 사람이 확인해야 한다.
+    max-retries: ${SETTLEMENT_BATCH_MAX_RETRIES:5}
