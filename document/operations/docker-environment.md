@@ -6,8 +6,9 @@ Pickbit 백엔드는 `develop`, `deploy` 환경을 Docker Compose로 구성한�
 
 develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 백엔드 애플리케이션, 프론트엔드, MySQL, Redis, Consul, Kafka, Kafka Connect, Loki 기반 로깅, Caddy를 실행한다. 외부로 노출되는 포트는 `3306`, `6379`, `8080`, `8500` 같은 기본 포트를 피하고 Pickbit 전용 포트 대역을 사용한다.
 
-> deploy 환경은 AWS EC2 단일 노드에서 돌아간다. 프로비저닝, 최초 스키마 부트스트랩,
-> 배포/롤백 절차는 [aws-ec2-deployment.md](./aws-ec2-deployment.md)를 참고한다.
+> deploy 환경은 AWS EC2 단일 노드에서 돌아간다. 프로비저닝, 배포/롤백 절차는
+> [aws-ec2-deployment.md](./aws-ec2-deployment.md)를 참고한다.
+> 스키마는 Flyway가 기동 시 적용하므로 별도 부트스트랩 절차가 없다.
 >
 > **관측 스택은 ELK에서 Loki + Grafana로 교체되었다.** 16GB 인스턴스에서 Elasticsearch +
 > Logstash + Kibana가 약 4GB를 차지해 부담이 컸다. develop 스택은 기존 ELK를 그대로 쓴다.

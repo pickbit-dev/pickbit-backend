@@ -1,18 +1,11 @@
 spring:
-  ai:
-    openai:
-      api-key: test-openai-api-key
-      chat:
-        model: gpt-4o-mini
-        temperature: 0.7
+  config:
+    activate:
+      on-profile: test
 
   cloud:
     consul:
       enabled: false
-
-  config:
-    activate:
-      on-profile: test
 
   jpa:
     defer-datasource-initialization: false
@@ -22,6 +15,8 @@ spring:
         format_sql: false
         default_batch_fetch_size: 100
     database: mysql
+    # 스키마는 Flyway 가 만들고 Hibernate 는 검증만 한다.
+    # 마이그레이션과 엔티티가 어긋나면 여기서 기동이 실패해 CI 가 잡아준다.
     hibernate:
       ddl-auto: validate
 
@@ -36,7 +31,3 @@ openapi:
 springdoc:
   api-docs:
     enabled: false
-
-client:
-  auction-service:
-    base-url: http://localhost:18085

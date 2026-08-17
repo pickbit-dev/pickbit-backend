@@ -9,6 +9,18 @@ dependencies {
     api 'org.springframework.data:spring-data-commons'
     api 'org.springframework.data:spring-data-jpa'
     api 'jakarta.persistence:jakarta.persistence-api'
+
+    // 스키마는 Flyway 가 관리하고 Hibernate 는 validate 만 한다.
+    // DataSource 가 없는 서비스(file, gateway)에서는 Flyway 자동설정이 스스로 물러난다.
+    //
+    // 세 개가 다 필요하다.
+    //   flyway-core        : 엔진
+    //   flyway-mysql       : MySQL 8.4 지원 (별도 모듈)
+    //   spring-boot-flyway : 자동설정. Boot 4 는 자동설정을 기술별 모듈로 쪼개서
+    //                        flyway-core 만 넣으면 마이그레이션이 조용히 실행되지 않는다.
+    api 'org.flywaydb:flyway-core'
+    api 'org.flywaydb:flyway-mysql'
+    api 'org.springframework.boot:spring-boot-flyway'
     api 'jakarta.servlet:jakarta.servlet-api'
     api 'jakarta.validation:jakarta.validation-api'
     api 'org.springframework:spring-webmvc'

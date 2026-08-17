@@ -236,7 +236,7 @@ Settings → Secrets and variables → Actions
 |---|---|---|
 | 1 | 프론트 레포 CI 를 돌려 `pickbit-frontend` 이미지를 GHCR 에 올린다 | `caddy` 가 `frontend` 에 `depends_on` 이라 이미지가 없으면 caddy 가 안 뜬다 |
 | 2 | **인스턴스를 끈 채로** 배포 브랜치(`main`)에 머지 | 이미지 8개는 빌드·푸시되고, 배포는 자동으로 건너뛴다 |
-| 3 | 인스턴스를 켜고 **3장 부트스트랩을 수동 실행** | CI 는 부트스트랩을 못 한다 (아래 참고) |
+| 3 | 인스턴스를 켜고 **3장대로 기동** | Flyway 가 스키마를 만든다. 별도 부트스트랩은 없다 |
 | 4 | 4장 확인 절차 | |
 
 **2단계가 요령입니다.** 워크플로는 인스턴스가 `running` 이 아니면 배포를 경고만 남기고
@@ -249,40 +249,55 @@ Settings → Secrets and variables → Actions
 
 ---
 
-## 3. 최초 기동 — 스키마 부트스트랩
+## 3. 최초 기동
 
-**이 절차를 건너뛰면 DB를 쓰는 서비스 6개가 전부 기동에 실패합니다.**
+**부트스트랩 절차가 따로 없습니다.** 스키마는 Flyway가 기동 시 자동으로 적용합니다.
 
-Flyway/Liquibase가 없고 `docker/mysql/init/01-create-databases.sql`은 **빈 데이터베이스만**
-만듭니다(테이블 없음). 평소에는 `ddl-auto=validate`로 도는데, 빈 스키마에 validate를 걸면
-`SchemaManagementException`이 납니다. 최초 1회만 Hibernate에게 스키마를 만들게 합니다.
+`docker/mysql/init/01-create-databases.sql`이 빈 데이터베이스 6개를 만들고, 각 서비스가
+뜨면서 자기 `db/migration/V*.sql`을 적용합니다. Hibernate는 `ddl-auto=validate`로
+검증만 하므로 **스키마를 임의로 바꾸지 않습니다.**
 
 ```bash
 cd /opt/pickbit/pickbit-backend
-
-# 1) 부트스트랩 모드로 전환
-sed -i 's/^# SPRING_JPA_HIBERNATE_DDL_AUTO=update/SPRING_JPA_HIBERNATE_DDL_AUTO=update/' .env
-sed -i 's/^# BATCH_JDBC_INITIALIZE_SCHEMA=always/BATCH_JDBC_INITIALIZE_SCHEMA=always/' .env
-
-# 2) 전체 기동
 docker compose -f docker-compose.deploy.yml pull
 docker compose -f docker-compose.deploy.yml up -d
 
-# 3) 앱 8개가 healthy 가 될 때까지 대기 (JVM 기동에 1~2분)
+# 앱이 healthy 가 될 때까지 대기 (JVM 기동에 1~2분)
 watch -n 5 'docker compose -f docker-compose.deploy.yml ps'
 
-# 4) 아웃박스 테이블이 생긴 뒤에 Debezium 커넥터를 등록한다.
-#    (테이블보다 먼저 등록하면 스냅샷이 빈 테이블을 잡는다)
+# 아웃박스 테이블이 생긴 뒤에 Debezium 커넥터를 등록한다.
+# (테이블보다 먼저 등록하면 스냅샷이 빈 테이블을 잡는다)
 docker compose -f docker-compose.deploy.yml up kafka-connect-init
-
-# 5) 다시 validate 로 되돌리고 재기동
-sed -i 's/^SPRING_JPA_HIBERNATE_DDL_AUTO=update/# SPRING_JPA_HIBERNATE_DDL_AUTO=update/' .env
-sed -i 's/^BATCH_JDBC_INITIALIZE_SCHEMA=always/# BATCH_JDBC_INITIALIZE_SCHEMA=always/' .env
-docker compose -f docker-compose.deploy.yml up -d
 ```
 
-이후 스키마가 바뀌는 변경을 배포할 때는 같은 절차를 반복하거나, Flyway를 도입하세요
-(백로그 권장 항목).
+적용 결과 확인:
+
+```bash
+PW=$(cat secrets/mysql-root-password.txt)
+docker exec pickbit-deploy-mysql mysql -uroot -p$PW \
+  -e "SELECT version, description, success FROM pickbit_payment_server.flyway_schema_history"
+```
+
+`success=1` 이면 정상입니다.
+
+> **서비스가 `Schema validation: missing table ...` 로 죽는다면** 엔티티를 바꾸면서
+> 마이그레이션을 빠뜨린 것입니다. 스키마가 조용히 어긋나는 대신 배포가 즉시 멈추도록
+> 한 의도된 동작입니다. 아래 3-1 절차대로 마이그레이션을 추가하세요.
+
+### 3-1. 스키마를 바꿀 때
+
+1. 엔티티를 수정한다
+2. 해당 서비스의 `src/main/resources/db/migration/` 에 `V2__설명.sql` 을 추가한다
+   (버전 번호는 서비스마다 독립적이다 — DB가 서로 다르기 때문)
+3. 로컬에서 검증한다. `validate` 로 뜨면 마이그레이션과 엔티티가 일치한다는 뜻이다
+4. 커밋해서 배포하면 기동 시 자동 적용된다
+
+**이미 적용된 마이그레이션 파일은 절대 수정하지 마세요.** Flyway가 체크섬으로 검증해서
+`Migration checksum mismatch` 로 기동이 실패합니다. 바꾸려면 새 버전을 추가합니다.
+
+`V1__init_schema.sql`은 Hibernate가 만든 스키마를 `mysqldump`로 그대로 뜬 것입니다.
+새 마이그레이션도 손으로 쓰기보다 로컬에서 Hibernate에게 만들게 한 뒤 그 차이를 옮기는 편이
+`validate` 통과에 안전합니다.
 
 ---
 
@@ -468,11 +483,16 @@ auth-service 가 640m 로 줄어든 것은 게이트웨이가 JWT 를 직접 검
 
 ## 8. 자주 겪는 문제
 
-**전 서비스가 `SchemaManagementException`으로 죽는다**
-→ 3장 스키마 부트스트랩을 안 했습니다. 빈 DB에 `validate`를 건 상태입니다.
+**서비스가 `Schema validation: missing table ...`로 죽는다**
+→ 엔티티를 바꾸면서 마이그레이션을 빠뜨렸습니다. 3-1 절차대로 `V2__*.sql`을 추가하세요.
+스키마가 조용히 어긋나는 대신 배포가 즉시 멈추도록 한 의도된 동작입니다.
+
+**`Migration checksum mismatch`로 죽는다**
+→ 이미 적용된 마이그레이션 파일을 수정했습니다. 되돌리고 새 버전을 추가하세요.
 
 **`SettlementBatchScheduler`가 매번 실패한다**
-→ Spring Batch 메타 테이블이 없습니다. `BATCH_JDBC_INITIALIZE_SCHEMA=always`로 1회 기동.
+→ `BATCH_*` 메타 테이블이 없습니다. payment-service의 `V1__init_schema.sql`에 포함돼
+있으니, `flyway_schema_history`에 V1이 `success=1`로 적용됐는지 확인하세요.
 
 **게이트웨이는 떴는데 라우팅이 404**
 → Consul에 서비스가 등록되기까지 몇 초 걸립니다. `ConsulRouteDefinitionLocator`가

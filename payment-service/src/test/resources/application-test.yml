@@ -16,7 +16,7 @@ spring:
         default_batch_fetch_size: 100
     database: mysql
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
 
   kafka:
     listener:
@@ -25,10 +25,10 @@ spring:
   batch:
     job:
       enabled: false
-    # JobRepository 가 BATCH_* 메타 테이블을 요구한다. ddl-auto 는 JPA 엔티티만 만들고
-    # 이 테이블들은 만들지 않으므로, 없으면 컨텍스트 기동 단계에서 실패한다.
+    # BATCH_* 메타 테이블은 Flyway 마이그레이션(V1__init_schema.sql)에 들어 있다.
+    # 테스트도 프로덕션과 같은 경로로 스키마를 만들어야 마이그레이션 오류를 CI 가 잡는다.
     jdbc:
-      initialize-schema: always
+      initialize-schema: never
 
 openapi:
   docs-export:

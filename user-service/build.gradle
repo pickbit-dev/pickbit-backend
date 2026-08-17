@@ -19,10 +19,15 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
     runtimeOnly 'com.mysql:mysql-connector-j'
-    testRuntimeOnly 'com.h2database:h2'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // H2 대신 실제 MySQL 로 띄운다. Flyway 마이그레이션이 MySQL DDL 이라 H2 에서는 실행되지 않는다.
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-mysql'
+    testImplementation 'org.testcontainers:testcontainers-jdbc'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 }
 
 tasks.test {

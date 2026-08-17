@@ -32,7 +32,8 @@ spring:
     job:
       enabled: false
     jdbc:
-      initialize-schema: ${BATCH_JDBC_INITIALIZE_SCHEMA:never}
+      # BATCH_* 메타 테이블도 Flyway 마이그레이션에 들어 있다. 스키마 관리 창구를 하나로 둔다.
+      initialize-schema: never
 
   cloud:
     consul:
