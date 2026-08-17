@@ -215,16 +215,27 @@ Caddy가 Let's Encrypt 인증서를 자동 발급하므로 **80/443이 열려 �
 
 Settings → Secrets and variables → Actions
 
-| 위치 | 이름 | 값 |
-|---|---|---|
-| Secrets | `AWS_DEPLOY_ROLE_ARN` | OIDC 역할 ARN |
-| Secrets | `EC2_INSTANCE_ID` | `i-xxxxxxxx` |
-| **Variables** | `AWS_REGION` | `ap-northeast-2` |
-| Secrets (프론트 레포) | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss 클라이언트 키 |
+| 위치 | 이름 | 값 | 필요한 레포 |
+|---|---|---|---|
+| Secrets | `AWS_DEPLOY_ROLE_ARN` | OIDC 역할 ARN | 백엔드 + 프론트 |
+| Secrets | `EC2_INSTANCE_ID` | `i-xxxxxxxx` | 백엔드 + 프론트 |
+| **Variables** | `AWS_REGION` | `ap-northeast-2` | 백엔드 + 프론트 |
+| Secrets | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss 클라이언트 키 | 프론트 |
 
 > `AWS_REGION` 만 **Variables 탭**입니다. 워크플로가 `vars.AWS_REGION` 으로 읽기 때문에
 > Secrets 에 넣으면 빈 문자열이 되고, 리전 없이 AWS 를 호출하다 실패합니다.
 > 두 탭이 같은 화면에 있어 헷갈리기 쉽습니다.
+
+> **두 레포 모두에 있어야 합니다.** 조직(Organization) 시크릿으로 두더라도 Repository
+> access 가 `Selected repositories` 면 거기 고른 레포에만 내려갑니다. 빠진 레포에서는
+> `${{ secrets.X }}` 가 조용히 **빈 문자열**이 되고, 실패가 원인과 동떨어진 곳에서
+> 납니다 — 역할 ARN 이 비면 `Could not load credentials from any providers`,
+> `NEXT_PUBLIC_TOSS_CLIENT_KEY` 가 비면 빌드는 성공하지만 결제 키가 빠진 이미지가
+> 배포됩니다. `AWS_REGION` 은 Variables 라서 조직에 넣어도 레포마다 따로 확인하세요.
+
+> IAM 역할 신뢰 정책의 `token.actions.githubusercontent.com:sub` 조건에도 **두 레포가
+> 모두** 들어가야 합니다 (`repo:<org>/pickbit-backend:*`, `repo:<org>/pickbit-frontend:*`).
+> 시크릿만 열고 신뢰 정책을 빠뜨리면 `AssumeRoleWithWebIdentity` 에서 거부됩니다.
 
 ---
 
@@ -307,6 +318,22 @@ docker exec pickbit-deploy-mysql mysql -uroot -p$PW \
 `main`에 푸시하면 GitHub Actions가 변경된 서비스만 ARM 러너에서 빌드해 GHCR에 올리고,
 SSM으로 EC2에서 `pull` + `up -d --no-deps` 를 실행합니다. **인스턴스가 꺼져 있으면
 배포는 경고만 남기고 건너뜁니다** — 켠 뒤 워크플로를 수동 실행하세요.
+
+워크플로 파일만 바뀐 커밋은 배포 대상 서비스가 없어 배포까지 가지 않습니다. 배포 경로 자체를
+시험하려면 Actions → Backend Deploy → Run workflow 에서 `service` 를 골라 수동 실행하세요.
+`caddy` 를 고르면 이미지 빌드 없이 SSM 경로만 태울 수 있어 가장 빠릅니다.
+
+**SSM 스크립트를 고칠 때 알아둘 것 세 가지.** 셋 다 실제로 배포를 한 번씩 막았습니다.
+
+| 함정 | 증상 | 대응 |
+|---|---|---|
+| `--parameters` 를 shorthand 로 넘김 | `Error parsing parameter '--parameters': Expected: ','` | `jq -n --arg s "$SCRIPT" '{commands: [$s]}'` 로 JSON 을 만들어 넘긴다 |
+| 스크립트에 bash 문법 사용 | `set: Illegal option -o pipefail` | SSM 은 `/bin/sh`(dash)로 실행한다. POSIX sh 로만 쓰고 `dash -n` 으로 검사한다 |
+| 스크립트가 root 로 실행됨 | `fatal: detected dubious ownership in repository` | `sudo -u ubuntu -H sh -s` 로 내려서 실행한다 |
+
+마지막 항목은 `safe.directory` 예외로도 넘길 수 있지만 그러면 체크아웃한 파일 소유자가 root 로
+바뀌어 서버에서 수동 `git` 을 못 쓰게 되고, GHCR 로그인 정보가 `/home/ubuntu/.docker` 에
+있어 private 이미지 `pull` 도 막힙니다. `-H` 로 `HOME` 까지 맞춰야 하는 이유입니다.
 
 ### 수동 배포
 ```bash
@@ -527,6 +554,10 @@ Let's Encrypt 한도에 걸렸을 수 있으니 몇 시간 뒤 재시도.
 **`Credentials could not be loaded` / `Not authorized to perform sts:AssumeRoleWithWebIdentity`**
 → OIDC 신뢰 정책의 `sub` 가 레포와 다릅니다. `repo:<OWNER>/<REPO>:*` 형식이 정확한지 확인하세요.
 IAM 에 OIDC 공급자가 등록되지 않은 경우에도 같은 오류가 납니다.
+→ **`AWS_DEPLOY_ROLE_ARN` 이 그 레포에서 빈 문자열인 경우에도 같은 오류가 납니다.** 조직
+시크릿의 Repository access 에 해당 레포가 빠져 있으면 그렇습니다. Actions 로그에서
+`Run aws-actions/configure-aws-credentials` 아래 `with:` 블록에 `role-to-assume: ***` 줄이
+아예 없으면 값이 빈 것입니다 — 신뢰 정책이 아니라 시크릿 문제입니다.
 
 **AWS 호출이 리전 없이 실패한다**
 → `AWS_REGION` 을 Secrets 에 넣었습니다. **Variables** 탭이어야 합니다 (`vars.AWS_REGION`).
@@ -535,6 +566,12 @@ IAM 에 OIDC 공급자가 등록되지 않은 경우에도 같은 오류가 납�
 → 인스턴스 프로파일에 `AmazonSSMManagedInstanceCore` 가 없거나 443 아웃바운드가 막혔습니다.
 `aws ssm describe-instance-information` 으로 `PingStatus` 를 먼저 확인하세요.
 보안그룹 **인바운드**와는 무관합니다.
+
+**프론트는 배포됐는데 결제 위젯이 뜨지 않는다**
+→ 빌드에 `NEXT_PUBLIC_TOSS_CLIENT_KEY` 가 빈 값으로 들어갔습니다. `NEXT_PUBLIC_*` 는 빌드
+타임에 번들에 박히므로 컨테이너를 다시 띄워도 안 고쳐집니다. 시크릿을 채우고 프론트 레포 CI 를
+**다시 빌드**해야 합니다. Actions 빌드 로그의 `--build-arg NEXT_PUBLIC_TOSS_CLIENT_KEY=` 뒤가
+비어 있는지로 확인합니다.
 
 **frontend 이미지를 pull 하지 못한다**
 → 프론트 레포 CI 가 아직 안 돌았거나, GHCR 패키지가 private 인데 인스턴스에서
