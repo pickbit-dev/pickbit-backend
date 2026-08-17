@@ -2,13 +2,14 @@ package com.pickbit.productservice.infrastructure.redis;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 상품 조회수를 Redis 에 모았다가 주기적으로 DB에 반영합니다.
@@ -27,6 +28,10 @@ public class ViewCountBuffer {
 
     private static final String KEY = "product:viewcount:pending";
 
+    @SuppressWarnings("rawtypes")
+    private static final RedisScript<List> DRAIN = RedisScript.of(
+            new ClassPathResource("redis/drain-view-counts.lua"), List.class);
+
     private final StringRedisTemplate redis;
 
     public void increase(Long productId) {
@@ -39,28 +44,30 @@ public class ViewCountBuffer {
     }
 
     /**
-     * 모아둔 조회수를 꺼내고 버퍼를 비웁니다.
+     * 모아둔 조회수를 꺼내고 버퍼를 비웁니다. 꺼내기와 비우기가 한 연산으로 처리됩니다.
      *
-     * <p>읽기와 삭제 사이에 들어온 조회는 다음 주기로 넘어갑니다. 조회수 특성상 허용 가능한
-     * 오차라 굳이 원자적으로 처리하지 않습니다.
+     * <p>예전에는 {@code HGETALL} 후 {@code HDEL} 로 나뉘어 있었는데, 그 사이에 들어온 조회는
+     * 다음 주기로 넘어가는 게 아니라 뒤이은 삭제에 휩쓸려 <b>유실</b>됐습니다.
+     *
+     * <p>원자적이므로 인스턴스가 여러 개여도 각 상품의 집계가 정확히 한 번만 소비됩니다
+     * (인스턴스별로 나뉠 뿐 합계는 보존됩니다). 그래서 스케줄러 락이 따로 필요하지 않습니다.
      */
     public Map<Long, Long> drain() {
-        Map<Object, Object> pending = redis.opsForHash().entries(KEY);
-        if (pending.isEmpty()) {
+        List<String> flattened = redis.execute(DRAIN, List.of(KEY));
+        if (flattened == null || flattened.isEmpty()) {
             return Map.of();
         }
 
-        Set<Object> fields = pending.keySet();
-        Map<Long, Long> counts = new HashMap<>(pending.size());
-        for (Map.Entry<Object, Object> entry : pending.entrySet()) {
+        Map<Long, Long> counts = new HashMap<>(flattened.size() / 2);
+        for (int i = 0; i + 1 < flattened.size(); i += 2) {
+            String productId = flattened.get(i);
+            String count = flattened.get(i + 1);
             try {
-                counts.put(Long.valueOf(String.valueOf(entry.getKey())),
-                        Long.valueOf(String.valueOf(entry.getValue())));
+                counts.put(Long.valueOf(productId), Long.valueOf(count));
             } catch (NumberFormatException e) {
-                log.warn("조회수 버퍼에 잘못된 값이 있어 건너뜁니다. {}={}", entry.getKey(), entry.getValue());
+                log.warn("조회수 버퍼에 잘못된 값이 있어 건너뜁니다. {}={}", productId, count);
             }
         }
-        redis.opsForHash().delete(KEY, fields.toArray());
         return counts;
     }
 

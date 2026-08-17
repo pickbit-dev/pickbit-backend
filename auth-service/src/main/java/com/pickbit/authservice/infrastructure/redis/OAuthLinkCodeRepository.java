@@ -25,13 +25,9 @@ public class OAuthLinkCodeRepository {
         return Optional.ofNullable(bucket(code).get());
     }
 
+    /** 일회용 코드를 원자적으로 소비합니다. get 후 delete 로 나누면 동시 요청이 둘 다 통과합니다. */
     public Optional<OAuthLinkContext> consume(String code) {
-        RBucket<OAuthLinkContext> bucket = bucket(code);
-        OAuthLinkContext context = bucket.get();
-        if (context != null) {
-            bucket.delete();
-        }
-        return Optional.ofNullable(context);
+        return Optional.ofNullable(bucket(code).getAndDelete());
     }
 
     private RBucket<OAuthLinkContext> bucket(String code) {

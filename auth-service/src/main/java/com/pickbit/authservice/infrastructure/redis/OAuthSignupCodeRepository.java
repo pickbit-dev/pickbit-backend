@@ -25,13 +25,9 @@ public class OAuthSignupCodeRepository {
         return Optional.ofNullable(bucket(code).get());
     }
 
+    /** 일회용 코드를 원자적으로 소비합니다. get 후 delete 로 나누면 동시 요청이 둘 다 통과합니다. */
     public Optional<OAuthSignupContext> consume(String code) {
-        RBucket<OAuthSignupContext> bucket = bucket(code);
-        OAuthSignupContext context = bucket.get();
-        if (context != null) {
-            bucket.delete();
-        }
-        return Optional.ofNullable(context);
+        return Optional.ofNullable(bucket(code).getAndDelete());
     }
 
     private RBucket<OAuthSignupContext> bucket(String code) {

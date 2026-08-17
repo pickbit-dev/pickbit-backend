@@ -21,6 +21,8 @@ public interface AuctionEventRepository extends JpaRepository<AuctionEvent, Long
     /** Redis 상태를 DB에서 복구할 때 이어갈 순번을 알아내는 데 사용한다. */
     Optional<AuctionEvent> findTopByAuctionIdOrderBySequenceDesc(Long auctionId);
 
+    long countByAuctionId(Long auctionId);
+
     void deleteByAuctionId(Long auctionId);
 
     /**

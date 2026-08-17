@@ -16,7 +16,9 @@ public class AuctionCacheEvictListener {
 
     private final CacheManager cacheManager;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    // 중재 경로는 트랜잭션 없이 이벤트를 발행한다. fallbackExecution 이 없으면 무효화가
+    // 조용히 건너뛰어져 캐시 TTL 동안 옛 가격이 그대로 응답된다.
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onEvict(AuctionCacheEvictEvent event) {
         Cache cache = cacheManager.getCache(CacheConfig.AUCTION_CACHE);
         if (cache != null) {

@@ -21,13 +21,14 @@ public class OAuthExchangeCodeRepository {
         bucket(code).set(tokenResponse, ttl);
     }
 
+    /**
+     * 코드를 소비합니다. 일회용이므로 동시에 두 번 들어와도 한쪽만 값을 받아야 합니다.
+     *
+     * <p>{@code get()} 후 {@code delete()} 로 나누면 두 요청이 같은 토큰을 함께 가져갈 수 있습니다.
+     * 이 코드는 프론트 리다이렉트 URL 을 타고 흐르므로 원자적인 {@code getAndDelete()} 를 씁니다.
+     */
     public Optional<TokenResponse> consume(String code) {
-        RBucket<TokenResponse> bucket = bucket(code);
-        TokenResponse tokenResponse = bucket.get();
-        if (tokenResponse != null) {
-            bucket.delete();
-        }
-        return Optional.ofNullable(tokenResponse);
+        return Optional.ofNullable(bucket(code).getAndDelete());
     }
 
     private RBucket<TokenResponse> bucket(String code) {

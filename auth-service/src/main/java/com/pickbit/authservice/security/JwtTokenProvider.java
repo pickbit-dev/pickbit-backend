@@ -17,6 +17,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
@@ -62,6 +63,10 @@ public class JwtTokenProvider {
         Instant expiresAt = now.plusMillis(refreshTokenValidityMs);
         return Jwts.builder()
                 .subject(String.valueOf(account.getId()))
+                // 발급마다 고유해야 한다. iat/exp 는 초 단위라 같은 초에 두 번 발급하면
+                // 토큰이 바이트까지 동일해지고, 그러면 회전 CAS 가 새 토큰과 옛 토큰을
+                // 구분하지 못해 일회용 보장이 무너진다.
+                .id(UUID.randomUUID().toString())
                 .claim("type", "refresh")
                 .claim("provider", loginProvider.name())
                 .issuedAt(Date.from(now))

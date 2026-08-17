@@ -50,7 +50,9 @@ else
 end
 
 if amount < minimum then
-  return { '0', 'TOO_LOW', tostring(minimum), '0', '0' }
+  -- 원소 6개를 지켜야 한다. 5개를 반환하던 시절에는 BidArbiter 의 형태 검사에 걸려
+  -- 최저가 미달이라는 흔한 거절이 400 이 아니라 500 으로 나갔다.
+  return { '0', 'TOO_LOW', tostring(minimum), '0', '0', '0' }
 end
 
 -- 여기서부터는 수락이 확정됐다.

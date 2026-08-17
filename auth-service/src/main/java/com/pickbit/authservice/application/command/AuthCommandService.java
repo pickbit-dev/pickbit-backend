@@ -186,14 +186,31 @@ public class AuthCommandService {
             throw new InvalidTokenException("refresh token이 필요합니다.");
         }
         Long accountId = jwtTokenProvider.parseRefreshTokenSubject(refreshToken);
-        if (!refreshTokenRedisRepository.existsAndMatches(accountId, refreshToken)) {
-            throw new InvalidTokenException("저장된 refresh token과 일치하지 않습니다.");
-        }
-
         AuthAccount account = authAccountRepository.findById(accountId)
                 .filter(AuthAccount::getEnabled)
                 .orElseThrow(() -> new InvalidTokenException("토큰의 계정을 찾을 수 없습니다."));
-        return issueTokens(account, jwtTokenProvider.parseRefreshTokenProvider(refreshToken));
+
+        OAuthProvider provider = jwtTokenProvider.parseRefreshTokenProvider(refreshToken);
+        String accessToken = jwtTokenProvider.createAccessToken(account, provider);
+        String rotatedRefreshToken = jwtTokenProvider.createRefreshToken(account, provider);
+
+        // 검사와 교체를 한 연산으로 처리한다. 조회로 확인한 뒤 따로 저장하면 같은 refresh token 을
+        // 든 동시 요청이 둘 다 통과해 토큰이 재사용 가능해진다.
+        boolean replaced = refreshTokenRedisRepository.rotate(
+                accountId,
+                refreshToken,
+                rotatedRefreshToken,
+                Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityMs()));
+        if (!replaced) {
+            throw new InvalidTokenException("저장된 refresh token과 일치하지 않습니다.");
+        }
+
+        return TokenResponse.bearer(
+                accessToken,
+                rotatedRefreshToken,
+                jwtTokenProvider.getAccessTokenValidityMs(),
+                jwtTokenProvider.getRefreshTokenValidityMs()
+        );
     }
 
     @Transactional

@@ -3,7 +3,6 @@ package com.pickbit.auctionservice.application;
 import com.pickbit.auctionservice.config.BidArbiterProperties;
 import com.pickbit.auctionservice.domain.AuctionEvent;
 import com.pickbit.auctionservice.infrastructure.persistence.AuctionEventRepository;
-import com.pickbit.auctionservice.infrastructure.redis.AuctionState;
 import com.pickbit.auctionservice.infrastructure.redis.AuctionStateStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -27,9 +26,11 @@ public class AuctionSequenceAllocator {
 
     public long next(Long auctionId) {
         if (properties.isEnabled()) {
-            AuctionState state = stateStore.read(auctionId);
-            if (state != null) {
-                return stateStore.nextSequence(auctionId);
+            // 상태 확인과 증가가 스크립트 안에서 한 번에 끝난다. 나눠서 보내면 그 사이에
+            // Redis 상태가 사라졌을 때 없는 키에 seq=1 을 새로 만들어 DB 순번과 충돌한다.
+            long sequence = stateStore.nextSequence(auctionId);
+            if (sequence != AuctionStateStore.SEQUENCE_UNAVAILABLE) {
+                return sequence;
             }
         }
         return lastPersistedSequence(auctionId) + 1;

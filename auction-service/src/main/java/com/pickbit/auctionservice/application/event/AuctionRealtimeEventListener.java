@@ -18,7 +18,11 @@ public class AuctionRealtimeEventListener {
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    // fallbackExecution 이 반드시 필요하다. 중재 경로(BidCommandService.placeBidViaArbiter)는
+    // 트랜잭션 없이 이벤트를 발행하는데, 기본값(false)이면 트랜잭션이 없을 때 리스너가
+    // 조용히 실행되지 않는다 — 실시간 입찰이 아무에게도 전달되지 않았다.
+    // 트랜잭션이 있는 폴백 경로에서는 종전대로 커밋 이후에 발행된다.
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void send(AuctionRealtimeEvent event) {
         try {
             String body = objectMapper.writeValueAsString(event.payload());

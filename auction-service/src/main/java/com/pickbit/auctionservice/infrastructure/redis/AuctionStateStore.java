@@ -3,11 +3,14 @@ package com.pickbit.auctionservice.infrastructure.redis;
 import com.pickbit.auctionservice.domain.Auction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,18 +40,29 @@ public class AuctionStateStore {
 
     private static final String STATUS_ENDED = "ENDED";
 
+    /** Redis 에 경매 상태가 없어 순번을 발급할 수 없음을 나타냅니다. 호출자는 DB 순번으로 폴백합니다. */
+    public static final long SEQUENCE_UNAVAILABLE = -1L;
+
+    private static final RedisScript<Long> HYDRATE = RedisScript.of(
+            new ClassPathResource("redis/hydrate-state.lua"), Long.class);
+    private static final RedisScript<Long> NEXT_SEQUENCE = RedisScript.of(
+            new ClassPathResource("redis/next-sequence.lua"), Long.class);
+
     private final StringRedisTemplate redis;
 
     /**
-     * DB의 경매를 기준으로 Redis 상태를 만들거나 덮어씁니다.
+     * DB의 경매를 기준으로 Redis 상태를 만듭니다. <b>이미 상태가 있으면 아무것도 하지 않습니다.</b>
      *
-     * <p>순번({@code seq})은 이미 발급된 값을 잃지 않도록 기존 값이 있으면 유지합니다.
-     * 다만 Redis 가 통째로 날아간 경우에는 DB에 저장된 이벤트 순번에서 이어가야 하므로
-     * {@code knownSequence}를 받습니다.
+     * <p>이 메서드는 중재 스크립트가 {@code NOT_LOADED}(키 부재)를 돌려줬을 때만 호출됩니다.
+     * 그런데 동시에 여러 입찰이 {@code NOT_LOADED} 를 받으면 hydrate 도 여러 번 불립니다.
+     * 예전처럼 무조건 덮어쓰면 그 사이에 반영된 입찰의 현재가와 순번이 DB 값으로 되감겨,
+     * 이미 지나간 금액으로 다시 입찰할 수 있고 순번이 중복돼 누락 이벤트 복구가 어긋납니다.
+     * 그래서 "없을 때만 초기화"로 원자화했습니다.
+     *
+     * @param knownSequence Redis 가 통째로 날아갔을 때 DB의 마지막 이벤트 순번에서 이어가기 위한 값
+     * @return 새로 만들었으면 {@code true}, 이미 있어서 건드리지 않았으면 {@code false}
      */
-    public void hydrate(Auction auction, long knownSequence) {
-        String key = AuctionRedisKeys.state(auction.getId());
-
+    public boolean hydrate(Auction auction, long knownSequence) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put(FIELD_STATUS, auction.getAuctionStatus().name());
         fields.put(FIELD_CURRENT_PRICE, String.valueOf(MinorUnits.toMinor(auction.getCurrentPrice())));
@@ -62,8 +76,22 @@ public class AuctionStateStore {
         fields.put(FIELD_SEQ, String.valueOf(knownSequence));
         fields.put(FIELD_PERSISTED_SEQ, String.valueOf(knownSequence));
 
-        redis.opsForHash().putAll(key, fields);
-        log.info("경매 상태 로드 | auctionId={} | seq={}", auction.getId(), knownSequence);
+        List<String> args = new ArrayList<>(fields.size() * 2);
+        fields.forEach((field, value) -> {
+            args.add(field);
+            args.add(value);
+        });
+
+        Long created = redis.execute(
+                HYDRATE, List.of(AuctionRedisKeys.state(auction.getId())), args.toArray());
+
+        boolean isCreated = created != null && created == 1L;
+        if (isCreated) {
+            log.info("경매 상태 로드 | auctionId={} | seq={}", auction.getId(), knownSequence);
+        } else {
+            log.debug("경매 상태가 이미 있어 로드를 건너뜁니다. auctionId={}", auction.getId());
+        }
+        return isCreated;
     }
 
     /**
@@ -77,10 +105,17 @@ public class AuctionStateStore {
         redis.delete(AuctionRedisKeys.state(auctionId));
     }
 
-    /** 입찰 이외의 이벤트(시작/종료/취소)에 붙일 순번을 발급합니다. */
+    /**
+     * 입찰 이외의 이벤트(시작/종료/취소)에 붙일 순번을 발급합니다.
+     *
+     * <p>상태 존재 확인과 증가를 한 연산으로 처리합니다. 나눠서 보내면 그 사이에 Redis 가
+     * 재시작됐을 때 없는 키에 {@code seq=1} 을 새로 만들어 DB 순번과 충돌합니다.
+     *
+     * @return 발급된 순번. 상태가 없으면 {@link #SEQUENCE_UNAVAILABLE}
+     */
     public long nextSequence(Long auctionId) {
-        Long seq = redis.opsForHash().increment(AuctionRedisKeys.state(auctionId), FIELD_SEQ, 1L);
-        return seq == null ? 0L : seq;
+        Long seq = redis.execute(NEXT_SEQUENCE, List.of(AuctionRedisKeys.state(auctionId)));
+        return seq == null ? SEQUENCE_UNAVAILABLE : seq;
     }
 
     /** 영속화 워커가 DB 반영을 마친 순번을 기록합니다. */

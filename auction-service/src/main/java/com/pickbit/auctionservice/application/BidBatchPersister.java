@@ -37,6 +37,7 @@ public class BidBatchPersister {
     private final AuctionEventRecorder auctionEventRecorder;
     private final AuctionCompleter auctionCompleter;
     private final AuctionStateStore stateStore;
+    private final AuctionSequenceAllocator sequenceAllocator;
 
     @Transactional
     public void persist(List<BidRecord> records) {
@@ -53,6 +54,23 @@ public class BidBatchPersister {
     }
 
     private void persistAuctionBids(Auction auction, List<BidRecord> bids) {
+        // 이미 기록된 순번은 버린다. 워커는 DB 커밋 후에 XACK 하므로 그 사이에 죽으면
+        // 같은 배치가 다시 배달되는데, 이 걸러내기가 없으면 입찰이 중복 INSERT 된다.
+        long persistedSequence = sequenceAllocator.lastPersistedSequence(auction.getId());
+        List<BidRecord> fresh = bids.stream()
+                .filter(record -> record.sequence() > persistedSequence)
+                .toList();
+
+        if (fresh.isEmpty()) {
+            log.info("이미 반영된 입찰이라 건너뜁니다. auctionId={} | persistedSequence={}",
+                    auction.getId(), persistedSequence);
+            return;
+        }
+
+        persistFreshBids(auction, fresh);
+    }
+
+    private void persistFreshBids(Auction auction, List<BidRecord> bids) {
         // 이 배치의 마지막 입찰만 ACTIVE 로 남기고 나머지는 전부 OUTBID 가 된다.
         BidRecord winning = bids.getLast();
 

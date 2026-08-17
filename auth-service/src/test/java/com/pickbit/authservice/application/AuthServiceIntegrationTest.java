@@ -288,6 +288,20 @@ class AuthServiceIntegrationTest {
         }
 
         @Test
+        @DisplayName("같은 refresh token으로 두 번 재발급하면 두 번째는 거부된다")
+        void refresh_isSingleUse() {
+            signup();
+            TokenResponse token = authCommandService.login(new LoginRequest(EMAIL, PASSWORD));
+
+            authCommandService.refresh(new RefreshRequest(token.refreshToken()));
+
+            // 검사와 교체가 나뉘어 있던 시절에는 같은 토큰을 든 요청이 둘 다 통과했다.
+            // 회전이 원자적이면 이미 교체된 뒤라 두 번째는 실패해야 한다.
+            assertThatThrownBy(() -> authCommandService.refresh(new RefreshRequest(token.refreshToken())))
+                    .isInstanceOf(InvalidTokenException.class);
+        }
+
+        @Test
         @DisplayName("로그아웃 시 Redis의 refresh token이 삭제된다")
         void logout_deletesRefreshToken() {
             AuthAccount account = signup();

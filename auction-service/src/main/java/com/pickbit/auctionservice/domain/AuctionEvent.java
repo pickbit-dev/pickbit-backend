@@ -8,10 +8,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,7 +24,11 @@ import java.time.LocalDateTime;
 @Getter
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(indexes = @Index(name = "idx_auction_event_auction_sequence", columnList = "auction_id, sequence"))
+// 유니크여야 한다. 스트림 재배달로 같은 입찰이 두 번 영속화되면 순번이 중복되는데,
+// 순번은 클라이언트의 누락 이벤트 복구(afterEventId) 기준이라 중복되면 복구가 어긋난다.
+// 애플리케이션 단의 순번 스킵(BidBatchPersister)이 1차 방어, 이 제약이 최종 방어다.
+@Table(uniqueConstraints = @UniqueConstraint(
+        name = "uk_auction_event_auction_sequence", columnNames = {"auction_id", "sequence"}))
 public class AuctionEvent extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
