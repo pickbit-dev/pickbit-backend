@@ -3,7 +3,7 @@ package com.pickbit.library.maintenance;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
+
 
 import java.time.LocalDateTime;
 
@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * 두지 않았습니다. 다만 인스턴스를 늘릴 계획이라면 ShedLock 을 붙이는 편이 낫습니다.
  */
 @Slf4j
-@Component
+
 @RequiredArgsConstructor
 public class RetentionScheduler {
 

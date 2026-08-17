@@ -3,7 +3,7 @@ package com.pickbit.library.maintenance;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * 보관 기간이 지난 행을 청크 단위로 삭제합니다.
  */
 @Slf4j
-@Component
+
 public class RetentionCleaner {
 
     /**
