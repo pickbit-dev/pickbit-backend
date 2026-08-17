@@ -114,7 +114,7 @@ jobs:
     name: Build ${{ matrix.service }}
     needs: resolve
     if: needs.resolve.outputs.services != ''
-    # EC2가 t4g(Graviton)이므로 ARM 러너에서 네이티브로 빌드한다. QEMU 크로스 빌드보다 훨씬 빠르다.
+    # EC2가 Graviton(arm64)이므로 ARM 러너에서 네이티브로 빌드한다. QEMU 크로스 빌드보다 훨씬 빠르다.
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read

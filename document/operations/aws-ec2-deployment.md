@@ -65,10 +65,89 @@ EBS가 남아 MySQL 데이터가 유지되고, 모든 컨테이너에 `restart: 
 ### 2-1. AWS 리소스
 
 1. 위 사양으로 EC2 기동, Elastic IP 연결
-2. IAM 역할에 `AmazonSSMManagedInstanceCore` 부착 (CI가 SSM으로 배포하므로 필수)
+2. **인스턴스 프로파일**에 `AmazonSSMManagedInstanceCore` 부착 (CI가 SSM으로 배포하므로 필수)
 3. 보안그룹 인바운드: 22 (내 IP) / 80 (0.0.0.0/0) / 443 (0.0.0.0/0)
-4. GitHub Actions용 OIDC 역할 생성 — `ssm:SendCommand`, `ssm:GetCommandInvocation`,
-   `ec2:DescribeInstances` 권한. 장기 액세스 키는 쓰지 않습니다.
+
+CI 배포는 SSM 에이전트가 AWS 쪽으로 **아웃바운드** 연결을 맺어 명령을 받아가는 구조입니다.
+GitHub 러너가 인스턴스로 들어오지 않으므로 **인바운드를 추가로 열 필요가 없습니다.**
+22번을 내 IP 로만 막아둔 채로 CI 배포가 동작합니다. 대신 443 아웃바운드는 열려 있어야 합니다.
+
+#### OIDC 역할
+
+장기 액세스 키를 쓰지 않고 GitHub Actions가 역할을 잠깐 빌려 쓰게 합니다.
+여기서 가장 많이 막히므로 그대로 옮겨 쓸 수 있게 남깁니다.
+
+**① IAM → Identity providers → Add provider → OpenID Connect**
+
+| 항목 | 값 |
+|---|---|
+| Provider URL | `https://token.actions.githubusercontent.com` |
+| Audience | `sts.amazonaws.com` |
+
+**② 역할 생성 — 신뢰 정책**
+
+`<ACCOUNT_ID>` 와 레포 경로를 본인 것으로 바꿉니다.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
+      "StringLike":   { "token.actions.githubusercontent.com:sub": "repo:<OWNER>/<REPO>:*" }
+    }
+  }]
+}
+```
+
+`sub` 조건을 빼면 **다른 사람의 레포에서도 이 역할을 빌릴 수 있습니다.** 반드시 넣으세요.
+
+**③ 권한 정책** — 워크플로가 실제로 호출하는 API 만 담았습니다.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ec2:ap-northeast-2:<ACCOUNT_ID>:instance/<INSTANCE_ID>",
+        "arn:aws:ssm:ap-northeast-2::document/AWS-RunShellScript"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:DescribeInstances",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+뒤 두 개는 리소스 단위 권한을 지원하지 않아 `*` 여야 합니다.
+`ssm:SendCommand` 는 인스턴스와 문서 ARN 을 모두 적어야 하며, 하나라도 빠지면 `AccessDenied` 가 납니다.
+
+**④ 연결 확인** — 인스턴스를 켠 상태에서
+
+```bash
+aws ssm describe-instance-information \
+  --filters "Key=InstanceIds,Values=<INSTANCE_ID>" \
+  --query 'InstanceInformationList[0].{Ping:PingStatus,Agent:AgentVersion}'
+```
+
+`PingStatus: Online` 이어야 CI 가 명령을 보낼 수 있습니다. `Online` 이 아니면 인스턴스
+프로파일이 안 붙었거나 443 아웃바운드가 막힌 것입니다 — 보안그룹 인바운드 문제가 아닙니다.
 
 ### 2-2. 인스턴스 초기 설정
 
@@ -134,12 +213,39 @@ Caddy가 Let's Encrypt 인증서를 자동 발급하므로 **80/443이 열려 �
 
 ### 2-5. GitHub 설정
 
+Settings → Secrets and variables → Actions
+
 | 위치 | 이름 | 값 |
 |---|---|---|
 | Secrets | `AWS_DEPLOY_ROLE_ARN` | OIDC 역할 ARN |
 | Secrets | `EC2_INSTANCE_ID` | `i-xxxxxxxx` |
-| Variables | `AWS_REGION` | `ap-northeast-2` |
+| **Variables** | `AWS_REGION` | `ap-northeast-2` |
 | Secrets (프론트 레포) | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | Toss 클라이언트 키 |
+
+> `AWS_REGION` 만 **Variables 탭**입니다. 워크플로가 `vars.AWS_REGION` 으로 읽기 때문에
+> Secrets 에 넣으면 빈 문자열이 되고, 리전 없이 AWS 를 호출하다 실패합니다.
+> 두 탭이 같은 화면에 있어 헷갈리기 쉽습니다.
+
+---
+
+### 2-6. 최초 배포 순서
+
+0~2장을 마쳤다면 아래 순서로 올립니다. **순서가 중요합니다.**
+
+| 순서 | 할 일 | 이유 |
+|---|---|---|
+| 1 | 프론트 레포 CI 를 돌려 `pickbit-frontend` 이미지를 GHCR 에 올린다 | `caddy` 가 `frontend` 에 `depends_on` 이라 이미지가 없으면 caddy 가 안 뜬다 |
+| 2 | **인스턴스를 끈 채로** 배포 브랜치(`main`)에 머지 | 이미지 8개는 빌드·푸시되고, 배포는 자동으로 건너뛴다 |
+| 3 | 인스턴스를 켜고 **3장 부트스트랩을 수동 실행** | CI 는 부트스트랩을 못 한다 (아래 참고) |
+| 4 | 4장 확인 절차 | |
+
+**2단계가 요령입니다.** 워크플로는 인스턴스가 `running` 이 아니면 배포를 경고만 남기고
+건너뜁니다. 그래서 인스턴스를 끈 채로 머지하면 **이미지는 GHCR 에 확보되면서, 스키마가 없는
+상태로 배포가 돌아 실패하는 것은 피할 수 있습니다.**
+
+> **CI 는 최초 기동을 대신할 수 없습니다.** SSM 으로 실행되는 건 `pull` + `up -d --no-deps`
+> 뿐이라 스키마를 만들지 않습니다. 빈 DB 에 `validate` 가 걸려 DB 를 쓰는 서비스 6개가
+> 전부 기동에 실패합니다. 첫 기동만큼은 반드시 인스턴스에서 직접 하세요.
 
 ---
 
@@ -385,3 +491,23 @@ Let's Encrypt 한도에 걸렸을 수 있으니 몇 시간 뒤 재시도.
 
 **stop/start 후 도메인이 안 열린다**
 → Elastic IP를 안 붙였습니다. 퍼블릭 IP가 바뀐 상태입니다.
+
+**CI 배포가 매번 건너뛴다**
+→ 인스턴스가 `running` 이 아니거나 `EC2_INSTANCE_ID` 가 틀렸습니다. Actions 로그에
+"인스턴스가 running 이 아니라 배포를 건너뜁니다" 경고가 남습니다. 켠 뒤 워크플로를 수동 실행하세요.
+
+**`Credentials could not be loaded` / `Not authorized to perform sts:AssumeRoleWithWebIdentity`**
+→ OIDC 신뢰 정책의 `sub` 가 레포와 다릅니다. `repo:<OWNER>/<REPO>:*` 형식이 정확한지 확인하세요.
+IAM 에 OIDC 공급자가 등록되지 않은 경우에도 같은 오류가 납니다.
+
+**AWS 호출이 리전 없이 실패한다**
+→ `AWS_REGION` 을 Secrets 에 넣었습니다. **Variables** 탭이어야 합니다 (`vars.AWS_REGION`).
+
+**SSM `InvalidInstanceId`**
+→ 인스턴스 프로파일에 `AmazonSSMManagedInstanceCore` 가 없거나 443 아웃바운드가 막혔습니다.
+`aws ssm describe-instance-information` 으로 `PingStatus` 를 먼저 확인하세요.
+보안그룹 **인바운드**와는 무관합니다.
+
+**frontend 이미지를 pull 하지 못한다**
+→ 프론트 레포 CI 가 아직 안 돌았거나, GHCR 패키지가 private 인데 인스턴스에서
+`docker login ghcr.io` 를 안 했습니다. caddy 가 frontend 에 의존하므로 HTTPS 진입이 함께 막힙니다.
