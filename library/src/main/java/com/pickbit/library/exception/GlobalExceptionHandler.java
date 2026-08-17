@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -94,6 +95,15 @@ public abstract class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .orElse("제약 조건 위반이 발생했습니다.");
         return buildResponse(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    protected ResponseEntity<ProblemDetail> handleHttpMessageNotReadable(HttpMessageNotReadableException e, HttpServletRequest request) {
+        logException(HttpStatus.BAD_REQUEST, e);
+        // e.getMessage() 를 그대로 내보내면 안 된다. 파서 내부 메시지라
+        // "through reference chain: ...SignupRequest[\"nickname\"]" 처럼
+        // 내부 DTO 경로와 필드 구조가 응답에 새어 나간다.
+        return buildResponse(HttpStatus.BAD_REQUEST, "요청 본문을 읽을 수 없습니다. JSON 형식과 인코딩(UTF-8)을 확인해주세요.", request);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
