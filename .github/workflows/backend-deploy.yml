@@ -195,8 +195,10 @@ jobs:
           SERVICES="$(printf '%s' "$SERVICES" | xargs)"
 
           # --no-deps: 지정한 서비스만 교체하고 MySQL/Kafka 등 인프라는 건드리지 않는다.
+          # set -eu 뿐인 이유: AWS-RunShellScript 는 이 스크립트를 /bin/sh(우분투는 dash)로
+          # 실행해서 pipefail 이 없다. 파이프가 없는 스크립트라 -eu 로 충분하다.
           read -r -d '' SCRIPT <<EOF || true
-          set -euo pipefail
+          set -eu
           cd /opt/pickbit/pickbit-backend
           git fetch --all --prune
           git checkout ${{ github.sha }}
