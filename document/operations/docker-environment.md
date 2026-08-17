@@ -30,11 +30,9 @@ develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 �
 | auction-service | `18085` | Docker 미사용 | 내부 전용 |
 | payment-service | `18086` | Docker 미사용 | 내부 전용 |
 | notification-service | `18087` | Docker 미사용 | 내부 전용 |
-| MySQL | `3306` | `13306` | 내부 전용 |
-| Redis | `6379` | `16379` | 내부 전용 |
 | frontend (Next.js) | `3000` | Docker 미사용 | 내부 전용 |
-| MySQL | `3306` | `13306` | 내부 전용 |
-| Redis | `6379` | `16379` | 내부 전용 |
+| MySQL | `3306` | `13306` | `127.0.0.1:23306` |
+| Redis | `6379` | `16379` | `127.0.0.1:26379` |
 | Consul UI/API | `8500` | `18500` | `127.0.0.1:28500` |
 | Kafka external listener | `19092` | `19092` | 내부 전용 |
 | Kafka UI | `8080` | `19090` | 미노출 |
@@ -47,13 +45,22 @@ develop 스택은 로컬 개발용 인프라만 실행한다. deploy 스택은 �
 | Logstash monitoring | `9600` | `19600` | 미사용 (deploy에서 제거) |
 | Kibana | `5601` | `15601` | 미사용 (deploy에서 제거) |
 
-deploy 환경에서 MySQL, Redis, Kafka, Kafka Connect, Loki, 프론트엔드, 개별 백엔드 서비스는 Docker 내부 네트워크 전용이다. 외부 접속은 Caddy를 기준으로 한다.
+deploy 환경에서 Kafka, Kafka Connect, Loki, 프론트엔드, 개별 백엔드 서비스는 Docker 내부 네트워크 전용이다. 외부 접속은 Caddy를 기준으로 한다.
 
-Consul UI와 Grafana는 **루프백에만 바인딩**한다. Consul은 ACL이 없어 UI에 닿는 누구나 서비스를 등록/해제할 수 있고, Docker의 iptables 규칙은 호스트 방화벽을 우회하기 때문이다. 접근은 SSH 터널을 쓴다.
+MySQL, Redis, Consul UI, Grafana는 **루프백에만 바인딩**한다. `127.0.0.1:` 접두사가 없으면 `0.0.0.0`에 붙는데, Docker의 iptables 규칙은 호스트 방화벽을 우회하므로 보안그룹만 열리면 그대로 인터넷에 노출된다. 접근은 SSH 터널을 쓴다.
+
+특히 두 가지는 노출되면 피해가 크다. **Redis는 `requirepass`가 없어** 인증 없이 경매 상태·입찰 스트림은 물론 auth-service가 저장하는 refresh token까지 읽고 쓸 수 있다. Consul은 ACL이 없어 UI에 닿는 누구나 서비스를 등록/해제할 수 있다.
 
 ```bash
-ssh -i pickbit.pem -L 23000:localhost:23000 -L 28500:localhost:28500 ubuntu@<Elastic-IP>
+ssh -i pickbit.pem \
+    -L 23000:localhost:23000 \
+    -L 23306:localhost:23306 \
+    -L 26379:localhost:26379 \
+    -L 28500:localhost:28500 \
+    ubuntu@<Elastic-IP>
 ```
+
+DataGrip·RedisInsight 같은 GUI는 대개 SSH 터널이 내장돼 있어 위 명령 없이도 붙는다. 다만 **접속 정보의 Host/Port는 EC2 입장에서** 적어야 한다 (`localhost:23306`). 도구가 SSH로 들어간 뒤 그 서버에서 다시 연결하기 때문이다.
 
 ## 3. 시크릿 파일
 

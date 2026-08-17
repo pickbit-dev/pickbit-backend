@@ -94,6 +94,11 @@ services:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_ROOT_HOST: "%"
       TZ: Asia/Seoul
+    # 127.0.0.1 접두사가 없으면 0.0.0.0 에 바인딩된다. 도커의 iptables 규칙은 호스트
+    # 방화벽을 우회하므로, 그 상태에서 보안그룹만 열리면 MySQL 이 인터넷에 노출된다.
+    # 루프백에만 묶어 SSH 터널로만 접근하게 한다 (Consul/Grafana 와 같은 방식).
+    ports:
+      - "127.0.0.1:23306:3306"
     secrets:
       - mysql_root_password
     command:
@@ -133,6 +138,10 @@ services:
     # 락/캐시/rate limiter/ShedLock 에 더해 진행 중 경매 상태와 입찰 스트림까지 올라간다.
     mem_limit: 1200m
     command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy noeviction
+    # requirepass 가 없으므로 반드시 루프백에만 바인딩한다. 노출되면 인증 없이
+    # 경매 상태·입찰 스트림은 물론 auth-service 의 refresh token 까지 읽고 쓸 수 있다.
+    ports:
+      - "127.0.0.1:26379:6379"
     volumes:
       - pickbit-deploy-redis-data:/data
     healthcheck:

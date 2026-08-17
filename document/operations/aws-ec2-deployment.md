@@ -332,12 +332,20 @@ Consul UI와 Grafana는 **루프백에만 바인딩**되어 있습니다. Consul
 ```bash
 ssh -i pickbit.pem \
     -L 23000:localhost:23000 \
+    -L 23306:localhost:23306 \
+    -L 26379:localhost:26379 \
     -L 28500:localhost:28500 \
     ubuntu@<Elastic-IP>
 ```
 
 - Grafana: http://localhost:23000 (`admin` / `secrets/grafana-admin-password.txt`)
 - Consul UI: http://localhost:28500
+- MySQL: `localhost:23306` (`root` / `secrets/mysql-root-password.txt`)
+- Redis: `localhost:26379` (비밀번호 없음)
+
+DataGrip 처럼 SSH 터널이 내장된 도구는 위 명령 없이 바로 붙습니다. 단 **General 탭의
+Host/Port 는 EC2 입장에서** 적어야 합니다 — `localhost:23306` 입니다. 도구가 SSH 로 들어간
+뒤 그 서버에서 다시 연결하기 때문입니다. `54.116.195.145:3306` 을 넣으면 안 됩니다.
 
 ### 대시보드
 Grafana → Dashboards → Pickbit → **Pickbit Overview**. 프로비저닝으로 자동 등록됩니다.
