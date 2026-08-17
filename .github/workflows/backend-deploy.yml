@@ -209,11 +209,13 @@ jobs:
           docker image prune -af --filter "until=168h"
           EOF
 
+          # --parameters 는 JSON 으로 넘긴다. shorthand(commands="$SCRIPT") 는 AWS CLI 가
+          # 쉼표·따옴표 기준으로 파싱해서 스크립트 안의 sed "s/.../" 따옴표에 파서가 깨진다.
           command_id="$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name AWS-RunShellScript \
             --comment "deploy ${{ github.sha }}" \
-            --parameters commands="$SCRIPT" \
+            --parameters "$(jq -n --arg s "$SCRIPT" '{commands: [$s]}')" \
             --query 'Command.CommandId' --output text)"
 
           echo "SSM command: $command_id"
