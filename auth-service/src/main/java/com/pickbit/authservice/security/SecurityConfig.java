@@ -32,6 +32,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                // 액추에이터를 열어두지 않으면 oauth2Login 이 만든 로그인 페이지로
+                                // 302 가 나가고, Prometheus 는 메트릭 대신 그 HTML 을 받아 스크레이프에
+                                // 실패한다(그라파나에서 이 서비스만 DOWN 으로 보인다).
+                                // "/actuator/**" 로 뭉뚱그리지 않는 이유는 게이트웨이와 같다 —
+                                // 나중에 env 같은 엔드포인트를 노출했을 때 같이 열리면 안 된다.
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus",
                                 "/swagger-ui/**",
                                 "/v3/api-docs",
                                 "/v3/api-docs.yaml",

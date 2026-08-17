@@ -37,7 +37,11 @@ x-app-common: &app-common
     - ./secrets:/app/secrets:ro
   healthcheck:
     # $$ 는 compose가 아니라 컨테이너 셸이 해석한다 -> 서비스별 SERVER_PORT를 그대로 사용
-    test: ["CMD-SHELL", "curl -fsS http://localhost:$$SERVER_PORT/actuator/health || exit 1"]
+    # -L --max-redirs 0 은 "따라가되 0번만" = 3xx 를 실패로 만든다(exit 47).
+    # 이게 없으면 curl -f 가 4xx/5xx 에서만 실패해서 302 를 성공으로 친다. 실제로
+    # auth-service 가 액추에이터를 막아 로그인 페이지로 302 를 내는데도 healthy 로 떠서,
+    # 메트릭이 15일 내내 수집되지 않는 걸 아무도 모르고 지나갔다.
+    test: ["CMD-SHELL", "curl -fsS -L --max-redirs 0 http://localhost:$$SERVER_PORT/actuator/health || exit 1"]
     interval: 15s
     timeout: 5s
     retries: 20
