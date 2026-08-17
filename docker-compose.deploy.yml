@@ -19,10 +19,10 @@ x-app-common: &app-common
     ENV: deploy
     # 고정 힙 대신 컨테이너 상한 기준 비율로 잡아 mem_limit 변경에 자동으로 따라가게 한다.
     JAVA_OPTS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
-    # 최초 부팅 시에만 .env에서 update / always로 올린 뒤 되돌린다.
-    # (Flyway가 없어 빈 스키마에 validate를 걸면 전 서비스가 기동에 실패한다)
-    SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
-    BATCH_JDBC_INITIALIZE_SCHEMA: ${BATCH_JDBC_INITIALIZE_SCHEMA:-never}
+    # 스키마 관련 오버라이드는 두지 않는다. Flyway 가 마이그레이션을 적용하고
+    # Hibernate 는 각 서비스 yml 의 ddl-auto=validate 로 검증만 한다.
+    # 여기에 .env 스위치를 두면 Flyway 를 우회해 스키마를 바꾸는 경로가 생기고,
+    # 그러면 flyway_schema_history 와 실제 스키마가 어긋나 다음 마이그레이션이 깨진다.
   depends_on:
     mysql:
       condition: service_healthy
