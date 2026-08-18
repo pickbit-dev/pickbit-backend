@@ -49,3 +49,6 @@ secrets/
 *secret*.yml
 *secret*.yaml
 !application-secret.example.yml
+
+### Seed images (수집 스크립트로 받는 바이너리, 레포에 두지 않는다)
+seed-images/
