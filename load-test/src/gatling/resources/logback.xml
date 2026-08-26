@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Gatling 기본 로깅은 요청마다 전체 헤더를 DEBUG 로 남긴다. 1000 req/s 로 한 시간을
+  돌렸더니 로그가 10분에 2GB 씩 불어나 디스크를 위협했고, Authorization 헤더의 JWT 가
+  그대로 파일에 쌓였다. WARN 으로 낮춰 요약과 오류만 남긴다.
+
+  요청 단위 추적이 필요하면 실행할 때만 io.gatling.http 를 DEBUG 로 올릴 것.
+-->
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%-5level] %logger{15} - %msg%n</pattern>
+            <immediateFlush>false</immediateFlush>
+        </encoder>
+    </appender>
+
+    <logger name="io.gatling.http.engine.response" level="WARN"/>
+    <logger name="io.gatling.http.client" level="WARN"/>
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
