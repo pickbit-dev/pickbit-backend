@@ -38,6 +38,7 @@ public class AuctionStateStore {
     private static final String FIELD_SEQ = "seq";
     private static final String FIELD_PERSISTED_SEQ = "persistedSeq";
 
+    private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_ENDED = "ENDED";
 
     /** Redis 에 경매 상태가 없어 순번을 발급할 수 없음을 나타냅니다. 호출자는 DB 순번으로 폴백합니다. */
@@ -92,6 +93,32 @@ public class AuctionStateStore {
             log.debug("경매 상태가 이미 있어 로드를 건너뜁니다. auctionId={}", auction.getId());
         }
         return isCreated;
+    }
+
+    /**
+     * 경매를 Redis 상에서 활성화합니다.
+     *
+     * <p><b>{@link #hydrate} 로는 이 전이를 반영할 수 없습니다.</b> hydrate 는 가격·순번 되감기를
+     * 막으려고 "없을 때만" 쓰기 때문입니다. 그래서 이런 순서가 되면 경매가 죽습니다.
+     *
+     * <ol>
+     *   <li>아직 {@code SCHEDULED} 인 경매에 입찰을 시도한다</li>
+     *   <li>중재가 {@code NOT_LOADED} 를 돌려주고 복구 경로가 hydrate 를 부른다
+     *       → Redis 에 {@code status=SCHEDULED} 로 상태가 만들어진다 (입찰은 정상 거절)</li>
+     *   <li>시작 시각이 되어 스케줄러가 활성화하며 hydrate 를 부르지만
+     *       키가 이미 있어 <b>무시된다</b></li>
+     *   <li>DB 는 {@code ACTIVE}, Redis 는 {@code SCHEDULED} 인 채로 굳는다.
+     *       이후 모든 입찰이 {@code NOT_ACTIVE} 로 거절된다 — 경매가 영구히 죽는다</li>
+     * </ol>
+     *
+     * <p>부하 테스트에서 실제로 재현됐다. 250개 경매 전부가 DB 상 ACTIVE 인데 입찰이 100%
+     * 409 로 거절됐고, Redis 에는 {@code status=SCHEDULED} 가 남아 있었다.
+     *
+     * <p>상태만큼은 스케줄러가 권위를 가지므로 {@link #close} 와 같이 직접 덮어씁니다.
+     * 가격·순번은 건드리지 않으므로 되감기 위험은 없습니다.
+     */
+    public void activate(Long auctionId) {
+        redis.opsForHash().put(AuctionRedisKeys.state(auctionId), FIELD_STATUS, STATUS_ACTIVE);
     }
 
     /**

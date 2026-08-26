@@ -63,6 +63,10 @@ public class AuctionScheduler {
             // (누락되더라도 첫 입찰에서 NOT_LOADED 를 받고 복구된다)
             if (arbiterProperties.isEnabled()) {
                 stateStore.hydrate(auction, sequenceAllocator.lastPersistedSequence(auction.getId()));
+                // hydrate 는 "없을 때만" 쓴다. 시작 전 경매에 입찰을 시도한 사람이 있었다면
+                // 그때 status=SCHEDULED 인 상태가 이미 만들어져 있어 위 hydrate 가 무시된다.
+                // 그대로 두면 DB 는 ACTIVE 인데 Redis 는 SCHEDULED 로 굳어 입찰이 영구히 거절된다.
+                stateStore.activate(auction.getId());
             }
             recordProductStatusUpdate(auction.getProductId(), "IN_AUCTION", "AUCTION_STARTED", auction.getId());
             publishAuctionEvent(auction, AuctionBidEvent.ofStarted(auction.getId(), auction.getCurrentPrice()));
