@@ -6,6 +6,7 @@ import io.gatling.javaapi.http.HttpProtocolBuilder;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,6 +53,13 @@ public class SoakSimulation extends Simulation {
                     + "b51f9597-667a-4eda-9e73-1fbb149334cf.jpg");
 
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * 서비스가 도는 시간대. 호스트는 UTC 인데 컨테이너는 KST 라, 호스트 시계로 만든
+     * startTime 은 서버 기준 9시간 과거가 되어 @Future 검증에 걸린다(경매 생성이 전부 400).
+     * 앱이 LocalDateTime 을 시간대 없이 쓰므로 여기서 서버 시간대를 명시한다.
+     */
+    private static final ZoneId SERVICE_ZONE = ZoneId.of(LoadTestConfig.env("SERVICE_TZ", "Asia/Seoul"));
 
     private final Map<Long, AtomicLong> nextAmountByAuction = new ConcurrentHashMap<>();
     private final AtomicLong seq = new AtomicLong();
@@ -110,7 +118,7 @@ public class SoakSimulation extends Simulation {
                     .headers(LoadTestConfig.authHeaders())
                     .body(StringBody(session -> {
                         // startTime 은 @Future 제약이 있다. 시계 오차를 감안해 넉넉히 뒤로 둔다.
-                        LocalDateTime now = LocalDateTime.now();
+                        LocalDateTime now = LocalDateTime.now(SERVICE_ZONE);
                         return "{\"productId\":" + session.getString("newProductId") + ","
                                 + "\"startingPrice\":50000,"
                                 + "\"minimumBidIncrement\":100,"
