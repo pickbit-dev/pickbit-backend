@@ -54,7 +54,12 @@ public class MixedLoadSimulation extends Simulation {
     private final HttpProtocolBuilder httpProtocol = http
             .baseUrl(LoadTestConfig.BASE_URL)
             .acceptHeader("application/json")
-            .contentTypeHeader("application/json");
+            .contentTypeHeader("application/json")
+            // Gatling 기본값은 가상 사용자마다 커넥션 풀을 따로 둔다. 초당 1000명을 주입하면
+            // 초당 1000개의 새 TLS 커넥션이 열려 부하 발생기 쪽 ephemeral 포트가 먼저 고갈된다
+            // (실제로 "Cannot assign requested address" 로 99만 건이 실패했다).
+            // 커넥션을 공유해 서버가 아니라 클라이언트가 병목이 되는 것을 막는다.
+            .shareConnections();
 
     // 80% — 비로그인 카탈로그 조회. 게이트웨이 인증을 타지 않는다.
     private final ScenarioBuilder publicRead = scenario("public-read")
