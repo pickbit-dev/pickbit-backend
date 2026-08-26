@@ -7,6 +7,7 @@ import io.gatling.javaapi.http.HttpProtocolBuilder;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static io.gatling.javaapi.core.CoreDsl.StringBody;
@@ -49,7 +50,6 @@ public class MixedLoadSimulation extends Simulation {
     }
 
     private final Map<Long, AtomicLong> nextAmountByAuction = new ConcurrentHashMap<>();
-    private final AtomicLong roundRobin = new AtomicLong();
 
     private final HttpProtocolBuilder httpProtocol = http
             .baseUrl(LoadTestConfig.BASE_URL)
@@ -80,7 +80,7 @@ public class MixedLoadSimulation extends Simulation {
             .feed(LoadTestConfig.bidderFeeder())
             .exec(session -> session.set("auctionId",
                     LoadTestConfig.AUCTION_ID_BASE
-                            + (roundRobin.getAndIncrement() % LoadTestConfig.AUCTION_COUNT)))
+                            + (ThreadLocalRandom.current().nextInt(LoadTestConfig.AUCTION_COUNT))))
             .exec(http("POST bid")
                     .post("/api/auctions/#{auctionId}/bids")
                     .headers(LoadTestConfig.authHeaders())
@@ -91,8 +91,9 @@ public class MixedLoadSimulation extends Simulation {
                                 .getAndAdd(LoadTestConfig.BID_INCREMENT);
                         return "{\"bidAmount\":" + amount + "}";
                     }))
-                    // 경합으로 인한 400 은 정상이지만 429/5xx 는 실패다.
-                    .check(status().in(201, 400)));
+                    // 거절은 정상 동작이다: 409 = 최저가 미달·경합 패배, 403 = 자기 경매.
+                    // 429(rate limit)와 5xx 만 실패로 본다.
+                    .check(status().in(201, 400, 403, 409)));
 
     {
         setUp(

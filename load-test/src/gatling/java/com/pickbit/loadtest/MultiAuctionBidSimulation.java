@@ -7,6 +7,7 @@ import io.gatling.javaapi.http.HttpProtocolBuilder;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static io.gatling.javaapi.core.CoreDsl.StringBody;
@@ -42,7 +43,6 @@ public class MultiAuctionBidSimulation extends Simulation {
 
     /** 경매마다 입찰가가 독립적으로 올라가야 하므로 카운터도 경매별로 둔다. */
     private final Map<Long, AtomicLong> nextAmountByAuction = new ConcurrentHashMap<>();
-    private final AtomicLong roundRobin = new AtomicLong();
 
     private final HttpProtocolBuilder httpProtocol = http
             .baseUrl(LoadTestConfig.BASE_URL)
@@ -51,7 +51,7 @@ public class MultiAuctionBidSimulation extends Simulation {
 
     private long nextAuctionId() {
         return LoadTestConfig.AUCTION_ID_BASE
-                + (roundRobin.getAndIncrement() % LoadTestConfig.AUCTION_COUNT);
+                + (ThreadLocalRandom.current().nextInt(LoadTestConfig.AUCTION_COUNT));
     }
 
     private long nextAmount(long auctionId) {
@@ -69,7 +69,7 @@ public class MultiAuctionBidSimulation extends Simulation {
                     .headers(LoadTestConfig.authHeaders())
                     .body(StringBody(session ->
                             "{\"bidAmount\":" + nextAmount(session.getLong("auctionId")) + "}"))
-                    .check(status().in(201, 400)));
+                    .check(status().in(201, 400, 403, 409)));
 
     {
         setUp(
