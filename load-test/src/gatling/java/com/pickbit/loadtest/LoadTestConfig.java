@@ -1,23 +1,38 @@
 package com.pickbit.loadtest;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Gatling 시뮬레이션 공통 설정입니다.
  *
- * <p>인증은 게이트웨이의 테스트용 API key 를 씁니다. 예전에는 사용자별 JWT 를 미리 발급해
- * {@code bidders.csv} 에 넣어뒀는데, 토큰이 만료되면 전체 테스트가 무용지물이 됐고
- * 인원을 늘리려면 그만큼 토큰을 다시 발급해야 했습니다. API key 는 사용자 ID 를 헤더로
- * 지정하므로 인원을 숫자만 바꿔서 늘릴 수 있습니다.
+ * <p>인증 방식은 세 가지이고 우선순위대로 고릅니다.
+ *
+ * <ol>
+ *   <li>{@code TOKENS_FILE} — 사용자마다 실제 로그인해 받은 JWT 목록. 운영 부하 테스트는
+ *       이걸 쓴다. API key 와 달리 인증 우회가 아니다.</li>
+ *   <li>{@code API_KEY} — 게이트웨이 테스트용 키. 사용자 ID 를 헤더로 지정한다.
+ *       인증 우회이므로 운영에서는 켜지 않는 편이 좋다.</li>
+ *   <li>{@code ACCESS_TOKEN} — 단일 사용자 토큰. 모든 요청이 한 사용자로 나가므로
+ *       rate limit(사용자당 10/s)에 걸린다. 가벼운 확인용으로만 쓴다.</li>
+ * </ol>
+ *
+ * <p>예전에는 {@code bidders.csv} 에 토큰을 손으로 넣어뒀는데 만료되면 테스트가 통째로
+ * 무용지물이 됐다(실제로 2026-06-18 만료). 지금은 발급 스크립트가 파일을 만들고,
+ * 테스트 시간 동안만 {@code JWT_ACCESS_TOKEN_VALIDITY_MS} 를 늘려 만료를 피한다.
  *
  * <pre>
- * # 게이트웨이에서 API key 를 켜고 (document/operations/api-key-testing.md 참고)
- * export API_KEY=$(cat ...)
  * export BASE_URL=https://api.pickbit.co.kr
+ * export TOKENS_FILE=/path/to/tokens.csv   # userId,accessToken
  * ./gradlew :load-test:gatlingRun-com.pickbit.loadtest.MixedLoadSimulation
  * </pre>
  */
@@ -30,6 +45,18 @@ public final class LoadTestConfig {
 
     /** API key 를 쓰지 않을 때 사용할 단일 사용자 토큰. */
     public static final String ACCESS_TOKEN = env("ACCESS_TOKEN", "");
+    /**
+     * 사용자별 JWT 목록 파일. 한 줄에 {@code userId,accessToken} 형식이다.
+     *
+     * <p>API key 는 인증 우회라 운영에서 켜기 부담스럽다. 그렇다고 {@code ACCESS_TOKEN} 하나로
+     * 돌리면 모든 요청이 같은 사용자로 나가 게이트웨이 rate limit(사용자당 10/s)에 걸려
+     * 전체 처리량이 10 rps 로 막힌다. 그래서 사용자마다 실제로 로그인해 받은 토큰을
+     * 파일로 넘겨 요청마다 다른 사용자로 인증한다.
+     *
+     * <p>토큰 만료(기본 30분)보다 테스트가 길면 중간에 전부 401 이 되므로, 테스트 시간 동안만
+     * {@code JWT_ACCESS_TOKEN_VALIDITY_MS} 를 늘려두고 끝나면 되돌린다.
+     */
+    public static final String TOKENS_FILE = env("TOKENS_FILE", "");
 
     public static final String PRODUCT_ID = env("PRODUCT_ID", "1");
     public static final String AUCTION_ID = env("AUCTION_ID", "1");
@@ -67,6 +94,42 @@ public final class LoadTestConfig {
         return !API_KEY.isBlank();
     }
 
+    public static boolean usingTokenFile() {
+        return !TOKENS_FILE.isBlank();
+    }
+
+    /**
+     * {@code TOKENS_FILE} 을 읽어 {@code userId -> token} 목록으로 만듭니다.
+     *
+     * <p>클래스 로딩 시 한 번만 읽습니다. 파일이 없거나 비면 즉시 예외를 던집니다 —
+     * 토큰 없이 조용히 시작해서 전 요청이 401 로 실패하는 것보다 낫습니다.
+     */
+    private static List<Map<String, Object>> loadTokens() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            for (String line : Files.readAllLines(Path.of(TOKENS_FILE), StandardCharsets.UTF_8)) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                    continue;
+                }
+                int comma = trimmed.indexOf(',');
+                if (comma <= 0) {
+                    continue;
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("userId", Long.parseLong(trimmed.substring(0, comma).trim()));
+                row.put("token", trimmed.substring(comma + 1).trim());
+                rows.add(row);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("TOKENS_FILE 을 읽을 수 없습니다: " + TOKENS_FILE, e);
+        }
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("TOKENS_FILE 에 사용할 토큰이 없습니다: " + TOKENS_FILE);
+        }
+        return rows;
+    }
+
     /**
      * 특정 사용자로 요청할 때 붙일 헤더입니다.
      *
@@ -80,6 +143,10 @@ public final class LoadTestConfig {
             headers.put("X-Api-Key", API_KEY);
             headers.put("X-Api-User-Id", "#{userId}");
             headers.put("X-Api-Nickname", "loadtest-#{userId}");
+        } else if (usingTokenFile()) {
+            // 피더가 사용자마다 다른 토큰을 채운다. 요청마다 실제로 다른 사용자로 인증되므로
+            // rate limit 이 사용자 단위로 흩어진다.
+            headers.put("Authorization", "Bearer #{token}");
         } else {
             requireAccessToken();
             headers.put("Authorization", "Bearer " + ACCESS_TOKEN);
@@ -88,9 +155,9 @@ public final class LoadTestConfig {
     }
 
     public static void requireCredentials() {
-        if (!usingApiKey() && ACCESS_TOKEN.isBlank()) {
+        if (!usingApiKey() && !usingTokenFile() && ACCESS_TOKEN.isBlank()) {
             throw new IllegalStateException(
-                    "API_KEY 또는 ACCESS_TOKEN 환경변수가 필요합니다. "
+                    "API_KEY, TOKENS_FILE, ACCESS_TOKEN 중 하나가 필요합니다. "
                             + "API key 사용법은 document/operations/api-key-testing.md 참고.");
         }
     }
@@ -110,6 +177,10 @@ public final class LoadTestConfig {
      * 합니다. {@code Stream.iterate(...).iterator()} 는 그렇지 않아 쓰지 않습니다.
      */
     public static Iterator<Map<String, Object>> bidderFeeder() {
+        // TOKENS_FILE 을 쓰면 사용자 수는 파일이 정한다. BIDDER_COUNT/BIDDER_ID_BASE 로
+        // 만들어낸 가상의 ID 를 쓰면 실제로 존재하지 않는 사용자가 되어 전부 실패한다.
+        List<Map<String, Object>> tokens = usingTokenFile() ? loadTokens() : null;
+        int size = tokens != null ? tokens.size() : BIDDER_COUNT;
         AtomicLong cursor = new AtomicLong();
         return new Iterator<>() {
             @Override
@@ -119,7 +190,12 @@ public final class LoadTestConfig {
 
             @Override
             public Map<String, Object> next() {
-                long index = cursor.getAndIncrement() % BIDDER_COUNT;
+                int index = (int) (cursor.getAndIncrement() % size);
+                if (tokens != null) {
+                    // 피더는 여러 스레드에서 동시에 당겨진다. 원본 맵을 그대로 넘기면
+                    // 세션이 공유돼 서로 덮어쓸 수 있으므로 복사해서 넘긴다.
+                    return new HashMap<>(tokens.get(index));
+                }
                 Map<String, Object> session = new HashMap<>();
                 session.put("userId", BIDDER_ID_BASE + index);
                 return session;
